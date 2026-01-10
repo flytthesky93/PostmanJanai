@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Giữ lại phần fix app này */
+#app {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
