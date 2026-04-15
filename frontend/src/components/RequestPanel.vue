@@ -13,7 +13,10 @@ const handleSend = () => {
 </script>
 
 <template>
-  <div class="p-4 border-b border-gray-800 bg-[#212121] flex gap-2 items-center">
+  <div
+    class="p-4 border-b border-gray-800 bg-[#212121] flex gap-2 items-center"
+    style="flex-shrink: 0"
+  >
     <select v-model="method" class="bg-gray-800 px-3 py-1.5 rounded text-green-500 font-bold text-sm outline-none border border-gray-700">
       <option>GET</option>
       <option>POST</option>

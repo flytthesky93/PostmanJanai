@@ -5,7 +5,10 @@ defineProps({
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col p-4 bg-[#181818] overflow-hidden">
+  <div
+    class="flex-1 flex flex-col p-4 bg-[#181818] overflow-hidden"
+    style="flex: 1 1 0; min-height: 0; display: flex; flex-direction: column"
+  >
     <div class="flex gap-4 text-xs font-bold border-b border-gray-800 mb-4 pb-2">
       <span class="text-white border-b-2 border-orange-500 pb-2 cursor-pointer">Body</span>
       <span class="text-gray-500 cursor-pointer hover:text-gray-300">Headers</span>

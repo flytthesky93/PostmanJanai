@@ -1,4 +1,4 @@
-.PHONY: init init-tool dev build build-win build-linux build-mac-amd64 build-mac-arm64 build-all ent-add
+.PHONY: init init-tool dev build build-win build-win-safe build-linux build-mac-amd64 build-mac-arm64 build-all ent-add
 
 APP_NAME := PostmanJanai
 
@@ -17,6 +17,11 @@ build:
 
 build-win:
 	wails build -clean -platform windows/amd64 -o $(APP_NAME)
+
+# Windows only: kill running exe so -clean can replace build/bin/PostmanJanai.exe
+build-win-safe:
+	-taskkill /IM $(APP_NAME).exe /F
+	wails build -clean -platform windows/amd64 -o $(APP_NAME).exe
 
 build-linux:
 	wails build -clean -platform linux/amd64 -o $(APP_NAME)

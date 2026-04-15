@@ -28,6 +28,25 @@ npm -v
 wails version
 ```
 
+## Frontend notes
+
+### Windows layout looks broken (narrow strip, huge empty area)
+
+This is usually **not monitor size** (75" vs 27"). It happens when the embedded **WebView2** reports odd layout sizes / zoom, so HTML `%` widths collapse while the native window background shows on the side.
+
+This project mitigates that by:
+
+1. **No `Fullscreen: true`** — use **`WindowStartState: options.Maximised`** (see `main.go`).
+2. **`frontend/index.html`** — `body { position: fixed; inset: 0 }` and `#app { position: absolute; inset: 0 }` so the page fills the WebView control (percent-height chains alone are unreliable).
+3. **`windows.Options`**: `ZoomFactor: 1.0`, `DisablePinchZoom: true` so accidental zoom does not shrink the page viewport.
+4. **No viewport `<meta>`** — desktop WebView + manual sizing above tends to be more reliable than `width=device-width` / fixed viewport tags.
+
+- Do **not** add `https://cdn.tailwindcss.com` to `index.html`. The project uses Tailwind CSS v4 via Vite.
+  Loading the CDN on top of the built stylesheet can break layout (for example the sidebar column).
+- `frontend/vite.config.js` sets `base: './'` so JS/CSS load correctly inside the Wails embedded webview.
+  Without relative asset URLs, `/assets/...` often fails and the UI looks broken (narrow strip, missing layout).
+- `frontend/index.html` includes a small **critical `<style>` block** for `html/body/#app` sizing. The WebView does not always match a normal browser’s percent-height behaviour; the main app shell also uses **inline `position:fixed` + CSS grid** in `App.vue` so the layout works even if Tailwind CSS load is partial.
+
 ## Live Development
 
 To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
@@ -77,6 +96,24 @@ On Windows, the app binary is:
 
 ```bash
 build/bin/PostmanJanai.exe
+```
+
+### Windows build error: `unlinkat ... PostmanJanai.exe: Access is denied`
+
+This happens when `build/bin/PostmanJanai.exe` is still running or locked (often the app window is open). Wails uses `-clean` and must replace that file.
+
+1. Quit the app and any dev session using the same exe.
+2. Or terminate the process, then build again:
+
+```powershell
+taskkill /IM PostmanJanai.exe /F
+wails build -clean -platform windows/amd64 -o PostmanJanai.exe
+```
+
+You can also run the helper script from the project root:
+
+```powershell
+.\build\win-safe.ps1
 ```
 
 ## App Data And Database Path

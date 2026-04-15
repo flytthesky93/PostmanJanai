@@ -2,13 +2,48 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <!-- No viewport meta: desktop WebView2 layout is driven by critical CSS below + flex shell in App.vue -->
     <title>PostmanJanai</title>
+    <!--
+      WebView2: chaining % height is unreliable; `body { position: fixed; inset: 0 }` is a common
+      pattern so the document always fills the control. Avoid locking #app to innerWidth — early
+      metrics can be wrong and freeze a narrow layout.
+    -->
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        #app {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            min-width: 0;
+            min-height: 0;
+        }
+    </style>
 </head>
 <body>
 <div id="app"></div>
 <script src="src/main.js" type="module"></script>
-<script src="https://cdn.tailwindcss.com"></script>
 </body>
 </html>
 

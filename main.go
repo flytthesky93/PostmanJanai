@@ -19,6 +19,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -67,9 +68,22 @@ func main() {
 	workspaceHandler := delivery.NewWorkspaceHandler(workspaceUc)
 
 	// Create application with options
+	// Fullscreen:true often breaks WebView2 layout/clientsize on Windows (narrow column / blank area).
+	// Use a normal window, start maximised, and enforce a sane minimum size.
 	err = wails.Run(&options.App{
-		Title:      constant.AppName,
-		Fullscreen: true, // Enables fullscreen mode
+		Title:             constant.AppName,
+		Width:             1280,
+		Height:            800,
+		MinWidth:          900,
+		MinHeight:         600,
+		Fullscreen:        false,
+		WindowStartState:  options.Maximised,
+		DisableResize: false,
+		Windows: &windows.Options{
+			DisablePinchZoom:     true,
+			IsZoomControlEnabled: false,
+			ZoomFactor:           1.0,
+		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

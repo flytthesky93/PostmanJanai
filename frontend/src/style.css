@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
-/* Giữ lại phần fix app này */
+/* Overrides & utils (index.html already sets critical shell) */
 #app {
-    height: 100vh;
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
 }
