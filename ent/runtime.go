@@ -3,30 +3,235 @@
 package ent
 
 import (
+	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/environment"
+	"PostmanJanai/ent/environmentvariable"
 	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestformfield"
+	"PostmanJanai/ent/requestheader"
+	"PostmanJanai/ent/requestqueryparam"
 	"PostmanJanai/ent/schema"
 	"PostmanJanai/ent/workspace"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // The init function reads all schema descriptors with runtime code
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	collectionFields := schema.Collection{}.Fields()
+	_ = collectionFields
+	// collectionDescName is the schema descriptor for name field.
+	collectionDescName := collectionFields[2].Descriptor()
+	// collection.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	collection.NameValidator = collectionDescName.Validators[0].(func(string) error)
+	// collectionDescDescription is the schema descriptor for description field.
+	collectionDescDescription := collectionFields[3].Descriptor()
+	// collection.DefaultDescription holds the default value on creation for the description field.
+	collection.DefaultDescription = collectionDescDescription.Default.(string)
+	// collectionDescCreatedAt is the schema descriptor for created_at field.
+	collectionDescCreatedAt := collectionFields[4].Descriptor()
+	// collection.DefaultCreatedAt holds the default value on creation for the created_at field.
+	collection.DefaultCreatedAt = collectionDescCreatedAt.Default.(func() time.Time)
+	// collectionDescID is the schema descriptor for id field.
+	collectionDescID := collectionFields[0].Descriptor()
+	// collection.DefaultID holds the default value on creation for the id field.
+	collection.DefaultID = collectionDescID.Default.(func() uuid.UUID)
+	environmentFields := schema.Environment{}.Fields()
+	_ = environmentFields
+	// environmentDescName is the schema descriptor for name field.
+	environmentDescName := environmentFields[1].Descriptor()
+	// environment.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	environment.NameValidator = environmentDescName.Validators[0].(func(string) error)
+	// environmentDescDescription is the schema descriptor for description field.
+	environmentDescDescription := environmentFields[2].Descriptor()
+	// environment.DefaultDescription holds the default value on creation for the description field.
+	environment.DefaultDescription = environmentDescDescription.Default.(string)
+	// environmentDescIsActive is the schema descriptor for is_active field.
+	environmentDescIsActive := environmentFields[3].Descriptor()
+	// environment.DefaultIsActive holds the default value on creation for the is_active field.
+	environment.DefaultIsActive = environmentDescIsActive.Default.(bool)
+	// environmentDescCreatedAt is the schema descriptor for created_at field.
+	environmentDescCreatedAt := environmentFields[4].Descriptor()
+	// environment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	environment.DefaultCreatedAt = environmentDescCreatedAt.Default.(func() time.Time)
+	// environmentDescUpdatedAt is the schema descriptor for updated_at field.
+	environmentDescUpdatedAt := environmentFields[5].Descriptor()
+	// environment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	environment.DefaultUpdatedAt = environmentDescUpdatedAt.Default.(func() time.Time)
+	// environment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	environment.UpdateDefaultUpdatedAt = environmentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// environmentDescID is the schema descriptor for id field.
+	environmentDescID := environmentFields[0].Descriptor()
+	// environment.DefaultID holds the default value on creation for the id field.
+	environment.DefaultID = environmentDescID.Default.(func() uuid.UUID)
+	environmentvariableFields := schema.EnvironmentVariable{}.Fields()
+	_ = environmentvariableFields
+	// environmentvariableDescKey is the schema descriptor for key field.
+	environmentvariableDescKey := environmentvariableFields[2].Descriptor()
+	// environmentvariable.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	environmentvariable.KeyValidator = environmentvariableDescKey.Validators[0].(func(string) error)
+	// environmentvariableDescValue is the schema descriptor for value field.
+	environmentvariableDescValue := environmentvariableFields[3].Descriptor()
+	// environmentvariable.ValueValidator is a validator for the "value" field. It is called by the builders before save.
+	environmentvariable.ValueValidator = environmentvariableDescValue.Validators[0].(func(string) error)
+	// environmentvariableDescEnabled is the schema descriptor for enabled field.
+	environmentvariableDescEnabled := environmentvariableFields[4].Descriptor()
+	// environmentvariable.DefaultEnabled holds the default value on creation for the enabled field.
+	environmentvariable.DefaultEnabled = environmentvariableDescEnabled.Default.(bool)
+	// environmentvariableDescSortOrder is the schema descriptor for sort_order field.
+	environmentvariableDescSortOrder := environmentvariableFields[5].Descriptor()
+	// environmentvariable.DefaultSortOrder holds the default value on creation for the sort_order field.
+	environmentvariable.DefaultSortOrder = environmentvariableDescSortOrder.Default.(int)
+	// environmentvariableDescCreatedAt is the schema descriptor for created_at field.
+	environmentvariableDescCreatedAt := environmentvariableFields[6].Descriptor()
+	// environmentvariable.DefaultCreatedAt holds the default value on creation for the created_at field.
+	environmentvariable.DefaultCreatedAt = environmentvariableDescCreatedAt.Default.(func() time.Time)
+	// environmentvariableDescUpdatedAt is the schema descriptor for updated_at field.
+	environmentvariableDescUpdatedAt := environmentvariableFields[7].Descriptor()
+	// environmentvariable.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	environmentvariable.DefaultUpdatedAt = environmentvariableDescUpdatedAt.Default.(func() time.Time)
+	// environmentvariable.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	environmentvariable.UpdateDefaultUpdatedAt = environmentvariableDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// environmentvariableDescID is the schema descriptor for id field.
+	environmentvariableDescID := environmentvariableFields[0].Descriptor()
+	// environmentvariable.DefaultID holds the default value on creation for the id field.
+	environmentvariable.DefaultID = environmentvariableDescID.Default.(func() uuid.UUID)
 	historyFields := schema.History{}.Fields()
 	_ = historyFields
 	// historyDescMethod is the schema descriptor for method field.
-	historyDescMethod := historyFields[0].Descriptor()
-	// history.DefaultMethod holds the default value on creation for the method field.
-	history.DefaultMethod = historyDescMethod.Default.(string)
+	historyDescMethod := historyFields[3].Descriptor()
+	// history.MethodValidator is a validator for the "method" field. It is called by the builders before save.
+	history.MethodValidator = historyDescMethod.Validators[0].(func(string) error)
+	// historyDescURL is the schema descriptor for url field.
+	historyDescURL := historyFields[4].Descriptor()
+	// history.URLValidator is a validator for the "url" field. It is called by the builders before save.
+	history.URLValidator = historyDescURL.Validators[0].(func(string) error)
 	// historyDescCreatedAt is the schema descriptor for created_at field.
-	historyDescCreatedAt := historyFields[5].Descriptor()
+	historyDescCreatedAt := historyFields[12].Descriptor()
 	// history.DefaultCreatedAt holds the default value on creation for the created_at field.
 	history.DefaultCreatedAt = historyDescCreatedAt.Default.(func() time.Time)
+	// historyDescID is the schema descriptor for id field.
+	historyDescID := historyFields[0].Descriptor()
+	// history.DefaultID holds the default value on creation for the id field.
+	history.DefaultID = historyDescID.Default.(func() uuid.UUID)
+	requestFields := schema.Request{}.Fields()
+	_ = requestFields
+	// requestDescName is the schema descriptor for name field.
+	requestDescName := requestFields[3].Descriptor()
+	// request.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	request.NameValidator = requestDescName.Validators[0].(func(string) error)
+	// requestDescMethod is the schema descriptor for method field.
+	requestDescMethod := requestFields[4].Descriptor()
+	// request.DefaultMethod holds the default value on creation for the method field.
+	request.DefaultMethod = requestDescMethod.Default.(string)
+	// requestDescURL is the schema descriptor for url field.
+	requestDescURL := requestFields[5].Descriptor()
+	// request.URLValidator is a validator for the "url" field. It is called by the builders before save.
+	request.URLValidator = requestDescURL.Validators[0].(func(string) error)
+	// requestDescBodyMode is the schema descriptor for body_mode field.
+	requestDescBodyMode := requestFields[6].Descriptor()
+	// request.BodyModeValidator is a validator for the "body_mode" field. It is called by the builders before save.
+	request.BodyModeValidator = requestDescBodyMode.Validators[0].(func(string) error)
+	// requestDescCreatedAt is the schema descriptor for created_at field.
+	requestDescCreatedAt := requestFields[8].Descriptor()
+	// request.DefaultCreatedAt holds the default value on creation for the created_at field.
+	request.DefaultCreatedAt = requestDescCreatedAt.Default.(func() time.Time)
+	// requestDescUpdatedAt is the schema descriptor for updated_at field.
+	requestDescUpdatedAt := requestFields[9].Descriptor()
+	// request.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	request.DefaultUpdatedAt = requestDescUpdatedAt.Default.(func() time.Time)
+	// request.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	request.UpdateDefaultUpdatedAt = requestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// requestDescID is the schema descriptor for id field.
+	requestDescID := requestFields[0].Descriptor()
+	// request.DefaultID holds the default value on creation for the id field.
+	request.DefaultID = requestDescID.Default.(func() uuid.UUID)
+	requestformfieldFields := schema.RequestFormField{}.Fields()
+	_ = requestformfieldFields
+	// requestformfieldDescFieldKind is the schema descriptor for field_kind field.
+	requestformfieldDescFieldKind := requestformfieldFields[2].Descriptor()
+	// requestformfield.FieldKindValidator is a validator for the "field_kind" field. It is called by the builders before save.
+	requestformfield.FieldKindValidator = requestformfieldDescFieldKind.Validators[0].(func(string) error)
+	// requestformfieldDescKey is the schema descriptor for key field.
+	requestformfieldDescKey := requestformfieldFields[3].Descriptor()
+	// requestformfield.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	requestformfield.KeyValidator = requestformfieldDescKey.Validators[0].(func(string) error)
+	// requestformfieldDescEnabled is the schema descriptor for enabled field.
+	requestformfieldDescEnabled := requestformfieldFields[5].Descriptor()
+	// requestformfield.DefaultEnabled holds the default value on creation for the enabled field.
+	requestformfield.DefaultEnabled = requestformfieldDescEnabled.Default.(bool)
+	// requestformfieldDescSortOrder is the schema descriptor for sort_order field.
+	requestformfieldDescSortOrder := requestformfieldFields[6].Descriptor()
+	// requestformfield.DefaultSortOrder holds the default value on creation for the sort_order field.
+	requestformfield.DefaultSortOrder = requestformfieldDescSortOrder.Default.(int)
+	// requestformfieldDescID is the schema descriptor for id field.
+	requestformfieldDescID := requestformfieldFields[0].Descriptor()
+	// requestformfield.DefaultID holds the default value on creation for the id field.
+	requestformfield.DefaultID = requestformfieldDescID.Default.(func() uuid.UUID)
+	requestheaderFields := schema.RequestHeader{}.Fields()
+	_ = requestheaderFields
+	// requestheaderDescKey is the schema descriptor for key field.
+	requestheaderDescKey := requestheaderFields[2].Descriptor()
+	// requestheader.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	requestheader.KeyValidator = requestheaderDescKey.Validators[0].(func(string) error)
+	// requestheaderDescValue is the schema descriptor for value field.
+	requestheaderDescValue := requestheaderFields[3].Descriptor()
+	// requestheader.ValueValidator is a validator for the "value" field. It is called by the builders before save.
+	requestheader.ValueValidator = requestheaderDescValue.Validators[0].(func(string) error)
+	// requestheaderDescEnabled is the schema descriptor for enabled field.
+	requestheaderDescEnabled := requestheaderFields[4].Descriptor()
+	// requestheader.DefaultEnabled holds the default value on creation for the enabled field.
+	requestheader.DefaultEnabled = requestheaderDescEnabled.Default.(bool)
+	// requestheaderDescSortOrder is the schema descriptor for sort_order field.
+	requestheaderDescSortOrder := requestheaderFields[5].Descriptor()
+	// requestheader.DefaultSortOrder holds the default value on creation for the sort_order field.
+	requestheader.DefaultSortOrder = requestheaderDescSortOrder.Default.(int)
+	// requestheaderDescID is the schema descriptor for id field.
+	requestheaderDescID := requestheaderFields[0].Descriptor()
+	// requestheader.DefaultID holds the default value on creation for the id field.
+	requestheader.DefaultID = requestheaderDescID.Default.(func() uuid.UUID)
+	requestqueryparamFields := schema.RequestQueryParam{}.Fields()
+	_ = requestqueryparamFields
+	// requestqueryparamDescKey is the schema descriptor for key field.
+	requestqueryparamDescKey := requestqueryparamFields[2].Descriptor()
+	// requestqueryparam.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	requestqueryparam.KeyValidator = requestqueryparamDescKey.Validators[0].(func(string) error)
+	// requestqueryparamDescValue is the schema descriptor for value field.
+	requestqueryparamDescValue := requestqueryparamFields[3].Descriptor()
+	// requestqueryparam.ValueValidator is a validator for the "value" field. It is called by the builders before save.
+	requestqueryparam.ValueValidator = requestqueryparamDescValue.Validators[0].(func(string) error)
+	// requestqueryparamDescEnabled is the schema descriptor for enabled field.
+	requestqueryparamDescEnabled := requestqueryparamFields[4].Descriptor()
+	// requestqueryparam.DefaultEnabled holds the default value on creation for the enabled field.
+	requestqueryparam.DefaultEnabled = requestqueryparamDescEnabled.Default.(bool)
+	// requestqueryparamDescSortOrder is the schema descriptor for sort_order field.
+	requestqueryparamDescSortOrder := requestqueryparamFields[5].Descriptor()
+	// requestqueryparam.DefaultSortOrder holds the default value on creation for the sort_order field.
+	requestqueryparam.DefaultSortOrder = requestqueryparamDescSortOrder.Default.(int)
+	// requestqueryparamDescID is the schema descriptor for id field.
+	requestqueryparamDescID := requestqueryparamFields[0].Descriptor()
+	// requestqueryparam.DefaultID holds the default value on creation for the id field.
+	requestqueryparam.DefaultID = requestqueryparamDescID.Default.(func() uuid.UUID)
 	workspaceFields := schema.Workspace{}.Fields()
 	_ = workspaceFields
+	// workspaceDescWorkspaceName is the schema descriptor for workspace_name field.
+	workspaceDescWorkspaceName := workspaceFields[1].Descriptor()
+	// workspace.WorkspaceNameValidator is a validator for the "workspace_name" field. It is called by the builders before save.
+	workspace.WorkspaceNameValidator = workspaceDescWorkspaceName.Validators[0].(func(string) error)
+	// workspaceDescWorkspaceDescription is the schema descriptor for workspace_description field.
+	workspaceDescWorkspaceDescription := workspaceFields[2].Descriptor()
+	// workspace.DefaultWorkspaceDescription holds the default value on creation for the workspace_description field.
+	workspace.DefaultWorkspaceDescription = workspaceDescWorkspaceDescription.Default.(string)
 	// workspaceDescCreatedAt is the schema descriptor for created_at field.
-	workspaceDescCreatedAt := workspaceFields[2].Descriptor()
+	workspaceDescCreatedAt := workspaceFields[3].Descriptor()
 	// workspace.DefaultCreatedAt holds the default value on creation for the created_at field.
 	workspace.DefaultCreatedAt = workspaceDescCreatedAt.Default.(func() time.Time)
+	// workspaceDescID is the schema descriptor for id field.
+	workspaceDescID := workspaceFields[0].Descriptor()
+	// workspace.DefaultID holds the default value on creation for the id field.
+	workspace.DefaultID = workspaceDescID.Default.(func() uuid.UUID)
 }

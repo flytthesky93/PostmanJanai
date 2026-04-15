@@ -3,9 +3,13 @@
 package ent
 
 import (
+	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
+	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/workspace"
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -13,15 +17,19 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // WorkspaceQuery is the builder for querying Workspace entities.
 type WorkspaceQuery struct {
 	config
-	ctx        *QueryContext
-	order      []workspace.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Workspace
+	ctx             *QueryContext
+	order           []workspace.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.Workspace
+	withCollections *CollectionQuery
+	withRequests    *RequestQuery
+	withHistories   *HistoryQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +66,72 @@ func (_q *WorkspaceQuery) Order(o ...workspace.OrderOption) *WorkspaceQuery {
 	return _q
 }
 
+// QueryCollections chains the current query on the "collections" edge.
+func (_q *WorkspaceQuery) QueryCollections() *CollectionQuery {
+	query := (&CollectionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workspace.Table, workspace.FieldID, selector),
+			sqlgraph.To(collection.Table, collection.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workspace.CollectionsTable, workspace.CollectionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRequests chains the current query on the "requests" edge.
+func (_q *WorkspaceQuery) QueryRequests() *RequestQuery {
+	query := (&RequestClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workspace.Table, workspace.FieldID, selector),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workspace.RequestsTable, workspace.RequestsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryHistories chains the current query on the "histories" edge.
+func (_q *WorkspaceQuery) QueryHistories() *HistoryQuery {
+	query := (&HistoryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workspace.Table, workspace.FieldID, selector),
+			sqlgraph.To(history.Table, history.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workspace.HistoriesTable, workspace.HistoriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Workspace entity from the query.
 // Returns a *NotFoundError when no Workspace was found.
 func (_q *WorkspaceQuery) First(ctx context.Context) (*Workspace, error) {
@@ -82,8 +156,8 @@ func (_q *WorkspaceQuery) FirstX(ctx context.Context) *Workspace {
 
 // FirstID returns the first Workspace ID from the query.
 // Returns a *NotFoundError when no Workspace ID was found.
-func (_q *WorkspaceQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *WorkspaceQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
+	var ids []uuid.UUID
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +169,7 @@ func (_q *WorkspaceQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *WorkspaceQuery) FirstIDX(ctx context.Context) int {
+func (_q *WorkspaceQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +207,8 @@ func (_q *WorkspaceQuery) OnlyX(ctx context.Context) *Workspace {
 // OnlyID is like Only, but returns the only Workspace ID in the query.
 // Returns a *NotSingularError when more than one Workspace ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *WorkspaceQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *WorkspaceQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
+	var ids []uuid.UUID
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +224,7 @@ func (_q *WorkspaceQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *WorkspaceQuery) OnlyIDX(ctx context.Context) int {
+func (_q *WorkspaceQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +252,7 @@ func (_q *WorkspaceQuery) AllX(ctx context.Context) []*Workspace {
 }
 
 // IDs executes the query and returns a list of Workspace IDs.
-func (_q *WorkspaceQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *WorkspaceQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +264,7 @@ func (_q *WorkspaceQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *WorkspaceQuery) IDsX(ctx context.Context) []int {
+func (_q *WorkspaceQuery) IDsX(ctx context.Context) []uuid.UUID {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -245,15 +319,51 @@ func (_q *WorkspaceQuery) Clone() *WorkspaceQuery {
 		return nil
 	}
 	return &WorkspaceQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]workspace.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Workspace{}, _q.predicates...),
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]workspace.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.Workspace{}, _q.predicates...),
+		withCollections: _q.withCollections.Clone(),
+		withRequests:    _q.withRequests.Clone(),
+		withHistories:   _q.withHistories.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithCollections tells the query-builder to eager-load the nodes that are connected to
+// the "collections" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkspaceQuery) WithCollections(opts ...func(*CollectionQuery)) *WorkspaceQuery {
+	query := (&CollectionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCollections = query
+	return _q
+}
+
+// WithRequests tells the query-builder to eager-load the nodes that are connected to
+// the "requests" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkspaceQuery) WithRequests(opts ...func(*RequestQuery)) *WorkspaceQuery {
+	query := (&RequestClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRequests = query
+	return _q
+}
+
+// WithHistories tells the query-builder to eager-load the nodes that are connected to
+// the "histories" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *WorkspaceQuery) WithHistories(opts ...func(*HistoryQuery)) *WorkspaceQuery {
+	query := (&HistoryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withHistories = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,8 +442,13 @@ func (_q *WorkspaceQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *WorkspaceQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Workspace, error) {
 	var (
-		nodes = []*Workspace{}
-		_spec = _q.querySpec()
+		nodes       = []*Workspace{}
+		_spec       = _q.querySpec()
+		loadedTypes = [3]bool{
+			_q.withCollections != nil,
+			_q.withRequests != nil,
+			_q.withHistories != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Workspace).scanValues(nil, columns)
@@ -341,6 +456,7 @@ func (_q *WorkspaceQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wo
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Workspace{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +468,122 @@ func (_q *WorkspaceQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Wo
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withCollections; query != nil {
+		if err := _q.loadCollections(ctx, query, nodes,
+			func(n *Workspace) { n.Edges.Collections = []*Collection{} },
+			func(n *Workspace, e *Collection) { n.Edges.Collections = append(n.Edges.Collections, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRequests; query != nil {
+		if err := _q.loadRequests(ctx, query, nodes,
+			func(n *Workspace) { n.Edges.Requests = []*Request{} },
+			func(n *Workspace, e *Request) { n.Edges.Requests = append(n.Edges.Requests, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withHistories; query != nil {
+		if err := _q.loadHistories(ctx, query, nodes,
+			func(n *Workspace) { n.Edges.Histories = []*History{} },
+			func(n *Workspace, e *History) { n.Edges.Histories = append(n.Edges.Histories, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *WorkspaceQuery) loadCollections(ctx context.Context, query *CollectionQuery, nodes []*Workspace, init func(*Workspace), assign func(*Workspace, *Collection)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Workspace)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(collection.FieldWorkspaceID)
+	}
+	query.Where(predicate.Collection(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(workspace.CollectionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.WorkspaceID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "workspace_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *WorkspaceQuery) loadRequests(ctx context.Context, query *RequestQuery, nodes []*Workspace, init func(*Workspace), assign func(*Workspace, *Request)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Workspace)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(request.FieldWorkspaceID)
+	}
+	query.Where(predicate.Request(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(workspace.RequestsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.WorkspaceID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "workspace_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *WorkspaceQuery) loadHistories(ctx context.Context, query *HistoryQuery, nodes []*Workspace, init func(*Workspace), assign func(*Workspace, *History)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Workspace)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(history.FieldWorkspaceID)
+	}
+	query.Where(predicate.History(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(workspace.HistoriesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.WorkspaceID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "workspace_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "workspace_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (_q *WorkspaceQuery) sqlCount(ctx context.Context) (int, error) {
@@ -365,7 +596,7 @@ func (_q *WorkspaceQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *WorkspaceQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(workspace.Table, workspace.Columns, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(workspace.Table, workspace.Columns, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

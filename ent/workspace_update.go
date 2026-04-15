@@ -3,16 +3,19 @@
 package ent
 
 import (
+	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
+	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // WorkspaceUpdate is the builder for updating Workspace entities.
@@ -56,23 +59,117 @@ func (_u *WorkspaceUpdate) SetNillableWorkspaceDescription(v *string) *Workspace
 	return _u
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (_u *WorkspaceUpdate) SetCreatedAt(v time.Time) *WorkspaceUpdate {
-	_u.mutation.SetCreatedAt(v)
+// AddCollectionIDs adds the "collections" edge to the Collection entity by IDs.
+func (_u *WorkspaceUpdate) AddCollectionIDs(ids ...uuid.UUID) *WorkspaceUpdate {
+	_u.mutation.AddCollectionIDs(ids...)
 	return _u
 }
 
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (_u *WorkspaceUpdate) SetNillableCreatedAt(v *time.Time) *WorkspaceUpdate {
-	if v != nil {
-		_u.SetCreatedAt(*v)
+// AddCollections adds the "collections" edges to the Collection entity.
+func (_u *WorkspaceUpdate) AddCollections(v ...*Collection) *WorkspaceUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
+	return _u.AddCollectionIDs(ids...)
+}
+
+// AddRequestIDs adds the "requests" edge to the Request entity by IDs.
+func (_u *WorkspaceUpdate) AddRequestIDs(ids ...uuid.UUID) *WorkspaceUpdate {
+	_u.mutation.AddRequestIDs(ids...)
 	return _u
+}
+
+// AddRequests adds the "requests" edges to the Request entity.
+func (_u *WorkspaceUpdate) AddRequests(v ...*Request) *WorkspaceUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequestIDs(ids...)
+}
+
+// AddHistoryIDs adds the "histories" edge to the History entity by IDs.
+func (_u *WorkspaceUpdate) AddHistoryIDs(ids ...uuid.UUID) *WorkspaceUpdate {
+	_u.mutation.AddHistoryIDs(ids...)
+	return _u
+}
+
+// AddHistories adds the "histories" edges to the History entity.
+func (_u *WorkspaceUpdate) AddHistories(v ...*History) *WorkspaceUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddHistoryIDs(ids...)
 }
 
 // Mutation returns the WorkspaceMutation object of the builder.
 func (_u *WorkspaceUpdate) Mutation() *WorkspaceMutation {
 	return _u.mutation
+}
+
+// ClearCollections clears all "collections" edges to the Collection entity.
+func (_u *WorkspaceUpdate) ClearCollections() *WorkspaceUpdate {
+	_u.mutation.ClearCollections()
+	return _u
+}
+
+// RemoveCollectionIDs removes the "collections" edge to Collection entities by IDs.
+func (_u *WorkspaceUpdate) RemoveCollectionIDs(ids ...uuid.UUID) *WorkspaceUpdate {
+	_u.mutation.RemoveCollectionIDs(ids...)
+	return _u
+}
+
+// RemoveCollections removes "collections" edges to Collection entities.
+func (_u *WorkspaceUpdate) RemoveCollections(v ...*Collection) *WorkspaceUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCollectionIDs(ids...)
+}
+
+// ClearRequests clears all "requests" edges to the Request entity.
+func (_u *WorkspaceUpdate) ClearRequests() *WorkspaceUpdate {
+	_u.mutation.ClearRequests()
+	return _u
+}
+
+// RemoveRequestIDs removes the "requests" edge to Request entities by IDs.
+func (_u *WorkspaceUpdate) RemoveRequestIDs(ids ...uuid.UUID) *WorkspaceUpdate {
+	_u.mutation.RemoveRequestIDs(ids...)
+	return _u
+}
+
+// RemoveRequests removes "requests" edges to Request entities.
+func (_u *WorkspaceUpdate) RemoveRequests(v ...*Request) *WorkspaceUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequestIDs(ids...)
+}
+
+// ClearHistories clears all "histories" edges to the History entity.
+func (_u *WorkspaceUpdate) ClearHistories() *WorkspaceUpdate {
+	_u.mutation.ClearHistories()
+	return _u
+}
+
+// RemoveHistoryIDs removes the "histories" edge to History entities by IDs.
+func (_u *WorkspaceUpdate) RemoveHistoryIDs(ids ...uuid.UUID) *WorkspaceUpdate {
+	_u.mutation.RemoveHistoryIDs(ids...)
+	return _u
+}
+
+// RemoveHistories removes "histories" edges to History entities.
+func (_u *WorkspaceUpdate) RemoveHistories(v ...*History) *WorkspaceUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveHistoryIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -102,8 +199,21 @@ func (_u *WorkspaceUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (_u *WorkspaceUpdate) check() error {
+	if v, ok := _u.mutation.WorkspaceName(); ok {
+		if err := workspace.WorkspaceNameValidator(v); err != nil {
+			return &ValidationError{Name: "workspace_name", err: fmt.Errorf(`ent: validator failed for field "Workspace.workspace_name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *WorkspaceUpdate) sqlSave(ctx context.Context) (_node int, err error) {
-	_spec := sqlgraph.NewUpdateSpec(workspace.Table, workspace.Columns, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeInt))
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
+	_spec := sqlgraph.NewUpdateSpec(workspace.Table, workspace.Columns, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID))
 	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -117,8 +227,140 @@ func (_u *WorkspaceUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.WorkspaceDescription(); ok {
 		_spec.SetField(workspace.FieldWorkspaceDescription, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.CreatedAt(); ok {
-		_spec.SetField(workspace.FieldCreatedAt, field.TypeTime, value)
+	if _u.mutation.CollectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCollectionsIDs(); len(nodes) > 0 && !_u.mutation.CollectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CollectionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequestsIDs(); len(nodes) > 0 && !_u.mutation.RequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.HistoriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedHistoriesIDs(); len(nodes) > 0 && !_u.mutation.HistoriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.HistoriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -168,23 +410,117 @@ func (_u *WorkspaceUpdateOne) SetNillableWorkspaceDescription(v *string) *Worksp
 	return _u
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (_u *WorkspaceUpdateOne) SetCreatedAt(v time.Time) *WorkspaceUpdateOne {
-	_u.mutation.SetCreatedAt(v)
+// AddCollectionIDs adds the "collections" edge to the Collection entity by IDs.
+func (_u *WorkspaceUpdateOne) AddCollectionIDs(ids ...uuid.UUID) *WorkspaceUpdateOne {
+	_u.mutation.AddCollectionIDs(ids...)
 	return _u
 }
 
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (_u *WorkspaceUpdateOne) SetNillableCreatedAt(v *time.Time) *WorkspaceUpdateOne {
-	if v != nil {
-		_u.SetCreatedAt(*v)
+// AddCollections adds the "collections" edges to the Collection entity.
+func (_u *WorkspaceUpdateOne) AddCollections(v ...*Collection) *WorkspaceUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
+	return _u.AddCollectionIDs(ids...)
+}
+
+// AddRequestIDs adds the "requests" edge to the Request entity by IDs.
+func (_u *WorkspaceUpdateOne) AddRequestIDs(ids ...uuid.UUID) *WorkspaceUpdateOne {
+	_u.mutation.AddRequestIDs(ids...)
 	return _u
+}
+
+// AddRequests adds the "requests" edges to the Request entity.
+func (_u *WorkspaceUpdateOne) AddRequests(v ...*Request) *WorkspaceUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequestIDs(ids...)
+}
+
+// AddHistoryIDs adds the "histories" edge to the History entity by IDs.
+func (_u *WorkspaceUpdateOne) AddHistoryIDs(ids ...uuid.UUID) *WorkspaceUpdateOne {
+	_u.mutation.AddHistoryIDs(ids...)
+	return _u
+}
+
+// AddHistories adds the "histories" edges to the History entity.
+func (_u *WorkspaceUpdateOne) AddHistories(v ...*History) *WorkspaceUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddHistoryIDs(ids...)
 }
 
 // Mutation returns the WorkspaceMutation object of the builder.
 func (_u *WorkspaceUpdateOne) Mutation() *WorkspaceMutation {
 	return _u.mutation
+}
+
+// ClearCollections clears all "collections" edges to the Collection entity.
+func (_u *WorkspaceUpdateOne) ClearCollections() *WorkspaceUpdateOne {
+	_u.mutation.ClearCollections()
+	return _u
+}
+
+// RemoveCollectionIDs removes the "collections" edge to Collection entities by IDs.
+func (_u *WorkspaceUpdateOne) RemoveCollectionIDs(ids ...uuid.UUID) *WorkspaceUpdateOne {
+	_u.mutation.RemoveCollectionIDs(ids...)
+	return _u
+}
+
+// RemoveCollections removes "collections" edges to Collection entities.
+func (_u *WorkspaceUpdateOne) RemoveCollections(v ...*Collection) *WorkspaceUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCollectionIDs(ids...)
+}
+
+// ClearRequests clears all "requests" edges to the Request entity.
+func (_u *WorkspaceUpdateOne) ClearRequests() *WorkspaceUpdateOne {
+	_u.mutation.ClearRequests()
+	return _u
+}
+
+// RemoveRequestIDs removes the "requests" edge to Request entities by IDs.
+func (_u *WorkspaceUpdateOne) RemoveRequestIDs(ids ...uuid.UUID) *WorkspaceUpdateOne {
+	_u.mutation.RemoveRequestIDs(ids...)
+	return _u
+}
+
+// RemoveRequests removes "requests" edges to Request entities.
+func (_u *WorkspaceUpdateOne) RemoveRequests(v ...*Request) *WorkspaceUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequestIDs(ids...)
+}
+
+// ClearHistories clears all "histories" edges to the History entity.
+func (_u *WorkspaceUpdateOne) ClearHistories() *WorkspaceUpdateOne {
+	_u.mutation.ClearHistories()
+	return _u
+}
+
+// RemoveHistoryIDs removes the "histories" edge to History entities by IDs.
+func (_u *WorkspaceUpdateOne) RemoveHistoryIDs(ids ...uuid.UUID) *WorkspaceUpdateOne {
+	_u.mutation.RemoveHistoryIDs(ids...)
+	return _u
+}
+
+// RemoveHistories removes "histories" edges to History entities.
+func (_u *WorkspaceUpdateOne) RemoveHistories(v ...*History) *WorkspaceUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveHistoryIDs(ids...)
 }
 
 // Where appends a list predicates to the WorkspaceUpdate builder.
@@ -227,8 +563,21 @@ func (_u *WorkspaceUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (_u *WorkspaceUpdateOne) check() error {
+	if v, ok := _u.mutation.WorkspaceName(); ok {
+		if err := workspace.WorkspaceNameValidator(v); err != nil {
+			return &ValidationError{Name: "workspace_name", err: fmt.Errorf(`ent: validator failed for field "Workspace.workspace_name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (_u *WorkspaceUpdateOne) sqlSave(ctx context.Context) (_node *Workspace, err error) {
-	_spec := sqlgraph.NewUpdateSpec(workspace.Table, workspace.Columns, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeInt))
+	if err := _u.check(); err != nil {
+		return _node, err
+	}
+	_spec := sqlgraph.NewUpdateSpec(workspace.Table, workspace.Columns, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID))
 	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Workspace.id" for update`)}
@@ -259,8 +608,140 @@ func (_u *WorkspaceUpdateOne) sqlSave(ctx context.Context) (_node *Workspace, er
 	if value, ok := _u.mutation.WorkspaceDescription(); ok {
 		_spec.SetField(workspace.FieldWorkspaceDescription, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.CreatedAt(); ok {
-		_spec.SetField(workspace.FieldCreatedAt, field.TypeTime, value)
+	if _u.mutation.CollectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCollectionsIDs(); len(nodes) > 0 && !_u.mutation.CollectionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CollectionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequestsIDs(); len(nodes) > 0 && !_u.mutation.RequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.HistoriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedHistoriesIDs(); len(nodes) > 0 && !_u.mutation.HistoriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.HistoriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Workspace{config: _u.config}
 	_spec.Assign = _node.assignValues

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 const (
@@ -13,28 +15,64 @@ const (
 	Label = "history"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
+	// FieldWorkspaceID holds the string denoting the workspace_id field in the database.
+	FieldWorkspaceID = "workspace_id"
+	// FieldRequestID holds the string denoting the request_id field in the database.
+	FieldRequestID = "request_id"
 	// FieldMethod holds the string denoting the method field in the database.
 	FieldMethod = "method"
 	// FieldURL holds the string denoting the url field in the database.
 	FieldURL = "url"
 	// FieldStatusCode holds the string denoting the status_code field in the database.
 	FieldStatusCode = "status_code"
+	// FieldDurationMs holds the string denoting the duration_ms field in the database.
+	FieldDurationMs = "duration_ms"
+	// FieldResponseSizeBytes holds the string denoting the response_size_bytes field in the database.
+	FieldResponseSizeBytes = "response_size_bytes"
+	// FieldRequestHeadersJSON holds the string denoting the request_headers_json field in the database.
+	FieldRequestHeadersJSON = "request_headers_json"
+	// FieldResponseHeadersJSON holds the string denoting the response_headers_json field in the database.
+	FieldResponseHeadersJSON = "response_headers_json"
 	// FieldRequestBody holds the string denoting the request_body field in the database.
 	FieldRequestBody = "request_body"
 	// FieldResponseBody holds the string denoting the response_body field in the database.
 	FieldResponseBody = "response_body"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// EdgeWorkspace holds the string denoting the workspace edge name in mutations.
+	EdgeWorkspace = "workspace"
+	// EdgeRequest holds the string denoting the request edge name in mutations.
+	EdgeRequest = "request"
 	// Table holds the table name of the history in the database.
 	Table = "histories"
+	// WorkspaceTable is the table that holds the workspace relation/edge.
+	WorkspaceTable = "histories"
+	// WorkspaceInverseTable is the table name for the Workspace entity.
+	// It exists in this package in order to avoid circular dependency with the "workspace" package.
+	WorkspaceInverseTable = "workspaces"
+	// WorkspaceColumn is the table column denoting the workspace relation/edge.
+	WorkspaceColumn = "workspace_id"
+	// RequestTable is the table that holds the request relation/edge.
+	RequestTable = "histories"
+	// RequestInverseTable is the table name for the Request entity.
+	// It exists in this package in order to avoid circular dependency with the "request" package.
+	RequestInverseTable = "requests"
+	// RequestColumn is the table column denoting the request relation/edge.
+	RequestColumn = "request_id"
 )
 
 // Columns holds all SQL columns for history fields.
 var Columns = []string{
 	FieldID,
+	FieldWorkspaceID,
+	FieldRequestID,
 	FieldMethod,
 	FieldURL,
 	FieldStatusCode,
+	FieldDurationMs,
+	FieldResponseSizeBytes,
+	FieldRequestHeadersJSON,
+	FieldResponseHeadersJSON,
 	FieldRequestBody,
 	FieldResponseBody,
 	FieldCreatedAt,
@@ -51,10 +89,14 @@ func ValidColumn(column string) bool {
 }
 
 var (
-	// DefaultMethod holds the default value on creation for the "method" field.
-	DefaultMethod string
+	// MethodValidator is a validator for the "method" field. It is called by the builders before save.
+	MethodValidator func(string) error
+	// URLValidator is a validator for the "url" field. It is called by the builders before save.
+	URLValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
+	// DefaultID holds the default value on creation for the "id" field.
+	DefaultID func() uuid.UUID
 )
 
 // OrderOption defines the ordering options for the History queries.
@@ -63,6 +105,16 @@ type OrderOption func(*sql.Selector)
 // ByID orders the results by the id field.
 func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
+}
+
+// ByWorkspaceID orders the results by the workspace_id field.
+func ByWorkspaceID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWorkspaceID, opts...).ToFunc()
+}
+
+// ByRequestID orders the results by the request_id field.
+func ByRequestID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequestID, opts...).ToFunc()
 }
 
 // ByMethod orders the results by the method field.
@@ -80,6 +132,26 @@ func ByStatusCode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatusCode, opts...).ToFunc()
 }
 
+// ByDurationMs orders the results by the duration_ms field.
+func ByDurationMs(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDurationMs, opts...).ToFunc()
+}
+
+// ByResponseSizeBytes orders the results by the response_size_bytes field.
+func ByResponseSizeBytes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResponseSizeBytes, opts...).ToFunc()
+}
+
+// ByRequestHeadersJSON orders the results by the request_headers_json field.
+func ByRequestHeadersJSON(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRequestHeadersJSON, opts...).ToFunc()
+}
+
+// ByResponseHeadersJSON orders the results by the response_headers_json field.
+func ByResponseHeadersJSON(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResponseHeadersJSON, opts...).ToFunc()
+}
+
 // ByRequestBody orders the results by the request_body field.
 func ByRequestBody(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequestBody, opts...).ToFunc()
@@ -93,4 +165,32 @@ func ByResponseBody(opts ...sql.OrderTermOption) OrderOption {
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByWorkspaceField orders the results by workspace field.
+func ByWorkspaceField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newWorkspaceStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByRequestField orders the results by request field.
+func ByRequestField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRequestStep(), sql.OrderByField(field, opts...))
+	}
+}
+func newWorkspaceStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(WorkspaceInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, WorkspaceTable, WorkspaceColumn),
+	)
+}
+func newRequestStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RequestInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, RequestTable, RequestColumn),
+	)
 }

@@ -145,6 +145,8 @@ Schema is applied at startup with **`ent.Client.Schema.Create`** (additive chang
 
 For a **breaking** schema bump or data move, increment **`constant.DBSchemaUserVersion`**, implement the step in `internal/dbmanage/data_migrate.go` (`migrateOneStep`), and on the next launch (when SQLite `user_version` is still lower) the app copies the existing DB file to **`AppDir/backups/postmanjanai_db_YYYYMMDD_HHMMSS.db`** before running data migration hooks and `Schema.Create`. After success, `PRAGMA user_version` is set to the new value.
 
+**v2 (UUID schema):** migrating from the older integer-PK workspace DB **drops all app tables** so Ent can recreate UUID-backed tables (`workspaces`, `histories`, `collections`, `requests`, …). Workspace data from the pre-v2 file is **not** auto-migrated; rely on the backup copy under `AppDir/backups/` if you need to recover the old file.
+
 ## Logging
 
 The app uses `slog` + `lumberjack` (file rotation enabled).

@@ -5,6 +5,8 @@ package ent
 import (
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
+	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/workspace"
 	"context"
 	"fmt"
 	"math"
@@ -13,15 +15,18 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // HistoryQuery is the builder for querying History entities.
 type HistoryQuery struct {
 	config
-	ctx        *QueryContext
-	order      []history.OrderOption
-	inters     []Interceptor
-	predicates []predicate.History
+	ctx           *QueryContext
+	order         []history.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.History
+	withWorkspace *WorkspaceQuery
+	withRequest   *RequestQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +63,50 @@ func (_q *HistoryQuery) Order(o ...history.OrderOption) *HistoryQuery {
 	return _q
 }
 
+// QueryWorkspace chains the current query on the "workspace" edge.
+func (_q *HistoryQuery) QueryWorkspace() *WorkspaceQuery {
+	query := (&WorkspaceClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(history.Table, history.FieldID, selector),
+			sqlgraph.To(workspace.Table, workspace.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, history.WorkspaceTable, history.WorkspaceColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRequest chains the current query on the "request" edge.
+func (_q *HistoryQuery) QueryRequest() *RequestQuery {
+	query := (&RequestClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(history.Table, history.FieldID, selector),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, history.RequestTable, history.RequestColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first History entity from the query.
 // Returns a *NotFoundError when no History was found.
 func (_q *HistoryQuery) First(ctx context.Context) (*History, error) {
@@ -82,8 +131,8 @@ func (_q *HistoryQuery) FirstX(ctx context.Context) *History {
 
 // FirstID returns the first History ID from the query.
 // Returns a *NotFoundError when no History ID was found.
-func (_q *HistoryQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *HistoryQuery) FirstID(ctx context.Context) (id uuid.UUID, err error) {
+	var ids []uuid.UUID
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +144,7 @@ func (_q *HistoryQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *HistoryQuery) FirstIDX(ctx context.Context) int {
+func (_q *HistoryQuery) FirstIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +182,8 @@ func (_q *HistoryQuery) OnlyX(ctx context.Context) *History {
 // OnlyID is like Only, but returns the only History ID in the query.
 // Returns a *NotSingularError when more than one History ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *HistoryQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (_q *HistoryQuery) OnlyID(ctx context.Context) (id uuid.UUID, err error) {
+	var ids []uuid.UUID
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +199,7 @@ func (_q *HistoryQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *HistoryQuery) OnlyIDX(ctx context.Context) int {
+func (_q *HistoryQuery) OnlyIDX(ctx context.Context) uuid.UUID {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +227,7 @@ func (_q *HistoryQuery) AllX(ctx context.Context) []*History {
 }
 
 // IDs executes the query and returns a list of History IDs.
-func (_q *HistoryQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (_q *HistoryQuery) IDs(ctx context.Context) (ids []uuid.UUID, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
@@ -190,7 +239,7 @@ func (_q *HistoryQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *HistoryQuery) IDsX(ctx context.Context) []int {
+func (_q *HistoryQuery) IDsX(ctx context.Context) []uuid.UUID {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -245,15 +294,39 @@ func (_q *HistoryQuery) Clone() *HistoryQuery {
 		return nil
 	}
 	return &HistoryQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]history.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.History{}, _q.predicates...),
+		config:        _q.config,
+		ctx:           _q.ctx.Clone(),
+		order:         append([]history.OrderOption{}, _q.order...),
+		inters:        append([]Interceptor{}, _q.inters...),
+		predicates:    append([]predicate.History{}, _q.predicates...),
+		withWorkspace: _q.withWorkspace.Clone(),
+		withRequest:   _q.withRequest.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithWorkspace tells the query-builder to eager-load the nodes that are connected to
+// the "workspace" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *HistoryQuery) WithWorkspace(opts ...func(*WorkspaceQuery)) *HistoryQuery {
+	query := (&WorkspaceClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withWorkspace = query
+	return _q
+}
+
+// WithRequest tells the query-builder to eager-load the nodes that are connected to
+// the "request" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *HistoryQuery) WithRequest(opts ...func(*RequestQuery)) *HistoryQuery {
+	query := (&RequestClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRequest = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -262,12 +335,12 @@ func (_q *HistoryQuery) Clone() *HistoryQuery {
 // Example:
 //
 //	var v []struct {
-//		Method string `json:"method,omitempty"`
+//		WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.History.Query().
-//		GroupBy(history.FieldMethod).
+//		GroupBy(history.FieldWorkspaceID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *HistoryQuery) GroupBy(field string, fields ...string) *HistoryGroupBy {
@@ -285,11 +358,11 @@ func (_q *HistoryQuery) GroupBy(field string, fields ...string) *HistoryGroupBy 
 // Example:
 //
 //	var v []struct {
-//		Method string `json:"method,omitempty"`
+//		WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
 //	}
 //
 //	client.History.Query().
-//		Select(history.FieldMethod).
+//		Select(history.FieldWorkspaceID).
 //		Scan(ctx, &v)
 func (_q *HistoryQuery) Select(fields ...string) *HistorySelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
@@ -332,8 +405,12 @@ func (_q *HistoryQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *HistoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*History, error) {
 	var (
-		nodes = []*History{}
-		_spec = _q.querySpec()
+		nodes       = []*History{}
+		_spec       = _q.querySpec()
+		loadedTypes = [2]bool{
+			_q.withWorkspace != nil,
+			_q.withRequest != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*History).scanValues(nil, columns)
@@ -341,6 +418,7 @@ func (_q *HistoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Hist
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &History{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +430,84 @@ func (_q *HistoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Hist
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withWorkspace; query != nil {
+		if err := _q.loadWorkspace(ctx, query, nodes, nil,
+			func(n *History, e *Workspace) { n.Edges.Workspace = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRequest; query != nil {
+		if err := _q.loadRequest(ctx, query, nodes, nil,
+			func(n *History, e *Request) { n.Edges.Request = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *HistoryQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery, nodes []*History, init func(*History), assign func(*History, *Workspace)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*History)
+	for i := range nodes {
+		if nodes[i].WorkspaceID == nil {
+			continue
+		}
+		fk := *nodes[i].WorkspaceID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(workspace.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "workspace_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *HistoryQuery) loadRequest(ctx context.Context, query *RequestQuery, nodes []*History, init func(*History), assign func(*History, *Request)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*History)
+	for i := range nodes {
+		if nodes[i].RequestID == nil {
+			continue
+		}
+		fk := *nodes[i].RequestID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(request.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "request_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
 }
 
 func (_q *HistoryQuery) sqlCount(ctx context.Context) (int, error) {
@@ -365,7 +520,7 @@ func (_q *HistoryQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (_q *HistoryQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(history.Table, history.Columns, sqlgraph.NewFieldSpec(history.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(history.Table, history.Columns, sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -379,6 +534,12 @@ func (_q *HistoryQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != history.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withWorkspace != nil {
+			_spec.Node.AddColumnOnce(history.FieldWorkspaceID)
+		}
+		if _q.withRequest != nil {
+			_spec.Node.AddColumnOnce(history.FieldRequestID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

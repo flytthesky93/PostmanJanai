@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 const (
@@ -19,8 +21,35 @@ const (
 	FieldWorkspaceDescription = "workspace_description"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// EdgeCollections holds the string denoting the collections edge name in mutations.
+	EdgeCollections = "collections"
+	// EdgeRequests holds the string denoting the requests edge name in mutations.
+	EdgeRequests = "requests"
+	// EdgeHistories holds the string denoting the histories edge name in mutations.
+	EdgeHistories = "histories"
 	// Table holds the table name of the workspace in the database.
 	Table = "workspaces"
+	// CollectionsTable is the table that holds the collections relation/edge.
+	CollectionsTable = "collections"
+	// CollectionsInverseTable is the table name for the Collection entity.
+	// It exists in this package in order to avoid circular dependency with the "collection" package.
+	CollectionsInverseTable = "collections"
+	// CollectionsColumn is the table column denoting the collections relation/edge.
+	CollectionsColumn = "workspace_id"
+	// RequestsTable is the table that holds the requests relation/edge.
+	RequestsTable = "requests"
+	// RequestsInverseTable is the table name for the Request entity.
+	// It exists in this package in order to avoid circular dependency with the "request" package.
+	RequestsInverseTable = "requests"
+	// RequestsColumn is the table column denoting the requests relation/edge.
+	RequestsColumn = "workspace_id"
+	// HistoriesTable is the table that holds the histories relation/edge.
+	HistoriesTable = "histories"
+	// HistoriesInverseTable is the table name for the History entity.
+	// It exists in this package in order to avoid circular dependency with the "history" package.
+	HistoriesInverseTable = "histories"
+	// HistoriesColumn is the table column denoting the histories relation/edge.
+	HistoriesColumn = "workspace_id"
 )
 
 // Columns holds all SQL columns for workspace fields.
@@ -42,8 +71,14 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// WorkspaceNameValidator is a validator for the "workspace_name" field. It is called by the builders before save.
+	WorkspaceNameValidator func(string) error
+	// DefaultWorkspaceDescription holds the default value on creation for the "workspace_description" field.
+	DefaultWorkspaceDescription string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
+	// DefaultID holds the default value on creation for the "id" field.
+	DefaultID func() uuid.UUID
 )
 
 // OrderOption defines the ordering options for the Workspace queries.
@@ -67,4 +102,67 @@ func ByWorkspaceDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByCollectionsCount orders the results by collections count.
+func ByCollectionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCollectionsStep(), opts...)
+	}
+}
+
+// ByCollections orders the results by collections terms.
+func ByCollections(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollectionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRequestsCount orders the results by requests count.
+func ByRequestsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRequestsStep(), opts...)
+	}
+}
+
+// ByRequests orders the results by requests terms.
+func ByRequests(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRequestsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByHistoriesCount orders the results by histories count.
+func ByHistoriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newHistoriesStep(), opts...)
+	}
+}
+
+// ByHistories orders the results by histories terms.
+func ByHistories(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newHistoriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newCollectionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollectionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CollectionsTable, CollectionsColumn),
+	)
+}
+func newRequestsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RequestsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RequestsTable, RequestsColumn),
+	)
+}
+func newHistoriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(HistoriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, HistoriesTable, HistoriesColumn),
+	)
 }

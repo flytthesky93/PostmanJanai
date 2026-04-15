@@ -57,7 +57,7 @@ func (h *WorkspaceHandler) GetAll() ([]*entity.WorkspaceItem, error) {
 	return items, nil
 }
 
-func (h *WorkspaceHandler) Update(id int, name, desc string) (string, error) {
+func (h *WorkspaceHandler) Update(id string, name, desc string) (string, error) {
 	ctx := h.getContext()
 	logger.L().InfoContext(ctx, "Workspace action started", "action", "update", "id", id)
 	logger.D().InfoContext(ctx, "WorkspaceHandler.Update called", "id", id, "name", name)
@@ -71,7 +71,7 @@ func (h *WorkspaceHandler) Update(id int, name, desc string) (string, error) {
 	return "Cập nhật thành công", nil
 }
 
-func (h *WorkspaceHandler) Delete(id int) error {
+func (h *WorkspaceHandler) Delete(id string) error {
 	ctx := h.getContext()
 	logger.L().InfoContext(ctx, "Workspace action started", "action", "delete", "id", id)
 	logger.D().InfoContext(ctx, "WorkspaceHandler.Delete called", "id", id)

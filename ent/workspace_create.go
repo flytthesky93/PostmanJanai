@@ -3,6 +3,9 @@
 package ent
 
 import (
+	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
@@ -11,6 +14,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // WorkspaceCreate is the builder for creating a Workspace entity.
@@ -32,6 +36,14 @@ func (_c *WorkspaceCreate) SetWorkspaceDescription(v string) *WorkspaceCreate {
 	return _c
 }
 
+// SetNillableWorkspaceDescription sets the "workspace_description" field if the given value is not nil.
+func (_c *WorkspaceCreate) SetNillableWorkspaceDescription(v *string) *WorkspaceCreate {
+	if v != nil {
+		_c.SetWorkspaceDescription(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *WorkspaceCreate) SetCreatedAt(v time.Time) *WorkspaceCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -44,6 +56,65 @@ func (_c *WorkspaceCreate) SetNillableCreatedAt(v *time.Time) *WorkspaceCreate {
 		_c.SetCreatedAt(*v)
 	}
 	return _c
+}
+
+// SetID sets the "id" field.
+func (_c *WorkspaceCreate) SetID(v uuid.UUID) *WorkspaceCreate {
+	_c.mutation.SetID(v)
+	return _c
+}
+
+// SetNillableID sets the "id" field if the given value is not nil.
+func (_c *WorkspaceCreate) SetNillableID(v *uuid.UUID) *WorkspaceCreate {
+	if v != nil {
+		_c.SetID(*v)
+	}
+	return _c
+}
+
+// AddCollectionIDs adds the "collections" edge to the Collection entity by IDs.
+func (_c *WorkspaceCreate) AddCollectionIDs(ids ...uuid.UUID) *WorkspaceCreate {
+	_c.mutation.AddCollectionIDs(ids...)
+	return _c
+}
+
+// AddCollections adds the "collections" edges to the Collection entity.
+func (_c *WorkspaceCreate) AddCollections(v ...*Collection) *WorkspaceCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCollectionIDs(ids...)
+}
+
+// AddRequestIDs adds the "requests" edge to the Request entity by IDs.
+func (_c *WorkspaceCreate) AddRequestIDs(ids ...uuid.UUID) *WorkspaceCreate {
+	_c.mutation.AddRequestIDs(ids...)
+	return _c
+}
+
+// AddRequests adds the "requests" edges to the Request entity.
+func (_c *WorkspaceCreate) AddRequests(v ...*Request) *WorkspaceCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRequestIDs(ids...)
+}
+
+// AddHistoryIDs adds the "histories" edge to the History entity by IDs.
+func (_c *WorkspaceCreate) AddHistoryIDs(ids ...uuid.UUID) *WorkspaceCreate {
+	_c.mutation.AddHistoryIDs(ids...)
+	return _c
+}
+
+// AddHistories adds the "histories" edges to the History entity.
+func (_c *WorkspaceCreate) AddHistories(v ...*History) *WorkspaceCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddHistoryIDs(ids...)
 }
 
 // Mutation returns the WorkspaceMutation object of the builder.
@@ -81,9 +152,17 @@ func (_c *WorkspaceCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *WorkspaceCreate) defaults() {
+	if _, ok := _c.mutation.WorkspaceDescription(); !ok {
+		v := workspace.DefaultWorkspaceDescription
+		_c.mutation.SetWorkspaceDescription(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := workspace.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
+	}
+	if _, ok := _c.mutation.ID(); !ok {
+		v := workspace.DefaultID()
+		_c.mutation.SetID(v)
 	}
 }
 
@@ -91,6 +170,11 @@ func (_c *WorkspaceCreate) defaults() {
 func (_c *WorkspaceCreate) check() error {
 	if _, ok := _c.mutation.WorkspaceName(); !ok {
 		return &ValidationError{Name: "workspace_name", err: errors.New(`ent: missing required field "Workspace.workspace_name"`)}
+	}
+	if v, ok := _c.mutation.WorkspaceName(); ok {
+		if err := workspace.WorkspaceNameValidator(v); err != nil {
+			return &ValidationError{Name: "workspace_name", err: fmt.Errorf(`ent: validator failed for field "Workspace.workspace_name": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.WorkspaceDescription(); !ok {
 		return &ValidationError{Name: "workspace_description", err: errors.New(`ent: missing required field "Workspace.workspace_description"`)}
@@ -112,8 +196,13 @@ func (_c *WorkspaceCreate) sqlSave(ctx context.Context) (*Workspace, error) {
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	if _spec.ID.Value != nil {
+		if id, ok := _spec.ID.Value.(*uuid.UUID); ok {
+			_node.ID = *id
+		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
+			return nil, err
+		}
+	}
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -122,8 +211,12 @@ func (_c *WorkspaceCreate) sqlSave(ctx context.Context) (*Workspace, error) {
 func (_c *WorkspaceCreate) createSpec() (*Workspace, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Workspace{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(workspace.Table, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(workspace.Table, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID))
 	)
+	if id, ok := _c.mutation.ID(); ok {
+		_node.ID = id
+		_spec.ID.Value = &id
+	}
 	if value, ok := _c.mutation.WorkspaceName(); ok {
 		_spec.SetField(workspace.FieldWorkspaceName, field.TypeString, value)
 		_node.WorkspaceName = value
@@ -135,6 +228,54 @@ func (_c *WorkspaceCreate) createSpec() (*Workspace, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(workspace.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if nodes := _c.mutation.CollectionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.CollectionsTable,
+			Columns: []string{workspace.CollectionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.RequestsTable,
+			Columns: []string{workspace.RequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.HistoriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   workspace.HistoriesTable,
+			Columns: []string{workspace.HistoriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
@@ -184,10 +325,6 @@ func (_c *WorkspaceCreateBulk) Save(ctx context.Context) ([]*Workspace, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
 				mutation.done = true
 				return nodes[i], nil
 			})

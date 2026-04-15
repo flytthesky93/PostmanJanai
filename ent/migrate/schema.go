@@ -8,27 +8,259 @@ import (
 )
 
 var (
+	// CollectionsColumns holds the columns for the "collections" table.
+	CollectionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Default: ""},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "workspace_id", Type: field.TypeUUID},
+	}
+	// CollectionsTable holds the schema information for the "collections" table.
+	CollectionsTable = &schema.Table{
+		Name:       "collections",
+		Columns:    CollectionsColumns,
+		PrimaryKey: []*schema.Column{CollectionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "collections_workspaces_collections",
+				Columns:    []*schema.Column{CollectionsColumns[4]},
+				RefColumns: []*schema.Column{WorkspacesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "collection_workspace_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{CollectionsColumns[4], CollectionsColumns[1]},
+			},
+		},
+	}
+	// EnvironmentsColumns holds the columns for the "environments" table.
+	EnvironmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Default: ""},
+		{Name: "is_active", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// EnvironmentsTable holds the schema information for the "environments" table.
+	EnvironmentsTable = &schema.Table{
+		Name:       "environments",
+		Columns:    EnvironmentsColumns,
+		PrimaryKey: []*schema.Column{EnvironmentsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "environment_name",
+				Unique:  true,
+				Columns: []*schema.Column{EnvironmentsColumns[1]},
+			},
+		},
+	}
+	// EnvironmentVariablesColumns holds the columns for the "environment_variables" table.
+	EnvironmentVariablesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "key", Type: field.TypeString},
+		{Name: "value", Type: field.TypeString, Size: 2147483647},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "environment_id", Type: field.TypeUUID},
+	}
+	// EnvironmentVariablesTable holds the schema information for the "environment_variables" table.
+	EnvironmentVariablesTable = &schema.Table{
+		Name:       "environment_variables",
+		Columns:    EnvironmentVariablesColumns,
+		PrimaryKey: []*schema.Column{EnvironmentVariablesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "environment_variables_environments_environment_variables",
+				Columns:    []*schema.Column{EnvironmentVariablesColumns[7]},
+				RefColumns: []*schema.Column{EnvironmentsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "environmentvariable_environment_id_key",
+				Unique:  true,
+				Columns: []*schema.Column{EnvironmentVariablesColumns[7], EnvironmentVariablesColumns[1]},
+			},
+			{
+				Name:    "environmentvariable_environment_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{EnvironmentVariablesColumns[7], EnvironmentVariablesColumns[4]},
+			},
+		},
+	}
 	// HistoriesColumns holds the columns for the "histories" table.
 	HistoriesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "method", Type: field.TypeString, Default: "GET"},
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "method", Type: field.TypeString},
 		{Name: "url", Type: field.TypeString, Size: 2147483647},
 		{Name: "status_code", Type: field.TypeInt},
+		{Name: "duration_ms", Type: field.TypeInt, Nullable: true},
+		{Name: "response_size_bytes", Type: field.TypeInt, Nullable: true},
+		{Name: "request_headers_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "response_headers_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "request_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "response_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "request_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "workspace_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// HistoriesTable holds the schema information for the "histories" table.
 	HistoriesTable = &schema.Table{
 		Name:       "histories",
 		Columns:    HistoriesColumns,
 		PrimaryKey: []*schema.Column{HistoriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "histories_requests_histories",
+				Columns:    []*schema.Column{HistoriesColumns[11]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "histories_workspaces_histories",
+				Columns:    []*schema.Column{HistoriesColumns[12]},
+				RefColumns: []*schema.Column{WorkspacesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
+	// RequestsColumns holds the columns for the "requests" table.
+	RequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "method", Type: field.TypeString, Default: "GET"},
+		{Name: "url", Type: field.TypeString, Size: 2147483647},
+		{Name: "body_mode", Type: field.TypeString},
+		{Name: "raw_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "collection_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "workspace_id", Type: field.TypeUUID},
+	}
+	// RequestsTable holds the schema information for the "requests" table.
+	RequestsTable = &schema.Table{
+		Name:       "requests",
+		Columns:    RequestsColumns,
+		PrimaryKey: []*schema.Column{RequestsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "requests_collections_requests",
+				Columns:    []*schema.Column{RequestsColumns[8]},
+				RefColumns: []*schema.Column{CollectionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "requests_workspaces_requests",
+				Columns:    []*schema.Column{RequestsColumns[9]},
+				RefColumns: []*schema.Column{WorkspacesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// RequestFormFieldsColumns holds the columns for the "request_form_fields" table.
+	RequestFormFieldsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "field_kind", Type: field.TypeString},
+		{Name: "key", Type: field.TypeString},
+		{Name: "value", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "request_id", Type: field.TypeUUID},
+	}
+	// RequestFormFieldsTable holds the schema information for the "request_form_fields" table.
+	RequestFormFieldsTable = &schema.Table{
+		Name:       "request_form_fields",
+		Columns:    RequestFormFieldsColumns,
+		PrimaryKey: []*schema.Column{RequestFormFieldsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "request_form_fields_requests_request_form_fields",
+				Columns:    []*schema.Column{RequestFormFieldsColumns[6]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "requestformfield_request_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{RequestFormFieldsColumns[6], RequestFormFieldsColumns[5]},
+			},
+		},
+	}
+	// RequestHeadersColumns holds the columns for the "request_headers" table.
+	RequestHeadersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "key", Type: field.TypeString},
+		{Name: "value", Type: field.TypeString, Size: 2147483647},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "request_id", Type: field.TypeUUID},
+	}
+	// RequestHeadersTable holds the schema information for the "request_headers" table.
+	RequestHeadersTable = &schema.Table{
+		Name:       "request_headers",
+		Columns:    RequestHeadersColumns,
+		PrimaryKey: []*schema.Column{RequestHeadersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "request_headers_requests_request_headers",
+				Columns:    []*schema.Column{RequestHeadersColumns[5]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "requestheader_request_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{RequestHeadersColumns[5], RequestHeadersColumns[4]},
+			},
+		},
+	}
+	// RequestQueryParamsColumns holds the columns for the "request_query_params" table.
+	RequestQueryParamsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "key", Type: field.TypeString},
+		{Name: "value", Type: field.TypeString, Size: 2147483647},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "request_id", Type: field.TypeUUID},
+	}
+	// RequestQueryParamsTable holds the schema information for the "request_query_params" table.
+	RequestQueryParamsTable = &schema.Table{
+		Name:       "request_query_params",
+		Columns:    RequestQueryParamsColumns,
+		PrimaryKey: []*schema.Column{RequestQueryParamsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "request_query_params_requests_request_query_params",
+				Columns:    []*schema.Column{RequestQueryParamsColumns[5]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "requestqueryparam_request_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{RequestQueryParamsColumns[5], RequestQueryParamsColumns[4]},
+			},
+		},
 	}
 	// WorkspacesColumns holds the columns for the "workspaces" table.
 	WorkspacesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeUUID},
 		{Name: "workspace_name", Type: field.TypeString},
-		{Name: "workspace_description", Type: field.TypeString},
+		{Name: "workspace_description", Type: field.TypeString, Default: ""},
 		{Name: "created_at", Type: field.TypeTime},
 	}
 	// WorkspacesTable holds the schema information for the "workspaces" table.
@@ -36,13 +268,36 @@ var (
 		Name:       "workspaces",
 		Columns:    WorkspacesColumns,
 		PrimaryKey: []*schema.Column{WorkspacesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workspace_workspace_name",
+				Unique:  true,
+				Columns: []*schema.Column{WorkspacesColumns[1]},
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		CollectionsTable,
+		EnvironmentsTable,
+		EnvironmentVariablesTable,
 		HistoriesTable,
+		RequestsTable,
+		RequestFormFieldsTable,
+		RequestHeadersTable,
+		RequestQueryParamsTable,
 		WorkspacesTable,
 	}
 )
 
 func init() {
+	CollectionsTable.ForeignKeys[0].RefTable = WorkspacesTable
+	EnvironmentVariablesTable.ForeignKeys[0].RefTable = EnvironmentsTable
+	HistoriesTable.ForeignKeys[0].RefTable = RequestsTable
+	HistoriesTable.ForeignKeys[1].RefTable = WorkspacesTable
+	RequestsTable.ForeignKeys[0].RefTable = CollectionsTable
+	RequestsTable.ForeignKeys[1].RefTable = WorkspacesTable
+	RequestFormFieldsTable.ForeignKeys[0].RefTable = RequestsTable
+	RequestHeadersTable.ForeignKeys[0].RefTable = RequestsTable
+	RequestQueryParamsTable.ForeignKeys[0].RefTable = RequestsTable
 }

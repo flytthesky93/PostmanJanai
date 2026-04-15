@@ -7,50 +7,52 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.Workspace {
+func ID(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.Workspace {
+func IDEQ(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.Workspace {
+func IDNEQ(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.Workspace {
+func IDIn(ids ...uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.Workspace {
+func IDNotIn(ids ...uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.Workspace {
+func IDGT(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.Workspace {
+func IDGTE(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.Workspace {
+func IDLT(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.Workspace {
+func IDLTE(id uuid.UUID) predicate.Workspace {
 	return predicate.Workspace(sql.FieldLTE(FieldID, id))
 }
 
@@ -237,6 +239,75 @@ func CreatedAtLT(v time.Time) predicate.Workspace {
 // CreatedAtLTE applies the LTE predicate on the "created_at" field.
 func CreatedAtLTE(v time.Time) predicate.Workspace {
 	return predicate.Workspace(sql.FieldLTE(FieldCreatedAt, v))
+}
+
+// HasCollections applies the HasEdge predicate on the "collections" edge.
+func HasCollections() predicate.Workspace {
+	return predicate.Workspace(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CollectionsTable, CollectionsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCollectionsWith applies the HasEdge predicate on the "collections" edge with a given conditions (other predicates).
+func HasCollectionsWith(preds ...predicate.Collection) predicate.Workspace {
+	return predicate.Workspace(func(s *sql.Selector) {
+		step := newCollectionsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRequests applies the HasEdge predicate on the "requests" edge.
+func HasRequests() predicate.Workspace {
+	return predicate.Workspace(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RequestsTable, RequestsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRequestsWith applies the HasEdge predicate on the "requests" edge with a given conditions (other predicates).
+func HasRequestsWith(preds ...predicate.Request) predicate.Workspace {
+	return predicate.Workspace(func(s *sql.Selector) {
+		step := newRequestsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasHistories applies the HasEdge predicate on the "histories" edge.
+func HasHistories() predicate.Workspace {
+	return predicate.Workspace(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, HistoriesTable, HistoriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasHistoriesWith applies the HasEdge predicate on the "histories" edge with a given conditions (other predicates).
+func HasHistoriesWith(preds ...predicate.History) predicate.Workspace {
+	return predicate.Workspace(func(s *sql.Selector) {
+		step := newHistoriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

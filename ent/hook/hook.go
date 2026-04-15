@@ -8,6 +8,42 @@ import (
 	"fmt"
 )
 
+// The CollectionFunc type is an adapter to allow the use of ordinary
+// function as Collection mutator.
+type CollectionFunc func(context.Context, *ent.CollectionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CollectionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CollectionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollectionMutation", m)
+}
+
+// The EnvironmentFunc type is an adapter to allow the use of ordinary
+// function as Environment mutator.
+type EnvironmentFunc func(context.Context, *ent.EnvironmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EnvironmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EnvironmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EnvironmentMutation", m)
+}
+
+// The EnvironmentVariableFunc type is an adapter to allow the use of ordinary
+// function as EnvironmentVariable mutator.
+type EnvironmentVariableFunc func(context.Context, *ent.EnvironmentVariableMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EnvironmentVariableFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EnvironmentVariableMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EnvironmentVariableMutation", m)
+}
+
 // The HistoryFunc type is an adapter to allow the use of ordinary
 // function as History mutator.
 type HistoryFunc func(context.Context, *ent.HistoryMutation) (ent.Value, error)
@@ -18,6 +54,54 @@ func (f HistoryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.HistoryMutation", m)
+}
+
+// The RequestFunc type is an adapter to allow the use of ordinary
+// function as Request mutator.
+type RequestFunc func(context.Context, *ent.RequestMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RequestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RequestMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestMutation", m)
+}
+
+// The RequestFormFieldFunc type is an adapter to allow the use of ordinary
+// function as RequestFormField mutator.
+type RequestFormFieldFunc func(context.Context, *ent.RequestFormFieldMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RequestFormFieldFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RequestFormFieldMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestFormFieldMutation", m)
+}
+
+// The RequestHeaderFunc type is an adapter to allow the use of ordinary
+// function as RequestHeader mutator.
+type RequestHeaderFunc func(context.Context, *ent.RequestHeaderMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RequestHeaderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RequestHeaderMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestHeaderMutation", m)
+}
+
+// The RequestQueryParamFunc type is an adapter to allow the use of ordinary
+// function as RequestQueryParam mutator.
+type RequestQueryParamFunc func(context.Context, *ent.RequestQueryParamMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RequestQueryParamFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RequestQueryParamMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestQueryParamMutation", m)
 }
 
 // The WorkspaceFunc type is an adapter to allow the use of ordinary

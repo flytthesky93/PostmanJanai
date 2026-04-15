@@ -7,51 +7,63 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 // ID filters vertices based on their ID field.
-func ID(id int) predicate.History {
+func ID(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id int) predicate.History {
+func IDEQ(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id int) predicate.History {
+func IDNEQ(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...int) predicate.History {
+func IDIn(ids ...uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...int) predicate.History {
+func IDNotIn(ids ...uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id int) predicate.History {
+func IDGT(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id int) predicate.History {
+func IDGTE(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id int) predicate.History {
+func IDLT(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id int) predicate.History {
+func IDLTE(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldLTE(FieldID, id))
+}
+
+// WorkspaceID applies equality check predicate on the "workspace_id" field. It's identical to WorkspaceIDEQ.
+func WorkspaceID(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldWorkspaceID, v))
+}
+
+// RequestID applies equality check predicate on the "request_id" field. It's identical to RequestIDEQ.
+func RequestID(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldRequestID, v))
 }
 
 // Method applies equality check predicate on the "method" field. It's identical to MethodEQ.
@@ -69,6 +81,26 @@ func StatusCode(v int) predicate.History {
 	return predicate.History(sql.FieldEQ(FieldStatusCode, v))
 }
 
+// DurationMs applies equality check predicate on the "duration_ms" field. It's identical to DurationMsEQ.
+func DurationMs(v int) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldDurationMs, v))
+}
+
+// ResponseSizeBytes applies equality check predicate on the "response_size_bytes" field. It's identical to ResponseSizeBytesEQ.
+func ResponseSizeBytes(v int) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldResponseSizeBytes, v))
+}
+
+// RequestHeadersJSON applies equality check predicate on the "request_headers_json" field. It's identical to RequestHeadersJSONEQ.
+func RequestHeadersJSON(v string) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldRequestHeadersJSON, v))
+}
+
+// ResponseHeadersJSON applies equality check predicate on the "response_headers_json" field. It's identical to ResponseHeadersJSONEQ.
+func ResponseHeadersJSON(v string) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldResponseHeadersJSON, v))
+}
+
 // RequestBody applies equality check predicate on the "request_body" field. It's identical to RequestBodyEQ.
 func RequestBody(v string) predicate.History {
 	return predicate.History(sql.FieldEQ(FieldRequestBody, v))
@@ -82,6 +114,66 @@ func ResponseBody(v string) predicate.History {
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.History {
 	return predicate.History(sql.FieldEQ(FieldCreatedAt, v))
+}
+
+// WorkspaceIDEQ applies the EQ predicate on the "workspace_id" field.
+func WorkspaceIDEQ(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldWorkspaceID, v))
+}
+
+// WorkspaceIDNEQ applies the NEQ predicate on the "workspace_id" field.
+func WorkspaceIDNEQ(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldWorkspaceID, v))
+}
+
+// WorkspaceIDIn applies the In predicate on the "workspace_id" field.
+func WorkspaceIDIn(vs ...uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldIn(FieldWorkspaceID, vs...))
+}
+
+// WorkspaceIDNotIn applies the NotIn predicate on the "workspace_id" field.
+func WorkspaceIDNotIn(vs ...uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldWorkspaceID, vs...))
+}
+
+// WorkspaceIDIsNil applies the IsNil predicate on the "workspace_id" field.
+func WorkspaceIDIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldWorkspaceID))
+}
+
+// WorkspaceIDNotNil applies the NotNil predicate on the "workspace_id" field.
+func WorkspaceIDNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldWorkspaceID))
+}
+
+// RequestIDEQ applies the EQ predicate on the "request_id" field.
+func RequestIDEQ(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldRequestID, v))
+}
+
+// RequestIDNEQ applies the NEQ predicate on the "request_id" field.
+func RequestIDNEQ(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldRequestID, v))
+}
+
+// RequestIDIn applies the In predicate on the "request_id" field.
+func RequestIDIn(vs ...uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldIn(FieldRequestID, vs...))
+}
+
+// RequestIDNotIn applies the NotIn predicate on the "request_id" field.
+func RequestIDNotIn(vs ...uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldRequestID, vs...))
+}
+
+// RequestIDIsNil applies the IsNil predicate on the "request_id" field.
+func RequestIDIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldRequestID))
+}
+
+// RequestIDNotNil applies the NotNil predicate on the "request_id" field.
+func RequestIDNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldRequestID))
 }
 
 // MethodEQ applies the EQ predicate on the "method" field.
@@ -252,6 +344,256 @@ func StatusCodeLT(v int) predicate.History {
 // StatusCodeLTE applies the LTE predicate on the "status_code" field.
 func StatusCodeLTE(v int) predicate.History {
 	return predicate.History(sql.FieldLTE(FieldStatusCode, v))
+}
+
+// DurationMsEQ applies the EQ predicate on the "duration_ms" field.
+func DurationMsEQ(v int) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldDurationMs, v))
+}
+
+// DurationMsNEQ applies the NEQ predicate on the "duration_ms" field.
+func DurationMsNEQ(v int) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldDurationMs, v))
+}
+
+// DurationMsIn applies the In predicate on the "duration_ms" field.
+func DurationMsIn(vs ...int) predicate.History {
+	return predicate.History(sql.FieldIn(FieldDurationMs, vs...))
+}
+
+// DurationMsNotIn applies the NotIn predicate on the "duration_ms" field.
+func DurationMsNotIn(vs ...int) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldDurationMs, vs...))
+}
+
+// DurationMsGT applies the GT predicate on the "duration_ms" field.
+func DurationMsGT(v int) predicate.History {
+	return predicate.History(sql.FieldGT(FieldDurationMs, v))
+}
+
+// DurationMsGTE applies the GTE predicate on the "duration_ms" field.
+func DurationMsGTE(v int) predicate.History {
+	return predicate.History(sql.FieldGTE(FieldDurationMs, v))
+}
+
+// DurationMsLT applies the LT predicate on the "duration_ms" field.
+func DurationMsLT(v int) predicate.History {
+	return predicate.History(sql.FieldLT(FieldDurationMs, v))
+}
+
+// DurationMsLTE applies the LTE predicate on the "duration_ms" field.
+func DurationMsLTE(v int) predicate.History {
+	return predicate.History(sql.FieldLTE(FieldDurationMs, v))
+}
+
+// DurationMsIsNil applies the IsNil predicate on the "duration_ms" field.
+func DurationMsIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldDurationMs))
+}
+
+// DurationMsNotNil applies the NotNil predicate on the "duration_ms" field.
+func DurationMsNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldDurationMs))
+}
+
+// ResponseSizeBytesEQ applies the EQ predicate on the "response_size_bytes" field.
+func ResponseSizeBytesEQ(v int) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldResponseSizeBytes, v))
+}
+
+// ResponseSizeBytesNEQ applies the NEQ predicate on the "response_size_bytes" field.
+func ResponseSizeBytesNEQ(v int) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldResponseSizeBytes, v))
+}
+
+// ResponseSizeBytesIn applies the In predicate on the "response_size_bytes" field.
+func ResponseSizeBytesIn(vs ...int) predicate.History {
+	return predicate.History(sql.FieldIn(FieldResponseSizeBytes, vs...))
+}
+
+// ResponseSizeBytesNotIn applies the NotIn predicate on the "response_size_bytes" field.
+func ResponseSizeBytesNotIn(vs ...int) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldResponseSizeBytes, vs...))
+}
+
+// ResponseSizeBytesGT applies the GT predicate on the "response_size_bytes" field.
+func ResponseSizeBytesGT(v int) predicate.History {
+	return predicate.History(sql.FieldGT(FieldResponseSizeBytes, v))
+}
+
+// ResponseSizeBytesGTE applies the GTE predicate on the "response_size_bytes" field.
+func ResponseSizeBytesGTE(v int) predicate.History {
+	return predicate.History(sql.FieldGTE(FieldResponseSizeBytes, v))
+}
+
+// ResponseSizeBytesLT applies the LT predicate on the "response_size_bytes" field.
+func ResponseSizeBytesLT(v int) predicate.History {
+	return predicate.History(sql.FieldLT(FieldResponseSizeBytes, v))
+}
+
+// ResponseSizeBytesLTE applies the LTE predicate on the "response_size_bytes" field.
+func ResponseSizeBytesLTE(v int) predicate.History {
+	return predicate.History(sql.FieldLTE(FieldResponseSizeBytes, v))
+}
+
+// ResponseSizeBytesIsNil applies the IsNil predicate on the "response_size_bytes" field.
+func ResponseSizeBytesIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldResponseSizeBytes))
+}
+
+// ResponseSizeBytesNotNil applies the NotNil predicate on the "response_size_bytes" field.
+func ResponseSizeBytesNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldResponseSizeBytes))
+}
+
+// RequestHeadersJSONEQ applies the EQ predicate on the "request_headers_json" field.
+func RequestHeadersJSONEQ(v string) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONNEQ applies the NEQ predicate on the "request_headers_json" field.
+func RequestHeadersJSONNEQ(v string) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONIn applies the In predicate on the "request_headers_json" field.
+func RequestHeadersJSONIn(vs ...string) predicate.History {
+	return predicate.History(sql.FieldIn(FieldRequestHeadersJSON, vs...))
+}
+
+// RequestHeadersJSONNotIn applies the NotIn predicate on the "request_headers_json" field.
+func RequestHeadersJSONNotIn(vs ...string) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldRequestHeadersJSON, vs...))
+}
+
+// RequestHeadersJSONGT applies the GT predicate on the "request_headers_json" field.
+func RequestHeadersJSONGT(v string) predicate.History {
+	return predicate.History(sql.FieldGT(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONGTE applies the GTE predicate on the "request_headers_json" field.
+func RequestHeadersJSONGTE(v string) predicate.History {
+	return predicate.History(sql.FieldGTE(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONLT applies the LT predicate on the "request_headers_json" field.
+func RequestHeadersJSONLT(v string) predicate.History {
+	return predicate.History(sql.FieldLT(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONLTE applies the LTE predicate on the "request_headers_json" field.
+func RequestHeadersJSONLTE(v string) predicate.History {
+	return predicate.History(sql.FieldLTE(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONContains applies the Contains predicate on the "request_headers_json" field.
+func RequestHeadersJSONContains(v string) predicate.History {
+	return predicate.History(sql.FieldContains(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONHasPrefix applies the HasPrefix predicate on the "request_headers_json" field.
+func RequestHeadersJSONHasPrefix(v string) predicate.History {
+	return predicate.History(sql.FieldHasPrefix(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONHasSuffix applies the HasSuffix predicate on the "request_headers_json" field.
+func RequestHeadersJSONHasSuffix(v string) predicate.History {
+	return predicate.History(sql.FieldHasSuffix(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONIsNil applies the IsNil predicate on the "request_headers_json" field.
+func RequestHeadersJSONIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldRequestHeadersJSON))
+}
+
+// RequestHeadersJSONNotNil applies the NotNil predicate on the "request_headers_json" field.
+func RequestHeadersJSONNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldRequestHeadersJSON))
+}
+
+// RequestHeadersJSONEqualFold applies the EqualFold predicate on the "request_headers_json" field.
+func RequestHeadersJSONEqualFold(v string) predicate.History {
+	return predicate.History(sql.FieldEqualFold(FieldRequestHeadersJSON, v))
+}
+
+// RequestHeadersJSONContainsFold applies the ContainsFold predicate on the "request_headers_json" field.
+func RequestHeadersJSONContainsFold(v string) predicate.History {
+	return predicate.History(sql.FieldContainsFold(FieldRequestHeadersJSON, v))
+}
+
+// ResponseHeadersJSONEQ applies the EQ predicate on the "response_headers_json" field.
+func ResponseHeadersJSONEQ(v string) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONNEQ applies the NEQ predicate on the "response_headers_json" field.
+func ResponseHeadersJSONNEQ(v string) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONIn applies the In predicate on the "response_headers_json" field.
+func ResponseHeadersJSONIn(vs ...string) predicate.History {
+	return predicate.History(sql.FieldIn(FieldResponseHeadersJSON, vs...))
+}
+
+// ResponseHeadersJSONNotIn applies the NotIn predicate on the "response_headers_json" field.
+func ResponseHeadersJSONNotIn(vs ...string) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldResponseHeadersJSON, vs...))
+}
+
+// ResponseHeadersJSONGT applies the GT predicate on the "response_headers_json" field.
+func ResponseHeadersJSONGT(v string) predicate.History {
+	return predicate.History(sql.FieldGT(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONGTE applies the GTE predicate on the "response_headers_json" field.
+func ResponseHeadersJSONGTE(v string) predicate.History {
+	return predicate.History(sql.FieldGTE(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONLT applies the LT predicate on the "response_headers_json" field.
+func ResponseHeadersJSONLT(v string) predicate.History {
+	return predicate.History(sql.FieldLT(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONLTE applies the LTE predicate on the "response_headers_json" field.
+func ResponseHeadersJSONLTE(v string) predicate.History {
+	return predicate.History(sql.FieldLTE(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONContains applies the Contains predicate on the "response_headers_json" field.
+func ResponseHeadersJSONContains(v string) predicate.History {
+	return predicate.History(sql.FieldContains(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONHasPrefix applies the HasPrefix predicate on the "response_headers_json" field.
+func ResponseHeadersJSONHasPrefix(v string) predicate.History {
+	return predicate.History(sql.FieldHasPrefix(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONHasSuffix applies the HasSuffix predicate on the "response_headers_json" field.
+func ResponseHeadersJSONHasSuffix(v string) predicate.History {
+	return predicate.History(sql.FieldHasSuffix(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONIsNil applies the IsNil predicate on the "response_headers_json" field.
+func ResponseHeadersJSONIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldResponseHeadersJSON))
+}
+
+// ResponseHeadersJSONNotNil applies the NotNil predicate on the "response_headers_json" field.
+func ResponseHeadersJSONNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldResponseHeadersJSON))
+}
+
+// ResponseHeadersJSONEqualFold applies the EqualFold predicate on the "response_headers_json" field.
+func ResponseHeadersJSONEqualFold(v string) predicate.History {
+	return predicate.History(sql.FieldEqualFold(FieldResponseHeadersJSON, v))
+}
+
+// ResponseHeadersJSONContainsFold applies the ContainsFold predicate on the "response_headers_json" field.
+func ResponseHeadersJSONContainsFold(v string) predicate.History {
+	return predicate.History(sql.FieldContainsFold(FieldResponseHeadersJSON, v))
 }
 
 // RequestBodyEQ applies the EQ predicate on the "request_body" field.
@@ -442,6 +784,52 @@ func CreatedAtLT(v time.Time) predicate.History {
 // CreatedAtLTE applies the LTE predicate on the "created_at" field.
 func CreatedAtLTE(v time.Time) predicate.History {
 	return predicate.History(sql.FieldLTE(FieldCreatedAt, v))
+}
+
+// HasWorkspace applies the HasEdge predicate on the "workspace" edge.
+func HasWorkspace() predicate.History {
+	return predicate.History(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, WorkspaceTable, WorkspaceColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasWorkspaceWith applies the HasEdge predicate on the "workspace" edge with a given conditions (other predicates).
+func HasWorkspaceWith(preds ...predicate.Workspace) predicate.History {
+	return predicate.History(func(s *sql.Selector) {
+		step := newWorkspaceStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRequest applies the HasEdge predicate on the "request" edge.
+func HasRequest() predicate.History {
+	return predicate.History(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, RequestTable, RequestColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRequestWith applies the HasEdge predicate on the "request" edge with a given conditions (other predicates).
+func HasRequestWith(preds ...predicate.Request) predicate.History {
+	return predicate.History(func(s *sql.Selector) {
+		step := newRequestStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

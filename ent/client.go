@@ -11,12 +11,21 @@ import (
 
 	"PostmanJanai/ent/migrate"
 
+	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/environment"
+	"PostmanJanai/ent/environmentvariable"
 	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestformfield"
+	"PostmanJanai/ent/requestheader"
+	"PostmanJanai/ent/requestqueryparam"
 	"PostmanJanai/ent/workspace"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 // Client is the client that holds all ent builders.
@@ -24,8 +33,22 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Collection is the client for interacting with the Collection builders.
+	Collection *CollectionClient
+	// Environment is the client for interacting with the Environment builders.
+	Environment *EnvironmentClient
+	// EnvironmentVariable is the client for interacting with the EnvironmentVariable builders.
+	EnvironmentVariable *EnvironmentVariableClient
 	// History is the client for interacting with the History builders.
 	History *HistoryClient
+	// Request is the client for interacting with the Request builders.
+	Request *RequestClient
+	// RequestFormField is the client for interacting with the RequestFormField builders.
+	RequestFormField *RequestFormFieldClient
+	// RequestHeader is the client for interacting with the RequestHeader builders.
+	RequestHeader *RequestHeaderClient
+	// RequestQueryParam is the client for interacting with the RequestQueryParam builders.
+	RequestQueryParam *RequestQueryParamClient
 	// Workspace is the client for interacting with the Workspace builders.
 	Workspace *WorkspaceClient
 }
@@ -39,7 +62,14 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Collection = NewCollectionClient(c.config)
+	c.Environment = NewEnvironmentClient(c.config)
+	c.EnvironmentVariable = NewEnvironmentVariableClient(c.config)
 	c.History = NewHistoryClient(c.config)
+	c.Request = NewRequestClient(c.config)
+	c.RequestFormField = NewRequestFormFieldClient(c.config)
+	c.RequestHeader = NewRequestHeaderClient(c.config)
+	c.RequestQueryParam = NewRequestQueryParamClient(c.config)
 	c.Workspace = NewWorkspaceClient(c.config)
 }
 
@@ -131,10 +161,17 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:       ctx,
-		config:    cfg,
-		History:   NewHistoryClient(cfg),
-		Workspace: NewWorkspaceClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		Collection:          NewCollectionClient(cfg),
+		Environment:         NewEnvironmentClient(cfg),
+		EnvironmentVariable: NewEnvironmentVariableClient(cfg),
+		History:             NewHistoryClient(cfg),
+		Request:             NewRequestClient(cfg),
+		RequestFormField:    NewRequestFormFieldClient(cfg),
+		RequestHeader:       NewRequestHeaderClient(cfg),
+		RequestQueryParam:   NewRequestQueryParamClient(cfg),
+		Workspace:           NewWorkspaceClient(cfg),
 	}, nil
 }
 
@@ -152,17 +189,24 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:       ctx,
-		config:    cfg,
-		History:   NewHistoryClient(cfg),
-		Workspace: NewWorkspaceClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		Collection:          NewCollectionClient(cfg),
+		Environment:         NewEnvironmentClient(cfg),
+		EnvironmentVariable: NewEnvironmentVariableClient(cfg),
+		History:             NewHistoryClient(cfg),
+		Request:             NewRequestClient(cfg),
+		RequestFormField:    NewRequestFormFieldClient(cfg),
+		RequestHeader:       NewRequestHeaderClient(cfg),
+		RequestQueryParam:   NewRequestQueryParamClient(cfg),
+		Workspace:           NewWorkspaceClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		History.
+//		Collection.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -184,26 +228,511 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.History.Use(hooks...)
-	c.Workspace.Use(hooks...)
+	for _, n := range []interface{ Use(...Hook) }{
+		c.Collection, c.Environment, c.EnvironmentVariable, c.History, c.Request,
+		c.RequestFormField, c.RequestHeader, c.RequestQueryParam, c.Workspace,
+	} {
+		n.Use(hooks...)
+	}
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.History.Intercept(interceptors...)
-	c.Workspace.Intercept(interceptors...)
+	for _, n := range []interface{ Intercept(...Interceptor) }{
+		c.Collection, c.Environment, c.EnvironmentVariable, c.History, c.Request,
+		c.RequestFormField, c.RequestHeader, c.RequestQueryParam, c.Workspace,
+	} {
+		n.Intercept(interceptors...)
+	}
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *CollectionMutation:
+		return c.Collection.mutate(ctx, m)
+	case *EnvironmentMutation:
+		return c.Environment.mutate(ctx, m)
+	case *EnvironmentVariableMutation:
+		return c.EnvironmentVariable.mutate(ctx, m)
 	case *HistoryMutation:
 		return c.History.mutate(ctx, m)
+	case *RequestMutation:
+		return c.Request.mutate(ctx, m)
+	case *RequestFormFieldMutation:
+		return c.RequestFormField.mutate(ctx, m)
+	case *RequestHeaderMutation:
+		return c.RequestHeader.mutate(ctx, m)
+	case *RequestQueryParamMutation:
+		return c.RequestQueryParam.mutate(ctx, m)
 	case *WorkspaceMutation:
 		return c.Workspace.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// CollectionClient is a client for the Collection schema.
+type CollectionClient struct {
+	config
+}
+
+// NewCollectionClient returns a client for the Collection from the given config.
+func NewCollectionClient(c config) *CollectionClient {
+	return &CollectionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `collection.Hooks(f(g(h())))`.
+func (c *CollectionClient) Use(hooks ...Hook) {
+	c.hooks.Collection = append(c.hooks.Collection, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `collection.Intercept(f(g(h())))`.
+func (c *CollectionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Collection = append(c.inters.Collection, interceptors...)
+}
+
+// Create returns a builder for creating a Collection entity.
+func (c *CollectionClient) Create() *CollectionCreate {
+	mutation := newCollectionMutation(c.config, OpCreate)
+	return &CollectionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Collection entities.
+func (c *CollectionClient) CreateBulk(builders ...*CollectionCreate) *CollectionCreateBulk {
+	return &CollectionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CollectionClient) MapCreateBulk(slice any, setFunc func(*CollectionCreate, int)) *CollectionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CollectionCreateBulk{err: fmt.Errorf("calling to CollectionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CollectionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CollectionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Collection.
+func (c *CollectionClient) Update() *CollectionUpdate {
+	mutation := newCollectionMutation(c.config, OpUpdate)
+	return &CollectionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CollectionClient) UpdateOne(_m *Collection) *CollectionUpdateOne {
+	mutation := newCollectionMutation(c.config, OpUpdateOne, withCollection(_m))
+	return &CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CollectionClient) UpdateOneID(id uuid.UUID) *CollectionUpdateOne {
+	mutation := newCollectionMutation(c.config, OpUpdateOne, withCollectionID(id))
+	return &CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Collection.
+func (c *CollectionClient) Delete() *CollectionDelete {
+	mutation := newCollectionMutation(c.config, OpDelete)
+	return &CollectionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CollectionClient) DeleteOne(_m *Collection) *CollectionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CollectionClient) DeleteOneID(id uuid.UUID) *CollectionDeleteOne {
+	builder := c.Delete().Where(collection.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CollectionDeleteOne{builder}
+}
+
+// Query returns a query builder for Collection.
+func (c *CollectionClient) Query() *CollectionQuery {
+	return &CollectionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCollection},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Collection entity by its id.
+func (c *CollectionClient) Get(ctx context.Context, id uuid.UUID) (*Collection, error) {
+	return c.Query().Where(collection.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CollectionClient) GetX(ctx context.Context, id uuid.UUID) *Collection {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryWorkspace queries the workspace edge of a Collection.
+func (c *CollectionClient) QueryWorkspace(_m *Collection) *WorkspaceQuery {
+	query := (&WorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collection.Table, collection.FieldID, id),
+			sqlgraph.To(workspace.Table, workspace.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, collection.WorkspaceTable, collection.WorkspaceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequests queries the requests edge of a Collection.
+func (c *CollectionClient) QueryRequests(_m *Collection) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collection.Table, collection.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, collection.RequestsTable, collection.RequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CollectionClient) Hooks() []Hook {
+	return c.hooks.Collection
+}
+
+// Interceptors returns the client interceptors.
+func (c *CollectionClient) Interceptors() []Interceptor {
+	return c.inters.Collection
+}
+
+func (c *CollectionClient) mutate(ctx context.Context, m *CollectionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CollectionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CollectionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CollectionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Collection mutation op: %q", m.Op())
+	}
+}
+
+// EnvironmentClient is a client for the Environment schema.
+type EnvironmentClient struct {
+	config
+}
+
+// NewEnvironmentClient returns a client for the Environment from the given config.
+func NewEnvironmentClient(c config) *EnvironmentClient {
+	return &EnvironmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `environment.Hooks(f(g(h())))`.
+func (c *EnvironmentClient) Use(hooks ...Hook) {
+	c.hooks.Environment = append(c.hooks.Environment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `environment.Intercept(f(g(h())))`.
+func (c *EnvironmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Environment = append(c.inters.Environment, interceptors...)
+}
+
+// Create returns a builder for creating a Environment entity.
+func (c *EnvironmentClient) Create() *EnvironmentCreate {
+	mutation := newEnvironmentMutation(c.config, OpCreate)
+	return &EnvironmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Environment entities.
+func (c *EnvironmentClient) CreateBulk(builders ...*EnvironmentCreate) *EnvironmentCreateBulk {
+	return &EnvironmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EnvironmentClient) MapCreateBulk(slice any, setFunc func(*EnvironmentCreate, int)) *EnvironmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EnvironmentCreateBulk{err: fmt.Errorf("calling to EnvironmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EnvironmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EnvironmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Environment.
+func (c *EnvironmentClient) Update() *EnvironmentUpdate {
+	mutation := newEnvironmentMutation(c.config, OpUpdate)
+	return &EnvironmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EnvironmentClient) UpdateOne(_m *Environment) *EnvironmentUpdateOne {
+	mutation := newEnvironmentMutation(c.config, OpUpdateOne, withEnvironment(_m))
+	return &EnvironmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EnvironmentClient) UpdateOneID(id uuid.UUID) *EnvironmentUpdateOne {
+	mutation := newEnvironmentMutation(c.config, OpUpdateOne, withEnvironmentID(id))
+	return &EnvironmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Environment.
+func (c *EnvironmentClient) Delete() *EnvironmentDelete {
+	mutation := newEnvironmentMutation(c.config, OpDelete)
+	return &EnvironmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EnvironmentClient) DeleteOne(_m *Environment) *EnvironmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EnvironmentClient) DeleteOneID(id uuid.UUID) *EnvironmentDeleteOne {
+	builder := c.Delete().Where(environment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EnvironmentDeleteOne{builder}
+}
+
+// Query returns a query builder for Environment.
+func (c *EnvironmentClient) Query() *EnvironmentQuery {
+	return &EnvironmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEnvironment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Environment entity by its id.
+func (c *EnvironmentClient) Get(ctx context.Context, id uuid.UUID) (*Environment, error) {
+	return c.Query().Where(environment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EnvironmentClient) GetX(ctx context.Context, id uuid.UUID) *Environment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEnvironmentVariables queries the environment_variables edge of a Environment.
+func (c *EnvironmentClient) QueryEnvironmentVariables(_m *Environment) *EnvironmentVariableQuery {
+	query := (&EnvironmentVariableClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(environment.Table, environment.FieldID, id),
+			sqlgraph.To(environmentvariable.Table, environmentvariable.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, environment.EnvironmentVariablesTable, environment.EnvironmentVariablesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EnvironmentClient) Hooks() []Hook {
+	return c.hooks.Environment
+}
+
+// Interceptors returns the client interceptors.
+func (c *EnvironmentClient) Interceptors() []Interceptor {
+	return c.inters.Environment
+}
+
+func (c *EnvironmentClient) mutate(ctx context.Context, m *EnvironmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EnvironmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EnvironmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EnvironmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EnvironmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Environment mutation op: %q", m.Op())
+	}
+}
+
+// EnvironmentVariableClient is a client for the EnvironmentVariable schema.
+type EnvironmentVariableClient struct {
+	config
+}
+
+// NewEnvironmentVariableClient returns a client for the EnvironmentVariable from the given config.
+func NewEnvironmentVariableClient(c config) *EnvironmentVariableClient {
+	return &EnvironmentVariableClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `environmentvariable.Hooks(f(g(h())))`.
+func (c *EnvironmentVariableClient) Use(hooks ...Hook) {
+	c.hooks.EnvironmentVariable = append(c.hooks.EnvironmentVariable, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `environmentvariable.Intercept(f(g(h())))`.
+func (c *EnvironmentVariableClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EnvironmentVariable = append(c.inters.EnvironmentVariable, interceptors...)
+}
+
+// Create returns a builder for creating a EnvironmentVariable entity.
+func (c *EnvironmentVariableClient) Create() *EnvironmentVariableCreate {
+	mutation := newEnvironmentVariableMutation(c.config, OpCreate)
+	return &EnvironmentVariableCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EnvironmentVariable entities.
+func (c *EnvironmentVariableClient) CreateBulk(builders ...*EnvironmentVariableCreate) *EnvironmentVariableCreateBulk {
+	return &EnvironmentVariableCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EnvironmentVariableClient) MapCreateBulk(slice any, setFunc func(*EnvironmentVariableCreate, int)) *EnvironmentVariableCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EnvironmentVariableCreateBulk{err: fmt.Errorf("calling to EnvironmentVariableClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EnvironmentVariableCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EnvironmentVariableCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EnvironmentVariable.
+func (c *EnvironmentVariableClient) Update() *EnvironmentVariableUpdate {
+	mutation := newEnvironmentVariableMutation(c.config, OpUpdate)
+	return &EnvironmentVariableUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EnvironmentVariableClient) UpdateOne(_m *EnvironmentVariable) *EnvironmentVariableUpdateOne {
+	mutation := newEnvironmentVariableMutation(c.config, OpUpdateOne, withEnvironmentVariable(_m))
+	return &EnvironmentVariableUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EnvironmentVariableClient) UpdateOneID(id uuid.UUID) *EnvironmentVariableUpdateOne {
+	mutation := newEnvironmentVariableMutation(c.config, OpUpdateOne, withEnvironmentVariableID(id))
+	return &EnvironmentVariableUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EnvironmentVariable.
+func (c *EnvironmentVariableClient) Delete() *EnvironmentVariableDelete {
+	mutation := newEnvironmentVariableMutation(c.config, OpDelete)
+	return &EnvironmentVariableDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EnvironmentVariableClient) DeleteOne(_m *EnvironmentVariable) *EnvironmentVariableDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EnvironmentVariableClient) DeleteOneID(id uuid.UUID) *EnvironmentVariableDeleteOne {
+	builder := c.Delete().Where(environmentvariable.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EnvironmentVariableDeleteOne{builder}
+}
+
+// Query returns a query builder for EnvironmentVariable.
+func (c *EnvironmentVariableClient) Query() *EnvironmentVariableQuery {
+	return &EnvironmentVariableQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEnvironmentVariable},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EnvironmentVariable entity by its id.
+func (c *EnvironmentVariableClient) Get(ctx context.Context, id uuid.UUID) (*EnvironmentVariable, error) {
+	return c.Query().Where(environmentvariable.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EnvironmentVariableClient) GetX(ctx context.Context, id uuid.UUID) *EnvironmentVariable {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEnvironment queries the environment edge of a EnvironmentVariable.
+func (c *EnvironmentVariableClient) QueryEnvironment(_m *EnvironmentVariable) *EnvironmentQuery {
+	query := (&EnvironmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(environmentvariable.Table, environmentvariable.FieldID, id),
+			sqlgraph.To(environment.Table, environment.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, environmentvariable.EnvironmentTable, environmentvariable.EnvironmentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EnvironmentVariableClient) Hooks() []Hook {
+	return c.hooks.EnvironmentVariable
+}
+
+// Interceptors returns the client interceptors.
+func (c *EnvironmentVariableClient) Interceptors() []Interceptor {
+	return c.inters.EnvironmentVariable
+}
+
+func (c *EnvironmentVariableClient) mutate(ctx context.Context, m *EnvironmentVariableMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EnvironmentVariableCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EnvironmentVariableUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EnvironmentVariableUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EnvironmentVariableDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EnvironmentVariable mutation op: %q", m.Op())
 	}
 }
 
@@ -268,7 +797,7 @@ func (c *HistoryClient) UpdateOne(_m *History) *HistoryUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *HistoryClient) UpdateOneID(id int) *HistoryUpdateOne {
+func (c *HistoryClient) UpdateOneID(id uuid.UUID) *HistoryUpdateOne {
 	mutation := newHistoryMutation(c.config, OpUpdateOne, withHistoryID(id))
 	return &HistoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -285,7 +814,7 @@ func (c *HistoryClient) DeleteOne(_m *History) *HistoryDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *HistoryClient) DeleteOneID(id int) *HistoryDeleteOne {
+func (c *HistoryClient) DeleteOneID(id uuid.UUID) *HistoryDeleteOne {
 	builder := c.Delete().Where(history.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -302,17 +831,49 @@ func (c *HistoryClient) Query() *HistoryQuery {
 }
 
 // Get returns a History entity by its id.
-func (c *HistoryClient) Get(ctx context.Context, id int) (*History, error) {
+func (c *HistoryClient) Get(ctx context.Context, id uuid.UUID) (*History, error) {
 	return c.Query().Where(history.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *HistoryClient) GetX(ctx context.Context, id int) *History {
+func (c *HistoryClient) GetX(ctx context.Context, id uuid.UUID) *History {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryWorkspace queries the workspace edge of a History.
+func (c *HistoryClient) QueryWorkspace(_m *History) *WorkspaceQuery {
+	query := (&WorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(history.Table, history.FieldID, id),
+			sqlgraph.To(workspace.Table, workspace.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, history.WorkspaceTable, history.WorkspaceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequest queries the request edge of a History.
+func (c *HistoryClient) QueryRequest(_m *History) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(history.Table, history.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, history.RequestTable, history.RequestColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.
@@ -337,6 +898,682 @@ func (c *HistoryClient) mutate(ctx context.Context, m *HistoryMutation) (Value, 
 		return (&HistoryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown History mutation op: %q", m.Op())
+	}
+}
+
+// RequestClient is a client for the Request schema.
+type RequestClient struct {
+	config
+}
+
+// NewRequestClient returns a client for the Request from the given config.
+func NewRequestClient(c config) *RequestClient {
+	return &RequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `request.Hooks(f(g(h())))`.
+func (c *RequestClient) Use(hooks ...Hook) {
+	c.hooks.Request = append(c.hooks.Request, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `request.Intercept(f(g(h())))`.
+func (c *RequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Request = append(c.inters.Request, interceptors...)
+}
+
+// Create returns a builder for creating a Request entity.
+func (c *RequestClient) Create() *RequestCreate {
+	mutation := newRequestMutation(c.config, OpCreate)
+	return &RequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Request entities.
+func (c *RequestClient) CreateBulk(builders ...*RequestCreate) *RequestCreateBulk {
+	return &RequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RequestClient) MapCreateBulk(slice any, setFunc func(*RequestCreate, int)) *RequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RequestCreateBulk{err: fmt.Errorf("calling to RequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Request.
+func (c *RequestClient) Update() *RequestUpdate {
+	mutation := newRequestMutation(c.config, OpUpdate)
+	return &RequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RequestClient) UpdateOne(_m *Request) *RequestUpdateOne {
+	mutation := newRequestMutation(c.config, OpUpdateOne, withRequest(_m))
+	return &RequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RequestClient) UpdateOneID(id uuid.UUID) *RequestUpdateOne {
+	mutation := newRequestMutation(c.config, OpUpdateOne, withRequestID(id))
+	return &RequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Request.
+func (c *RequestClient) Delete() *RequestDelete {
+	mutation := newRequestMutation(c.config, OpDelete)
+	return &RequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RequestClient) DeleteOne(_m *Request) *RequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RequestClient) DeleteOneID(id uuid.UUID) *RequestDeleteOne {
+	builder := c.Delete().Where(request.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RequestDeleteOne{builder}
+}
+
+// Query returns a query builder for Request.
+func (c *RequestClient) Query() *RequestQuery {
+	return &RequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Request entity by its id.
+func (c *RequestClient) Get(ctx context.Context, id uuid.UUID) (*Request, error) {
+	return c.Query().Where(request.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RequestClient) GetX(ctx context.Context, id uuid.UUID) *Request {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryWorkspace queries the workspace edge of a Request.
+func (c *RequestClient) QueryWorkspace(_m *Request) *WorkspaceQuery {
+	query := (&WorkspaceClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(workspace.Table, workspace.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, request.WorkspaceTable, request.WorkspaceColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCollection queries the collection edge of a Request.
+func (c *RequestClient) QueryCollection(_m *Request) *CollectionQuery {
+	query := (&CollectionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(collection.Table, collection.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, request.CollectionTable, request.CollectionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequestHeaders queries the request_headers edge of a Request.
+func (c *RequestClient) QueryRequestHeaders(_m *Request) *RequestHeaderQuery {
+	query := (&RequestHeaderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(requestheader.Table, requestheader.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestHeadersTable, request.RequestHeadersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequestQueryParams queries the request_query_params edge of a Request.
+func (c *RequestClient) QueryRequestQueryParams(_m *Request) *RequestQueryParamQuery {
+	query := (&RequestQueryParamClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(requestqueryparam.Table, requestqueryparam.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestQueryParamsTable, request.RequestQueryParamsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequestFormFields queries the request_form_fields edge of a Request.
+func (c *RequestClient) QueryRequestFormFields(_m *Request) *RequestFormFieldQuery {
+	query := (&RequestFormFieldClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(requestformfield.Table, requestformfield.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestFormFieldsTable, request.RequestFormFieldsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryHistories queries the histories edge of a Request.
+func (c *RequestClient) QueryHistories(_m *Request) *HistoryQuery {
+	query := (&HistoryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(history.Table, history.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.HistoriesTable, request.HistoriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RequestClient) Hooks() []Hook {
+	return c.hooks.Request
+}
+
+// Interceptors returns the client interceptors.
+func (c *RequestClient) Interceptors() []Interceptor {
+	return c.inters.Request
+}
+
+func (c *RequestClient) mutate(ctx context.Context, m *RequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Request mutation op: %q", m.Op())
+	}
+}
+
+// RequestFormFieldClient is a client for the RequestFormField schema.
+type RequestFormFieldClient struct {
+	config
+}
+
+// NewRequestFormFieldClient returns a client for the RequestFormField from the given config.
+func NewRequestFormFieldClient(c config) *RequestFormFieldClient {
+	return &RequestFormFieldClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `requestformfield.Hooks(f(g(h())))`.
+func (c *RequestFormFieldClient) Use(hooks ...Hook) {
+	c.hooks.RequestFormField = append(c.hooks.RequestFormField, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `requestformfield.Intercept(f(g(h())))`.
+func (c *RequestFormFieldClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RequestFormField = append(c.inters.RequestFormField, interceptors...)
+}
+
+// Create returns a builder for creating a RequestFormField entity.
+func (c *RequestFormFieldClient) Create() *RequestFormFieldCreate {
+	mutation := newRequestFormFieldMutation(c.config, OpCreate)
+	return &RequestFormFieldCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RequestFormField entities.
+func (c *RequestFormFieldClient) CreateBulk(builders ...*RequestFormFieldCreate) *RequestFormFieldCreateBulk {
+	return &RequestFormFieldCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RequestFormFieldClient) MapCreateBulk(slice any, setFunc func(*RequestFormFieldCreate, int)) *RequestFormFieldCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RequestFormFieldCreateBulk{err: fmt.Errorf("calling to RequestFormFieldClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RequestFormFieldCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RequestFormFieldCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RequestFormField.
+func (c *RequestFormFieldClient) Update() *RequestFormFieldUpdate {
+	mutation := newRequestFormFieldMutation(c.config, OpUpdate)
+	return &RequestFormFieldUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RequestFormFieldClient) UpdateOne(_m *RequestFormField) *RequestFormFieldUpdateOne {
+	mutation := newRequestFormFieldMutation(c.config, OpUpdateOne, withRequestFormField(_m))
+	return &RequestFormFieldUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RequestFormFieldClient) UpdateOneID(id uuid.UUID) *RequestFormFieldUpdateOne {
+	mutation := newRequestFormFieldMutation(c.config, OpUpdateOne, withRequestFormFieldID(id))
+	return &RequestFormFieldUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RequestFormField.
+func (c *RequestFormFieldClient) Delete() *RequestFormFieldDelete {
+	mutation := newRequestFormFieldMutation(c.config, OpDelete)
+	return &RequestFormFieldDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RequestFormFieldClient) DeleteOne(_m *RequestFormField) *RequestFormFieldDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RequestFormFieldClient) DeleteOneID(id uuid.UUID) *RequestFormFieldDeleteOne {
+	builder := c.Delete().Where(requestformfield.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RequestFormFieldDeleteOne{builder}
+}
+
+// Query returns a query builder for RequestFormField.
+func (c *RequestFormFieldClient) Query() *RequestFormFieldQuery {
+	return &RequestFormFieldQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRequestFormField},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RequestFormField entity by its id.
+func (c *RequestFormFieldClient) Get(ctx context.Context, id uuid.UUID) (*RequestFormField, error) {
+	return c.Query().Where(requestformfield.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RequestFormFieldClient) GetX(ctx context.Context, id uuid.UUID) *RequestFormField {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRequest queries the request edge of a RequestFormField.
+func (c *RequestFormFieldClient) QueryRequest(_m *RequestFormField) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(requestformfield.Table, requestformfield.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, requestformfield.RequestTable, requestformfield.RequestColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RequestFormFieldClient) Hooks() []Hook {
+	return c.hooks.RequestFormField
+}
+
+// Interceptors returns the client interceptors.
+func (c *RequestFormFieldClient) Interceptors() []Interceptor {
+	return c.inters.RequestFormField
+}
+
+func (c *RequestFormFieldClient) mutate(ctx context.Context, m *RequestFormFieldMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RequestFormFieldCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RequestFormFieldUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RequestFormFieldUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RequestFormFieldDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RequestFormField mutation op: %q", m.Op())
+	}
+}
+
+// RequestHeaderClient is a client for the RequestHeader schema.
+type RequestHeaderClient struct {
+	config
+}
+
+// NewRequestHeaderClient returns a client for the RequestHeader from the given config.
+func NewRequestHeaderClient(c config) *RequestHeaderClient {
+	return &RequestHeaderClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `requestheader.Hooks(f(g(h())))`.
+func (c *RequestHeaderClient) Use(hooks ...Hook) {
+	c.hooks.RequestHeader = append(c.hooks.RequestHeader, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `requestheader.Intercept(f(g(h())))`.
+func (c *RequestHeaderClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RequestHeader = append(c.inters.RequestHeader, interceptors...)
+}
+
+// Create returns a builder for creating a RequestHeader entity.
+func (c *RequestHeaderClient) Create() *RequestHeaderCreate {
+	mutation := newRequestHeaderMutation(c.config, OpCreate)
+	return &RequestHeaderCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RequestHeader entities.
+func (c *RequestHeaderClient) CreateBulk(builders ...*RequestHeaderCreate) *RequestHeaderCreateBulk {
+	return &RequestHeaderCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RequestHeaderClient) MapCreateBulk(slice any, setFunc func(*RequestHeaderCreate, int)) *RequestHeaderCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RequestHeaderCreateBulk{err: fmt.Errorf("calling to RequestHeaderClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RequestHeaderCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RequestHeaderCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RequestHeader.
+func (c *RequestHeaderClient) Update() *RequestHeaderUpdate {
+	mutation := newRequestHeaderMutation(c.config, OpUpdate)
+	return &RequestHeaderUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RequestHeaderClient) UpdateOne(_m *RequestHeader) *RequestHeaderUpdateOne {
+	mutation := newRequestHeaderMutation(c.config, OpUpdateOne, withRequestHeader(_m))
+	return &RequestHeaderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RequestHeaderClient) UpdateOneID(id uuid.UUID) *RequestHeaderUpdateOne {
+	mutation := newRequestHeaderMutation(c.config, OpUpdateOne, withRequestHeaderID(id))
+	return &RequestHeaderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RequestHeader.
+func (c *RequestHeaderClient) Delete() *RequestHeaderDelete {
+	mutation := newRequestHeaderMutation(c.config, OpDelete)
+	return &RequestHeaderDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RequestHeaderClient) DeleteOne(_m *RequestHeader) *RequestHeaderDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RequestHeaderClient) DeleteOneID(id uuid.UUID) *RequestHeaderDeleteOne {
+	builder := c.Delete().Where(requestheader.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RequestHeaderDeleteOne{builder}
+}
+
+// Query returns a query builder for RequestHeader.
+func (c *RequestHeaderClient) Query() *RequestHeaderQuery {
+	return &RequestHeaderQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRequestHeader},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RequestHeader entity by its id.
+func (c *RequestHeaderClient) Get(ctx context.Context, id uuid.UUID) (*RequestHeader, error) {
+	return c.Query().Where(requestheader.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RequestHeaderClient) GetX(ctx context.Context, id uuid.UUID) *RequestHeader {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRequest queries the request edge of a RequestHeader.
+func (c *RequestHeaderClient) QueryRequest(_m *RequestHeader) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(requestheader.Table, requestheader.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, requestheader.RequestTable, requestheader.RequestColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RequestHeaderClient) Hooks() []Hook {
+	return c.hooks.RequestHeader
+}
+
+// Interceptors returns the client interceptors.
+func (c *RequestHeaderClient) Interceptors() []Interceptor {
+	return c.inters.RequestHeader
+}
+
+func (c *RequestHeaderClient) mutate(ctx context.Context, m *RequestHeaderMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RequestHeaderCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RequestHeaderUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RequestHeaderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RequestHeaderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RequestHeader mutation op: %q", m.Op())
+	}
+}
+
+// RequestQueryParamClient is a client for the RequestQueryParam schema.
+type RequestQueryParamClient struct {
+	config
+}
+
+// NewRequestQueryParamClient returns a client for the RequestQueryParam from the given config.
+func NewRequestQueryParamClient(c config) *RequestQueryParamClient {
+	return &RequestQueryParamClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `requestqueryparam.Hooks(f(g(h())))`.
+func (c *RequestQueryParamClient) Use(hooks ...Hook) {
+	c.hooks.RequestQueryParam = append(c.hooks.RequestQueryParam, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `requestqueryparam.Intercept(f(g(h())))`.
+func (c *RequestQueryParamClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RequestQueryParam = append(c.inters.RequestQueryParam, interceptors...)
+}
+
+// Create returns a builder for creating a RequestQueryParam entity.
+func (c *RequestQueryParamClient) Create() *RequestQueryParamCreate {
+	mutation := newRequestQueryParamMutation(c.config, OpCreate)
+	return &RequestQueryParamCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RequestQueryParam entities.
+func (c *RequestQueryParamClient) CreateBulk(builders ...*RequestQueryParamCreate) *RequestQueryParamCreateBulk {
+	return &RequestQueryParamCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RequestQueryParamClient) MapCreateBulk(slice any, setFunc func(*RequestQueryParamCreate, int)) *RequestQueryParamCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RequestQueryParamCreateBulk{err: fmt.Errorf("calling to RequestQueryParamClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RequestQueryParamCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RequestQueryParamCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RequestQueryParam.
+func (c *RequestQueryParamClient) Update() *RequestQueryParamUpdate {
+	mutation := newRequestQueryParamMutation(c.config, OpUpdate)
+	return &RequestQueryParamUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RequestQueryParamClient) UpdateOne(_m *RequestQueryParam) *RequestQueryParamUpdateOne {
+	mutation := newRequestQueryParamMutation(c.config, OpUpdateOne, withRequestQueryParam(_m))
+	return &RequestQueryParamUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RequestQueryParamClient) UpdateOneID(id uuid.UUID) *RequestQueryParamUpdateOne {
+	mutation := newRequestQueryParamMutation(c.config, OpUpdateOne, withRequestQueryParamID(id))
+	return &RequestQueryParamUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RequestQueryParam.
+func (c *RequestQueryParamClient) Delete() *RequestQueryParamDelete {
+	mutation := newRequestQueryParamMutation(c.config, OpDelete)
+	return &RequestQueryParamDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RequestQueryParamClient) DeleteOne(_m *RequestQueryParam) *RequestQueryParamDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RequestQueryParamClient) DeleteOneID(id uuid.UUID) *RequestQueryParamDeleteOne {
+	builder := c.Delete().Where(requestqueryparam.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RequestQueryParamDeleteOne{builder}
+}
+
+// Query returns a query builder for RequestQueryParam.
+func (c *RequestQueryParamClient) Query() *RequestQueryParamQuery {
+	return &RequestQueryParamQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRequestQueryParam},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RequestQueryParam entity by its id.
+func (c *RequestQueryParamClient) Get(ctx context.Context, id uuid.UUID) (*RequestQueryParam, error) {
+	return c.Query().Where(requestqueryparam.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RequestQueryParamClient) GetX(ctx context.Context, id uuid.UUID) *RequestQueryParam {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRequest queries the request edge of a RequestQueryParam.
+func (c *RequestQueryParamClient) QueryRequest(_m *RequestQueryParam) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(requestqueryparam.Table, requestqueryparam.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, requestqueryparam.RequestTable, requestqueryparam.RequestColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RequestQueryParamClient) Hooks() []Hook {
+	return c.hooks.RequestQueryParam
+}
+
+// Interceptors returns the client interceptors.
+func (c *RequestQueryParamClient) Interceptors() []Interceptor {
+	return c.inters.RequestQueryParam
+}
+
+func (c *RequestQueryParamClient) mutate(ctx context.Context, m *RequestQueryParamMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RequestQueryParamCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RequestQueryParamUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RequestQueryParamUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RequestQueryParamDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RequestQueryParam mutation op: %q", m.Op())
 	}
 }
 
@@ -401,7 +1638,7 @@ func (c *WorkspaceClient) UpdateOne(_m *Workspace) *WorkspaceUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *WorkspaceClient) UpdateOneID(id int) *WorkspaceUpdateOne {
+func (c *WorkspaceClient) UpdateOneID(id uuid.UUID) *WorkspaceUpdateOne {
 	mutation := newWorkspaceMutation(c.config, OpUpdateOne, withWorkspaceID(id))
 	return &WorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -418,7 +1655,7 @@ func (c *WorkspaceClient) DeleteOne(_m *Workspace) *WorkspaceDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *WorkspaceClient) DeleteOneID(id int) *WorkspaceDeleteOne {
+func (c *WorkspaceClient) DeleteOneID(id uuid.UUID) *WorkspaceDeleteOne {
 	builder := c.Delete().Where(workspace.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -435,17 +1672,65 @@ func (c *WorkspaceClient) Query() *WorkspaceQuery {
 }
 
 // Get returns a Workspace entity by its id.
-func (c *WorkspaceClient) Get(ctx context.Context, id int) (*Workspace, error) {
+func (c *WorkspaceClient) Get(ctx context.Context, id uuid.UUID) (*Workspace, error) {
 	return c.Query().Where(workspace.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *WorkspaceClient) GetX(ctx context.Context, id int) *Workspace {
+func (c *WorkspaceClient) GetX(ctx context.Context, id uuid.UUID) *Workspace {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryCollections queries the collections edge of a Workspace.
+func (c *WorkspaceClient) QueryCollections(_m *Workspace) *CollectionQuery {
+	query := (&CollectionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workspace.Table, workspace.FieldID, id),
+			sqlgraph.To(collection.Table, collection.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workspace.CollectionsTable, workspace.CollectionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequests queries the requests edge of a Workspace.
+func (c *WorkspaceClient) QueryRequests(_m *Workspace) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workspace.Table, workspace.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workspace.RequestsTable, workspace.RequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryHistories queries the histories edge of a Workspace.
+func (c *WorkspaceClient) QueryHistories(_m *Workspace) *HistoryQuery {
+	query := (&HistoryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(workspace.Table, workspace.FieldID, id),
+			sqlgraph.To(history.Table, history.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, workspace.HistoriesTable, workspace.HistoriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.
@@ -476,9 +1761,11 @@ func (c *WorkspaceClient) mutate(ctx context.Context, m *WorkspaceMutation) (Val
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		History, Workspace []ent.Hook
+		Collection, Environment, EnvironmentVariable, History, Request,
+		RequestFormField, RequestHeader, RequestQueryParam, Workspace []ent.Hook
 	}
 	inters struct {
-		History, Workspace []ent.Interceptor
+		Collection, Environment, EnvironmentVariable, History, Request,
+		RequestFormField, RequestHeader, RequestQueryParam, Workspace []ent.Interceptor
 	}
 )

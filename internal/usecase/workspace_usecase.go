@@ -15,8 +15,8 @@ import (
 type WorkspaceUsecase interface {
 	CreateWorkspace(ctx context.Context, item *entity.WorkspaceItem) (*entity.WorkspaceItem, *apperror.AppError)
 	ListWorkspaces(ctx context.Context) ([]*entity.WorkspaceItem, error)
-	UpdateWorkspace(ctx context.Context, id int, name, desc string) error
-	DeleteWorkspace(ctx context.Context, id int) error
+	UpdateWorkspace(ctx context.Context, id string, name, desc string) error
+	DeleteWorkspace(ctx context.Context, id string) error
 }
 
 type workspaceUsecaseImpl struct {
@@ -78,7 +78,7 @@ func (uc *workspaceUsecaseImpl) ListWorkspaces(ctx context.Context) ([]*entity.W
 	return items, nil
 }
 
-func (uc *workspaceUsecaseImpl) UpdateWorkspace(ctx context.Context, id int, name, desc string) error {
+func (uc *workspaceUsecaseImpl) UpdateWorkspace(ctx context.Context, id string, name, desc string) error {
 	name = strings.TrimSpace(name)
 	desc = strings.TrimSpace(desc)
 	if name == "" {
@@ -92,9 +92,9 @@ func (uc *workspaceUsecaseImpl) UpdateWorkspace(ctx context.Context, id int, nam
 		logger.L().ErrorContext(ctx, "UpdateWorkspace - get by name error", "name", name, "error", err)
 		return apperror.NewWithErrorDetail(constant.ErrDatabase, err)
 	}
-	if other != nil && other.ID != id {
+	if other != nil && other.ID.String() != id {
 		logger.L().WarnContext(ctx, "UpdateWorkspace blocked: name already used by another workspace",
-			"name", name, "existing_id", other.ID, "editing_id", id)
+			"name", name, "existing_id", other.ID.String(), "editing_id", id)
 		return apperror.NewWithErrorDetail(constant.ErrWorkspaceAlreadyExisted, nil)
 	}
 
@@ -106,7 +106,7 @@ func (uc *workspaceUsecaseImpl) UpdateWorkspace(ctx context.Context, id int, nam
 	return nil
 }
 
-func (uc *workspaceUsecaseImpl) DeleteWorkspace(ctx context.Context, id int) error {
+func (uc *workspaceUsecaseImpl) DeleteWorkspace(ctx context.Context, id string) error {
 	if err := uc.workspaceRepo.DeleteByID(ctx, id); err != nil {
 		logger.L().ErrorContext(ctx, "DeleteWorkspace failed", "id", id, "error", err)
 		return err

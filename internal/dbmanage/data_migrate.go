@@ -6,7 +6,6 @@ import (
 )
 
 // MigrateDataBetweenVersions chạy trước ent.Schema.Create khi user_version DB < constant.DBSchemaUserVersion.
-// Thêm case khi bump DBSchemaUserVersion: export/transform SQL/chép bảng tạm giữa DB cũ → file mới (tùy kịch bản phá vỡ).
 func MigrateDataBetweenVersions(ctx context.Context, db *sql.DB, from, to int) error {
 	_ = ctx
 	if from >= to {
@@ -23,9 +22,33 @@ func MigrateDataBetweenVersions(ctx context.Context, db *sql.DB, from, to int) e
 func migrateOneStep(db *sql.DB, from, to int) error {
 	switch from {
 	case 0:
-		// → 1: không cần chuyển dữ liệu (schema Ent + Schema.Create xử lý additive)
+		// → 1: legacy; DB mới dùng Schema.Create
 		return nil
+	case 1:
+		// → 2: schema Ent chuyển từ int PK sang UUID + bảng mới; DB cũ (chỉ workspaces/histories kiểu cũ) cần drop để Schema.Create tạo lại
+		return dropLegacyTablesForUUIDSchema(db)
 	default:
 		return nil
 	}
+}
+
+func dropLegacyTablesForUUIDSchema(db *sql.DB) error {
+	// Thứ tự: bảng phụ / FK trước (an toàn với IF EXISTS)
+	stmts := []string{
+		`DROP TABLE IF EXISTS environment_variables`,
+		`DROP TABLE IF EXISTS environments`,
+		`DROP TABLE IF EXISTS request_form_fields`,
+		`DROP TABLE IF EXISTS request_query_params`,
+		`DROP TABLE IF EXISTS request_headers`,
+		`DROP TABLE IF EXISTS histories`,
+		`DROP TABLE IF EXISTS requests`,
+		`DROP TABLE IF EXISTS collections`,
+		`DROP TABLE IF EXISTS workspaces`,
+	}
+	for _, q := range stmts {
+		if _, err := db.Exec(q); err != nil {
+			return err
+		}
+	}
+	return nil
 }

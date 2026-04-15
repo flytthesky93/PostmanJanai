@@ -1,7 +1,7 @@
 export namespace entity {
 	
 	export class WorkspaceItem {
-	    id: number;
+	    id: string;
 	    workspace_name: string;
 	    workspace_description: string;
 	    // Go type: time

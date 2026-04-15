@@ -4,32 +4,83 @@ package ent
 
 import (
 	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/workspace"
 	"fmt"
 	"strings"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 // History is the model entity for the History schema.
 type History struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uuid.UUID `json:"id,omitempty"`
+	// WorkspaceID holds the value of the "workspace_id" field.
+	WorkspaceID *uuid.UUID `json:"workspace_id,omitempty"`
+	// RequestID holds the value of the "request_id" field.
+	RequestID *uuid.UUID `json:"request_id,omitempty"`
 	// Method holds the value of the "method" field.
 	Method string `json:"method,omitempty"`
 	// URL holds the value of the "url" field.
 	URL string `json:"url,omitempty"`
 	// StatusCode holds the value of the "status_code" field.
 	StatusCode int `json:"status_code,omitempty"`
+	// DurationMs holds the value of the "duration_ms" field.
+	DurationMs *int `json:"duration_ms,omitempty"`
+	// ResponseSizeBytes holds the value of the "response_size_bytes" field.
+	ResponseSizeBytes *int `json:"response_size_bytes,omitempty"`
+	// RequestHeadersJSON holds the value of the "request_headers_json" field.
+	RequestHeadersJSON *string `json:"request_headers_json,omitempty"`
+	// ResponseHeadersJSON holds the value of the "response_headers_json" field.
+	ResponseHeadersJSON *string `json:"response_headers_json,omitempty"`
 	// RequestBody holds the value of the "request_body" field.
-	RequestBody string `json:"request_body,omitempty"`
+	RequestBody *string `json:"request_body,omitempty"`
 	// ResponseBody holds the value of the "response_body" field.
-	ResponseBody string `json:"response_body,omitempty"`
+	ResponseBody *string `json:"response_body,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the HistoryQuery when eager-loading is set.
+	Edges        HistoryEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// HistoryEdges holds the relations/edges for other nodes in the graph.
+type HistoryEdges struct {
+	// Workspace holds the value of the workspace edge.
+	Workspace *Workspace `json:"workspace,omitempty"`
+	// Request holds the value of the request edge.
+	Request *Request `json:"request,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// WorkspaceOrErr returns the Workspace value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e HistoryEdges) WorkspaceOrErr() (*Workspace, error) {
+	if e.Workspace != nil {
+		return e.Workspace, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: workspace.Label}
+	}
+	return nil, &NotLoadedError{edge: "workspace"}
+}
+
+// RequestOrErr returns the Request value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e HistoryEdges) RequestOrErr() (*Request, error) {
+	if e.Request != nil {
+		return e.Request, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: request.Label}
+	}
+	return nil, &NotLoadedError{edge: "request"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -37,12 +88,16 @@ func (*History) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case history.FieldID, history.FieldStatusCode:
+		case history.FieldWorkspaceID, history.FieldRequestID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case history.FieldStatusCode, history.FieldDurationMs, history.FieldResponseSizeBytes:
 			values[i] = new(sql.NullInt64)
-		case history.FieldMethod, history.FieldURL, history.FieldRequestBody, history.FieldResponseBody:
+		case history.FieldMethod, history.FieldURL, history.FieldRequestHeadersJSON, history.FieldResponseHeadersJSON, history.FieldRequestBody, history.FieldResponseBody:
 			values[i] = new(sql.NullString)
 		case history.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
+		case history.FieldID:
+			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -59,11 +114,25 @@ func (_m *History) assignValues(columns []string, values []any) error {
 	for i := range columns {
 		switch columns[i] {
 		case history.FieldID:
-			value, ok := values[i].(*sql.NullInt64)
-			if !ok {
-				return fmt.Errorf("unexpected type %T for field id", value)
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field id", values[i])
+			} else if value != nil {
+				_m.ID = *value
 			}
-			_m.ID = int(value.Int64)
+		case history.FieldWorkspaceID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field workspace_id", values[i])
+			} else if value.Valid {
+				_m.WorkspaceID = new(uuid.UUID)
+				*_m.WorkspaceID = *value.S.(*uuid.UUID)
+			}
+		case history.FieldRequestID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field request_id", values[i])
+			} else if value.Valid {
+				_m.RequestID = new(uuid.UUID)
+				*_m.RequestID = *value.S.(*uuid.UUID)
+			}
 		case history.FieldMethod:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field method", values[i])
@@ -82,17 +151,47 @@ func (_m *History) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.StatusCode = int(value.Int64)
 			}
+		case history.FieldDurationMs:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field duration_ms", values[i])
+			} else if value.Valid {
+				_m.DurationMs = new(int)
+				*_m.DurationMs = int(value.Int64)
+			}
+		case history.FieldResponseSizeBytes:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field response_size_bytes", values[i])
+			} else if value.Valid {
+				_m.ResponseSizeBytes = new(int)
+				*_m.ResponseSizeBytes = int(value.Int64)
+			}
+		case history.FieldRequestHeadersJSON:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field request_headers_json", values[i])
+			} else if value.Valid {
+				_m.RequestHeadersJSON = new(string)
+				*_m.RequestHeadersJSON = value.String
+			}
+		case history.FieldResponseHeadersJSON:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field response_headers_json", values[i])
+			} else if value.Valid {
+				_m.ResponseHeadersJSON = new(string)
+				*_m.ResponseHeadersJSON = value.String
+			}
 		case history.FieldRequestBody:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field request_body", values[i])
 			} else if value.Valid {
-				_m.RequestBody = value.String
+				_m.RequestBody = new(string)
+				*_m.RequestBody = value.String
 			}
 		case history.FieldResponseBody:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field response_body", values[i])
 			} else if value.Valid {
-				_m.ResponseBody = value.String
+				_m.ResponseBody = new(string)
+				*_m.ResponseBody = value.String
 			}
 		case history.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -111,6 +210,16 @@ func (_m *History) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *History) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryWorkspace queries the "workspace" edge of the History entity.
+func (_m *History) QueryWorkspace() *WorkspaceQuery {
+	return NewHistoryClient(_m.config).QueryWorkspace(_m)
+}
+
+// QueryRequest queries the "request" edge of the History entity.
+func (_m *History) QueryRequest() *RequestQuery {
+	return NewHistoryClient(_m.config).QueryRequest(_m)
 }
 
 // Update returns a builder for updating this History.
@@ -136,6 +245,16 @@ func (_m *History) String() string {
 	var builder strings.Builder
 	builder.WriteString("History(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
+	if v := _m.WorkspaceID; v != nil {
+		builder.WriteString("workspace_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RequestID; v != nil {
+		builder.WriteString("request_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("method=")
 	builder.WriteString(_m.Method)
 	builder.WriteString(", ")
@@ -145,11 +264,35 @@ func (_m *History) String() string {
 	builder.WriteString("status_code=")
 	builder.WriteString(fmt.Sprintf("%v", _m.StatusCode))
 	builder.WriteString(", ")
-	builder.WriteString("request_body=")
-	builder.WriteString(_m.RequestBody)
+	if v := _m.DurationMs; v != nil {
+		builder.WriteString("duration_ms=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
-	builder.WriteString("response_body=")
-	builder.WriteString(_m.ResponseBody)
+	if v := _m.ResponseSizeBytes; v != nil {
+		builder.WriteString("response_size_bytes=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RequestHeadersJSON; v != nil {
+		builder.WriteString("request_headers_json=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.ResponseHeadersJSON; v != nil {
+		builder.WriteString("response_headers_json=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.RequestBody; v != nil {
+		builder.WriteString("request_body=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.ResponseBody; v != nil {
+		builder.WriteString("response_body=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

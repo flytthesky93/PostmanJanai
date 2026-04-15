@@ -5,10 +5,10 @@ import {context} from '../models';
 
 export function CreateWorkspace(arg1:entity.WorkspaceItem):Promise<entity.WorkspaceItem>;
 
-export function Delete(arg1:number):Promise<void>;
+export function Delete(arg1:string):Promise<void>;
 
 export function GetAll():Promise<Array<entity.WorkspaceItem>>;
 
 export function SetContext(arg1:context.Context):Promise<void>;
 
-export function Update(arg1:number,arg2:string,arg3:string):Promise<string>;
+export function Update(arg1:string,arg2:string,arg3:string):Promise<string>;

@@ -4,6 +4,8 @@ package ent
 
 import (
 	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // HistoryCreate is the builder for creating a History entity.
@@ -20,17 +23,37 @@ type HistoryCreate struct {
 	hooks    []Hook
 }
 
-// SetMethod sets the "method" field.
-func (_c *HistoryCreate) SetMethod(v string) *HistoryCreate {
-	_c.mutation.SetMethod(v)
+// SetWorkspaceID sets the "workspace_id" field.
+func (_c *HistoryCreate) SetWorkspaceID(v uuid.UUID) *HistoryCreate {
+	_c.mutation.SetWorkspaceID(v)
 	return _c
 }
 
-// SetNillableMethod sets the "method" field if the given value is not nil.
-func (_c *HistoryCreate) SetNillableMethod(v *string) *HistoryCreate {
+// SetNillableWorkspaceID sets the "workspace_id" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableWorkspaceID(v *uuid.UUID) *HistoryCreate {
 	if v != nil {
-		_c.SetMethod(*v)
+		_c.SetWorkspaceID(*v)
 	}
+	return _c
+}
+
+// SetRequestID sets the "request_id" field.
+func (_c *HistoryCreate) SetRequestID(v uuid.UUID) *HistoryCreate {
+	_c.mutation.SetRequestID(v)
+	return _c
+}
+
+// SetNillableRequestID sets the "request_id" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableRequestID(v *uuid.UUID) *HistoryCreate {
+	if v != nil {
+		_c.SetRequestID(*v)
+	}
+	return _c
+}
+
+// SetMethod sets the "method" field.
+func (_c *HistoryCreate) SetMethod(v string) *HistoryCreate {
+	_c.mutation.SetMethod(v)
 	return _c
 }
 
@@ -43,6 +66,62 @@ func (_c *HistoryCreate) SetURL(v string) *HistoryCreate {
 // SetStatusCode sets the "status_code" field.
 func (_c *HistoryCreate) SetStatusCode(v int) *HistoryCreate {
 	_c.mutation.SetStatusCode(v)
+	return _c
+}
+
+// SetDurationMs sets the "duration_ms" field.
+func (_c *HistoryCreate) SetDurationMs(v int) *HistoryCreate {
+	_c.mutation.SetDurationMs(v)
+	return _c
+}
+
+// SetNillableDurationMs sets the "duration_ms" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableDurationMs(v *int) *HistoryCreate {
+	if v != nil {
+		_c.SetDurationMs(*v)
+	}
+	return _c
+}
+
+// SetResponseSizeBytes sets the "response_size_bytes" field.
+func (_c *HistoryCreate) SetResponseSizeBytes(v int) *HistoryCreate {
+	_c.mutation.SetResponseSizeBytes(v)
+	return _c
+}
+
+// SetNillableResponseSizeBytes sets the "response_size_bytes" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableResponseSizeBytes(v *int) *HistoryCreate {
+	if v != nil {
+		_c.SetResponseSizeBytes(*v)
+	}
+	return _c
+}
+
+// SetRequestHeadersJSON sets the "request_headers_json" field.
+func (_c *HistoryCreate) SetRequestHeadersJSON(v string) *HistoryCreate {
+	_c.mutation.SetRequestHeadersJSON(v)
+	return _c
+}
+
+// SetNillableRequestHeadersJSON sets the "request_headers_json" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableRequestHeadersJSON(v *string) *HistoryCreate {
+	if v != nil {
+		_c.SetRequestHeadersJSON(*v)
+	}
+	return _c
+}
+
+// SetResponseHeadersJSON sets the "response_headers_json" field.
+func (_c *HistoryCreate) SetResponseHeadersJSON(v string) *HistoryCreate {
+	_c.mutation.SetResponseHeadersJSON(v)
+	return _c
+}
+
+// SetNillableResponseHeadersJSON sets the "response_headers_json" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableResponseHeadersJSON(v *string) *HistoryCreate {
+	if v != nil {
+		_c.SetResponseHeadersJSON(*v)
+	}
 	return _c
 }
 
@@ -88,6 +167,30 @@ func (_c *HistoryCreate) SetNillableCreatedAt(v *time.Time) *HistoryCreate {
 	return _c
 }
 
+// SetID sets the "id" field.
+func (_c *HistoryCreate) SetID(v uuid.UUID) *HistoryCreate {
+	_c.mutation.SetID(v)
+	return _c
+}
+
+// SetNillableID sets the "id" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableID(v *uuid.UUID) *HistoryCreate {
+	if v != nil {
+		_c.SetID(*v)
+	}
+	return _c
+}
+
+// SetWorkspace sets the "workspace" edge to the Workspace entity.
+func (_c *HistoryCreate) SetWorkspace(v *Workspace) *HistoryCreate {
+	return _c.SetWorkspaceID(v.ID)
+}
+
+// SetRequest sets the "request" edge to the Request entity.
+func (_c *HistoryCreate) SetRequest(v *Request) *HistoryCreate {
+	return _c.SetRequestID(v.ID)
+}
+
 // Mutation returns the HistoryMutation object of the builder.
 func (_c *HistoryCreate) Mutation() *HistoryMutation {
 	return _c.mutation
@@ -123,13 +226,13 @@ func (_c *HistoryCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *HistoryCreate) defaults() {
-	if _, ok := _c.mutation.Method(); !ok {
-		v := history.DefaultMethod
-		_c.mutation.SetMethod(v)
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := history.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
+	}
+	if _, ok := _c.mutation.ID(); !ok {
+		v := history.DefaultID()
+		_c.mutation.SetID(v)
 	}
 }
 
@@ -138,8 +241,18 @@ func (_c *HistoryCreate) check() error {
 	if _, ok := _c.mutation.Method(); !ok {
 		return &ValidationError{Name: "method", err: errors.New(`ent: missing required field "History.method"`)}
 	}
+	if v, ok := _c.mutation.Method(); ok {
+		if err := history.MethodValidator(v); err != nil {
+			return &ValidationError{Name: "method", err: fmt.Errorf(`ent: validator failed for field "History.method": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.URL(); !ok {
 		return &ValidationError{Name: "url", err: errors.New(`ent: missing required field "History.url"`)}
+	}
+	if v, ok := _c.mutation.URL(); ok {
+		if err := history.URLValidator(v); err != nil {
+			return &ValidationError{Name: "url", err: fmt.Errorf(`ent: validator failed for field "History.url": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.StatusCode(); !ok {
 		return &ValidationError{Name: "status_code", err: errors.New(`ent: missing required field "History.status_code"`)}
@@ -161,8 +274,13 @@ func (_c *HistoryCreate) sqlSave(ctx context.Context) (*History, error) {
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	if _spec.ID.Value != nil {
+		if id, ok := _spec.ID.Value.(*uuid.UUID); ok {
+			_node.ID = *id
+		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
+			return nil, err
+		}
+	}
 	_c.mutation.id = &_node.ID
 	_c.mutation.done = true
 	return _node, nil
@@ -171,8 +289,12 @@ func (_c *HistoryCreate) sqlSave(ctx context.Context) (*History, error) {
 func (_c *HistoryCreate) createSpec() (*History, *sqlgraph.CreateSpec) {
 	var (
 		_node = &History{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(history.Table, sqlgraph.NewFieldSpec(history.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(history.Table, sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID))
 	)
+	if id, ok := _c.mutation.ID(); ok {
+		_node.ID = id
+		_spec.ID.Value = &id
+	}
 	if value, ok := _c.mutation.Method(); ok {
 		_spec.SetField(history.FieldMethod, field.TypeString, value)
 		_node.Method = value
@@ -185,17 +307,67 @@ func (_c *HistoryCreate) createSpec() (*History, *sqlgraph.CreateSpec) {
 		_spec.SetField(history.FieldStatusCode, field.TypeInt, value)
 		_node.StatusCode = value
 	}
+	if value, ok := _c.mutation.DurationMs(); ok {
+		_spec.SetField(history.FieldDurationMs, field.TypeInt, value)
+		_node.DurationMs = &value
+	}
+	if value, ok := _c.mutation.ResponseSizeBytes(); ok {
+		_spec.SetField(history.FieldResponseSizeBytes, field.TypeInt, value)
+		_node.ResponseSizeBytes = &value
+	}
+	if value, ok := _c.mutation.RequestHeadersJSON(); ok {
+		_spec.SetField(history.FieldRequestHeadersJSON, field.TypeString, value)
+		_node.RequestHeadersJSON = &value
+	}
+	if value, ok := _c.mutation.ResponseHeadersJSON(); ok {
+		_spec.SetField(history.FieldResponseHeadersJSON, field.TypeString, value)
+		_node.ResponseHeadersJSON = &value
+	}
 	if value, ok := _c.mutation.RequestBody(); ok {
 		_spec.SetField(history.FieldRequestBody, field.TypeString, value)
-		_node.RequestBody = value
+		_node.RequestBody = &value
 	}
 	if value, ok := _c.mutation.ResponseBody(); ok {
 		_spec.SetField(history.FieldResponseBody, field.TypeString, value)
-		_node.ResponseBody = value
+		_node.ResponseBody = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(history.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if nodes := _c.mutation.WorkspaceIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   history.WorkspaceTable,
+			Columns: []string{history.WorkspaceColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.WorkspaceID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RequestIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   history.RequestTable,
+			Columns: []string{history.RequestColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.RequestID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
@@ -245,10 +417,6 @@ func (_c *HistoryCreateBulk) Save(ctx context.Context) ([]*History, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
 				mutation.done = true
 				return nodes[i], nil
 			})

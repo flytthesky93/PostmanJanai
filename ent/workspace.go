@@ -10,20 +10,64 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 // Workspace is the model entity for the Workspace schema.
 type Workspace struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID int `json:"id,omitempty"`
+	ID uuid.UUID `json:"id,omitempty"`
 	// WorkspaceName holds the value of the "workspace_name" field.
 	WorkspaceName string `json:"workspace_name,omitempty"`
 	// WorkspaceDescription holds the value of the "workspace_description" field.
 	WorkspaceDescription string `json:"workspace_description,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the WorkspaceQuery when eager-loading is set.
+	Edges        WorkspaceEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// WorkspaceEdges holds the relations/edges for other nodes in the graph.
+type WorkspaceEdges struct {
+	// Collections holds the value of the collections edge.
+	Collections []*Collection `json:"collections,omitempty"`
+	// Requests holds the value of the requests edge.
+	Requests []*Request `json:"requests,omitempty"`
+	// Histories holds the value of the histories edge.
+	Histories []*History `json:"histories,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [3]bool
+}
+
+// CollectionsOrErr returns the Collections value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkspaceEdges) CollectionsOrErr() ([]*Collection, error) {
+	if e.loadedTypes[0] {
+		return e.Collections, nil
+	}
+	return nil, &NotLoadedError{edge: "collections"}
+}
+
+// RequestsOrErr returns the Requests value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkspaceEdges) RequestsOrErr() ([]*Request, error) {
+	if e.loadedTypes[1] {
+		return e.Requests, nil
+	}
+	return nil, &NotLoadedError{edge: "requests"}
+}
+
+// HistoriesOrErr returns the Histories value or an error if the edge
+// was not loaded in eager-loading.
+func (e WorkspaceEdges) HistoriesOrErr() ([]*History, error) {
+	if e.loadedTypes[2] {
+		return e.Histories, nil
+	}
+	return nil, &NotLoadedError{edge: "histories"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -31,12 +75,12 @@ func (*Workspace) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case workspace.FieldID:
-			values[i] = new(sql.NullInt64)
 		case workspace.FieldWorkspaceName, workspace.FieldWorkspaceDescription:
 			values[i] = new(sql.NullString)
 		case workspace.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
+		case workspace.FieldID:
+			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -53,11 +97,11 @@ func (_m *Workspace) assignValues(columns []string, values []any) error {
 	for i := range columns {
 		switch columns[i] {
 		case workspace.FieldID:
-			value, ok := values[i].(*sql.NullInt64)
-			if !ok {
-				return fmt.Errorf("unexpected type %T for field id", value)
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field id", values[i])
+			} else if value != nil {
+				_m.ID = *value
 			}
-			_m.ID = int(value.Int64)
 		case workspace.FieldWorkspaceName:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field workspace_name", values[i])
@@ -87,6 +131,21 @@ func (_m *Workspace) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *Workspace) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryCollections queries the "collections" edge of the Workspace entity.
+func (_m *Workspace) QueryCollections() *CollectionQuery {
+	return NewWorkspaceClient(_m.config).QueryCollections(_m)
+}
+
+// QueryRequests queries the "requests" edge of the Workspace entity.
+func (_m *Workspace) QueryRequests() *RequestQuery {
+	return NewWorkspaceClient(_m.config).QueryRequests(_m)
+}
+
+// QueryHistories queries the "histories" edge of the Workspace entity.
+func (_m *Workspace) QueryHistories() *HistoryQuery {
+	return NewWorkspaceClient(_m.config).QueryHistories(_m)
 }
 
 // Update returns a builder for updating this Workspace.

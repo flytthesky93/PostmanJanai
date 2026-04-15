@@ -3,7 +3,14 @@
 package ent
 
 import (
+	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/environment"
+	"PostmanJanai/ent/environmentvariable"
 	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestformfield"
+	"PostmanJanai/ent/requestheader"
+	"PostmanJanai/ent/requestqueryparam"
 	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
@@ -74,8 +81,15 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			history.Table:   history.ValidColumn,
-			workspace.Table: workspace.ValidColumn,
+			collection.Table:          collection.ValidColumn,
+			environment.Table:         environment.ValidColumn,
+			environmentvariable.Table: environmentvariable.ValidColumn,
+			history.Table:             history.ValidColumn,
+			request.Table:             request.ValidColumn,
+			requestformfield.Table:    requestformfield.ValidColumn,
+			requestheader.Table:       requestheader.ValidColumn,
+			requestqueryparam.Table:   requestqueryparam.ValidColumn,
+			workspace.Table:           workspace.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)
