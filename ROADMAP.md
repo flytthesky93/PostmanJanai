@@ -12,6 +12,15 @@ Build a desktop API client (Postman-like) focused on:
 
 ## Phase Plan
 
+### Phase completion log
+
+| Phase | Status     | Notes (closing snapshot) |
+|-------|------------|---------------------------|
+| **0** | **Done**   | Closed **2026-04**: foundation stable for local-only app; see Phase 0 section below. |
+| 1–5   | Not started | — |
+
+---
+
 ### Phase 0 - Stabilize Foundation
 
 Scope:
@@ -25,6 +34,13 @@ Done when:
 - Workspace CRUD is stable.
 - Logs are written reliably (`app.log` and `debug.log`).
 - Build and run flow is documented and repeatable.
+
+**Delivered (as of close):**
+
+- **Logging & paths:** `slog` + rotating files (`app.log` / `debug.log`); `POSTMANJANAI_APP_DIR` / `POSTMANJANAI_DB_PATH`; README build/run notes (incl. Windows layout and safe build).
+- **Database:** Ent `Schema.Create` on startup (additive schema); no versioned SQL migrations in-tree. `PRAGMA user_version` + optional file backup under `AppDir/backups/` and `internal/dbmanage` hooks when `DBSchemaUserVersion` is bumped for breaking changes / data moves.
+- **Workspace:** CRUD via Wails + clean layering; duplicate workspace name rejected on create and update; UI uses modal + toast (no native `alert`/`prompt`), row actions via **⋮** menu.
+- **Frontend:** Vite `base: './'`; layout hardened for WebView2; production CSS not via Tailwind CDN.
 
 ### Phase 1 - Core Request Runner
 
@@ -104,7 +120,7 @@ Done when:
 
 Priority order:
 
-1. Complete Workspace UI CRUD UX (replace prompt/alert with proper modal + toast).
+1. ~~Complete Workspace UI CRUD UX (replace prompt/alert with proper modal + toast).~~ **Done (Phase 0).**
 2. Implement backend RequestExecutor service and response model.
 3. Connect `RequestPanel` to real backend execution.
 4. Persist history after each request.
