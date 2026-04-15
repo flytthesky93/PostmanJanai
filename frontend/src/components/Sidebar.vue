@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { GetAll, CreateWorkspace, Update, Delete } from '../../wailsjs/wailsjs/go/delivery/WorkspaceHandler'
 
 const workspaces = ref([])
@@ -82,6 +82,76 @@ const closeModal = (force = false) => {
   modalState.value.show = false
 }
 
+/** Menu ⋮ cho từng workspace: teleport + fixed để không bị cắt bởi overflow scroll */
+const menuOpenForId = ref(null)
+const menuStyle = ref({
+  position: 'fixed',
+  top: '0px',
+  left: '0px',
+  zIndex: 45
+})
+
+const menuTargetWs = computed(() => {
+  const id = menuOpenForId.value
+  if (id == null) return null
+  return workspaceList.value.find((w) => w.id === id) ?? null
+})
+
+const closeWorkspaceMenu = () => {
+  menuOpenForId.value = null
+}
+
+const toggleWorkspaceMenu = (ws, event) => {
+  event?.stopPropagation()
+  if (!ws) return
+  if (menuOpenForId.value === ws.id) {
+    closeWorkspaceMenu()
+    return
+  }
+  menuOpenForId.value = ws.id
+  const el = event?.currentTarget
+  if (el && typeof el.getBoundingClientRect === 'function') {
+    const r = el.getBoundingClientRect()
+    const width = 168
+    let left = r.right - width
+    if (left < 8) left = 8
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8
+    const top = r.bottom + 4
+    menuStyle.value = {
+      position: 'fixed',
+      top: `${top}px`,
+      left: `${left}px`,
+      zIndex: 45
+    }
+  }
+}
+
+const onEditFromMenu = (ws) => {
+  closeWorkspaceMenu()
+  openEditModal(ws)
+}
+
+const onDeleteFromMenu = (ws) => {
+  closeWorkspaceMenu()
+  openDeleteModal(ws)
+}
+
+const onDocumentPointerDown = (e) => {
+  if (menuOpenForId.value == null) return
+  const t = e.target
+  if (t.closest?.('[data-ws-menu]')) return
+  closeWorkspaceMenu()
+}
+
+onMounted(() => {
+  /* bubble: chạy sau @click trên nút ⋮ — tránh đóng menu trước khi toggle mở */
+  document.addEventListener('pointerdown', onDocumentPointerDown, false)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown, false)
+})
+
 const loadWorkspaces = async () => {
   loading.value = true
   try {
@@ -144,8 +214,13 @@ const submitModal = async () => {
     const label = modalState.value.mode === 'create'
       ? 'Tạo'
       : (modalState.value.mode === 'edit' ? 'Cập nhật' : 'Xóa')
-    showToast('error', `${label} workspace thất bại: ${error?.message || error}`)
-    closeModal(true)
+    const msg = error?.message || String(error)
+    if (msg.includes('WS_301') || msg.includes('đã tồn tại')) {
+      showToast('warning', 'Tên workspace này đã được dùng. Chọn tên khác.')
+    } else {
+      showToast('error', `${label} workspace thất bại: ${msg}`)
+    }
+    // Giữ modal mở để sửa tên / thử lại
   } finally {
     submitting.value = false
   }
@@ -175,7 +250,7 @@ onMounted(loadWorkspaces)
           +
         </button>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-2">
+      <div class="min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
         <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Đang tải workspace...</div>
         <div v-else-if="workspaceList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
           Chưa có workspace nào.
@@ -183,15 +258,52 @@ onMounted(loadWorkspaces)
         <div
           v-for="ws in workspaceList"
           :key="ws.id"
-          class="mb-1 flex items-center gap-2 rounded p-2 text-sm transition-colors hover:bg-gray-800"
+          class="mb-1 flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
         >
-          <span class="text-gray-500">📁</span>
-          <span class="flex-1 truncate">{{ ws.workspace_name }}</span>
-          <button type="button" @click="openEditModal(ws)" class="text-xs text-gray-400 hover:text-white">Sửa</button>
-          <button type="button" @click="openDeleteModal(ws)" class="text-xs text-red-400 hover:text-red-300">Xóa</button>
+          <span class="text-gray-500 shrink-0">📁</span>
+          <span class="min-w-0 flex-1 truncate pr-1">{{ ws.workspace_name }}</span>
+          <button
+            type="button"
+            data-ws-menu
+            class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
+            style="min-width: 28px; line-height: 1"
+            :aria-expanded="menuOpenForId === ws.id"
+            aria-haspopup="menu"
+            :aria-label="'Thao tác workspace ' + (ws.workspace_name || '')"
+            @click="toggleWorkspaceMenu(ws, $event)"
+          >
+            ⋮
+          </button>
         </div>
       </div>
     </aside>
+
+    <Teleport to="#app">
+      <div
+        v-if="menuOpenForId !== null && menuTargetWs"
+        data-ws-menu
+        class="min-w-[168px] rounded-md border border-gray-600 bg-[#2a2a2a] py-1 shadow-xl"
+        :style="menuStyle"
+        role="menu"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="onEditFromMenu(menuTargetWs)"
+        >
+          Sửa workspace
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+          @click="onDeleteFromMenu(menuTargetWs)"
+        >
+          Xóa workspace
+        </button>
+      </div>
+    </Teleport>
 
     <!-- Teleport to body + position:fixed on body breaks stacking in some WebView2 builds; keep overlays under #app -->
     <Teleport to="#app">

@@ -139,6 +139,12 @@ $env:POSTMANJANAI_DB_PATH = "E:\PostmanJanaiData\db\main.db"
 wails dev
 ```
 
+### Database schema and upgrades (Ent + backup)
+
+Schema is applied at startup with **`ent.Client.Schema.Create`** (additive changes: new tables/columns typical of Ent auto-migration).
+
+For a **breaking** schema bump or data move, increment **`constant.DBSchemaUserVersion`**, implement the step in `internal/dbmanage/data_migrate.go` (`migrateOneStep`), and on the next launch (when SQLite `user_version` is still lower) the app copies the existing DB file to **`AppDir/backups/postmanjanai_db_YYYYMMDD_HHMMSS.db`** before running data migration hooks and `Schema.Create`. After success, `PRAGMA user_version` is set to the new value.
+
 ## Logging
 
 The app uses `slog` + `lumberjack` (file rotation enabled).

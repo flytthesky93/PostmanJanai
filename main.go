@@ -4,6 +4,7 @@ import (
 	"PostmanJanai/ent"
 	"PostmanJanai/internal/config"
 	"PostmanJanai/internal/constant"
+	"PostmanJanai/internal/dbmanage"
 	"PostmanJanai/internal/delivery"
 	"PostmanJanai/internal/pkg/logger"
 	"PostmanJanai/internal/repository"
@@ -41,9 +42,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed opening connection to sqlite: %v", err)
 	}
+
+	ctx := context.Background()
+	ver, err := dbmanage.UserVersion(db)
+	if err != nil {
+		log.Fatalf("failed reading PRAGMA user_version: %v", err)
+	}
+	target := constant.DBSchemaUserVersion
+	if ver < target {
+		if _, err := dbmanage.BackupDatabaseIfNonEmpty(cfg.DbPath, cfg.AppDir); err != nil {
+			log.Fatalf("database backup: %v", err)
+		}
+		if err := dbmanage.MigrateDataBetweenVersions(ctx, db, ver, target); err != nil {
+			log.Fatalf("data migration: %v", err)
+		}
+	}
+
 	drv := entsql.OpenDB(dialect.SQLite, db)
 
-	// Khởi tạo Ent Client
 	client := ent.NewClient(ent.Driver(drv))
 	defer func(client *ent.Client) {
 		err := client.Close()
@@ -52,9 +68,11 @@ func main() {
 		}
 	}(client)
 
-	// Chạy auto migration (Tự động tạo/sửa bảng)
-	if err := client.Schema.Create(context.Background()); err != nil {
+	if err := client.Schema.Create(ctx); err != nil {
 		log.Fatalf("failed creating schema resources: %v", err)
+	}
+	if err := dbmanage.SetUserVersion(db, target); err != nil {
+		log.Fatalf("failed setting PRAGMA user_version: %v", err)
 	}
 
 	// 3. Khởi tạo các lớp theo Clean Architecture

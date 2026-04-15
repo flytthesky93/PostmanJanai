@@ -86,8 +86,19 @@ func (uc *workspaceUsecaseImpl) UpdateWorkspace(ctx context.Context, id int, nam
 		logger.L().ErrorContext(ctx, "UpdateWorkspace failed: empty name", "id", id, "error", err)
 		return err
 	}
-	err := uc.workspaceRepo.UpdateByID(ctx, &entity.WorkspaceItem{ID: id, WorkspaceName: name, WorkspaceDescription: desc})
-	if err != nil {
+
+	other, err := uc.workspaceRepo.GetByName(ctx, name)
+	if err != nil && !ent.IsNotFound(err) {
+		logger.L().ErrorContext(ctx, "UpdateWorkspace - get by name error", "name", name, "error", err)
+		return apperror.NewWithErrorDetail(constant.ErrDatabase, err)
+	}
+	if other != nil && other.ID != id {
+		logger.L().WarnContext(ctx, "UpdateWorkspace blocked: name already used by another workspace",
+			"name", name, "existing_id", other.ID, "editing_id", id)
+		return apperror.NewWithErrorDetail(constant.ErrWorkspaceAlreadyExisted, nil)
+	}
+
+	if err := uc.workspaceRepo.UpdateByID(ctx, &entity.WorkspaceItem{ID: id, WorkspaceName: name, WorkspaceDescription: desc}); err != nil {
 		logger.L().ErrorContext(ctx, "UpdateWorkspace - update workspace error", "error", err)
 		return err
 	}
