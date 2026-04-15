@@ -2,36 +2,59 @@ package logger
 
 import (
 	"PostmanJanai/internal/constant"
-	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/natefinch/lumberjack"
 )
 
 var (
-	once     sync.Once
-	instance *slog.Logger
+	once          sync.Once
+	instance      *slog.Logger
+	debugInstance *slog.Logger
+)
+
+const (
+	logMaxSizeMB    = 5
+	logMaxBackups   = 5
+	logMaxAgeDays   = 30
+	logCompressFile = true
 )
 
 // Init khởi tạo logger duy nhất một lần.
 // Bạn nên gọi hàm này trong main.go khi bắt đầu chạy app.
 func Init(appPath string) {
-	logPath := appPath + "/" + constant.LogPath
+	logPath := filepath.Join(appPath, constant.LogPath)
+	debugLogPath := filepath.Join(appPath, constant.DebugLogPath)
 	once.Do(func() {
-		lumberjackLogger := &lumberjack.Logger{
-			Filename:   logPath,
-			MaxSize:    5, // megabytes
-			MaxBackups: 3,
-			MaxAge:     28,
-			Compress:   true,
+		logDir := filepath.Dir(logPath)
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			panic("Creating log directory failed: " + err.Error())
 		}
 
-		// Ghi ra cả terminal và file
-		multiWriter := io.MultiWriter(os.Stdout, lumberjackLogger)
+		appLogWriter := &lumberjack.Logger{
+			Filename:   logPath,
+			MaxSize:    logMaxSizeMB,
+			MaxBackups: logMaxBackups,
+			MaxAge:     logMaxAgeDays,
+			Compress:   logCompressFile,
+		}
 
-		instance = slog.New(slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{
+		debugLogWriter := &lumberjack.Logger{
+			Filename:   debugLogPath,
+			MaxSize:    logMaxSizeMB,
+			MaxBackups: logMaxBackups,
+			MaxAge:     logMaxAgeDays,
+			Compress:   logCompressFile,
+		}
+
+		instance = slog.New(slog.NewJSONHandler(appLogWriter, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+
+		debugInstance = slog.New(slog.NewJSONHandler(debugLogWriter, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		}))
 
@@ -46,4 +69,12 @@ func L() *slog.Logger {
 		return slog.Default()
 	}
 	return instance
+}
+
+// D lấy ra debug logger để ghi trace/diagnostic chi tiết.
+func D() *slog.Logger {
+	if debugInstance == nil {
+		return slog.Default()
+	}
+	return debugInstance
 }

@@ -29,6 +29,7 @@ func init() {
 	config.LoadConfig()
 	cfg := config.GetConfig()
 	logger.Init(cfg.AppDir)
+	logger.L().Info("Application started", "app_dir", cfg.AppDir, "db_path", cfg.DbPath)
 }
 
 func main() {
