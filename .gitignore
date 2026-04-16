@@ -1,3 +1,40 @@
-build/bin
-node_modules
-frontend/dist
+# Node / npm / pnpm / yarn
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend build output (Vite → Wails assetdir)
+frontend/dist/
+
+# Wails / Go binaries
+build/bin/
+*.exe
+
+# Go
+*.test
+*.out
+/vendor/
+
+# Local app data (SQLite path from config; adjust if you commit fixtures)
+PostmanJanai.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
