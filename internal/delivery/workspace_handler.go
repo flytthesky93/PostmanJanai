@@ -65,10 +65,10 @@ func (h *WorkspaceHandler) Update(id string, name, desc string) (string, error) 
 	if err != nil {
 		logger.L().ErrorContext(ctx, "Workspace action failed", "action", "update", "id", id, "error", err)
 		logger.D().ErrorContext(ctx, "WorkspaceHandler.Update failed", "id", id, "error", err)
-		return "Lỗi", err
+		return "Error", err
 	}
 	logger.L().InfoContext(ctx, "Workspace action success", "action", "update", "id", id)
-	return "Cập nhật thành công", nil
+	return "Updated successfully", nil
 }
 
 func (h *WorkspaceHandler) Delete(id string) error {

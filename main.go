@@ -8,6 +8,7 @@ import (
 	"PostmanJanai/internal/delivery"
 	"PostmanJanai/internal/pkg/logger"
 	"PostmanJanai/internal/repository"
+	"PostmanJanai/internal/service"
 	"PostmanJanai/internal/usecase"
 	"context"
 	"database/sql"
@@ -84,19 +85,21 @@ func main() {
 	// Handler
 	appHandler := delivery.NewAppHandler() // Truyền uc vào đây nếu cần
 	workspaceHandler := delivery.NewWorkspaceHandler(workspaceUc)
+	httpExecutor := service.NewHTTPExecutor()
+	httpHandler := delivery.NewHTTPHandler(httpExecutor)
 
 	// Create application with options
 	// Fullscreen:true often breaks WebView2 layout/clientsize on Windows (narrow column / blank area).
 	// Use a normal window, start maximised, and enforce a sane minimum size.
 	err = wails.Run(&options.App{
-		Title:             constant.AppName,
-		Width:             1280,
-		Height:            800,
-		MinWidth:          900,
-		MinHeight:         600,
-		Fullscreen:        false,
-		WindowStartState:  options.Maximised,
-		DisableResize: false,
+		Title:            constant.AppName,
+		Width:            1280,
+		Height:           800,
+		MinWidth:         900,
+		MinHeight:        600,
+		Fullscreen:       false,
+		WindowStartState: options.Maximised,
+		DisableResize:    false,
 		Windows: &windows.Options{
 			DisablePinchZoom:     true,
 			IsZoomControlEnabled: false,
@@ -109,10 +112,12 @@ func main() {
 		OnStartup: func(ctx context.Context) {
 			appHandler.SetContext(ctx)
 			workspaceHandler.SetContext(ctx)
+			httpHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
 			appHandler,
 			workspaceHandler,
+			httpHandler,
 		},
 	})
 

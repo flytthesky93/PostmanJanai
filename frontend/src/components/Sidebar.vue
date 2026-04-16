@@ -47,8 +47,8 @@ const openCreateModal = () => {
   modalState.value = {
     show: true,
     mode: 'create',
-    title: 'Tạo Workspace',
-    submitLabel: 'Tạo',
+    title: 'Create workspace',
+    submitLabel: 'Create',
     target: null
   }
 }
@@ -60,8 +60,8 @@ const openEditModal = (ws) => {
   modalState.value = {
     show: true,
     mode: 'edit',
-    title: 'Cập nhật Workspace',
-    submitLabel: 'Lưu',
+    title: 'Edit workspace',
+    submitLabel: 'Save',
     target: ws
   }
 }
@@ -71,8 +71,8 @@ const openDeleteModal = (ws) => {
   modalState.value = {
     show: true,
     mode: 'delete',
-    title: 'Xóa Workspace',
-    submitLabel: 'Xóa',
+    title: 'Delete workspace',
+    submitLabel: 'Delete',
     target: ws
   }
 }
@@ -82,7 +82,7 @@ const closeModal = (force = false) => {
   modalState.value.show = false
 }
 
-/** Menu ⋮ cho từng workspace: teleport + fixed để không bị cắt bởi overflow scroll */
+/** Per-workspace ⋮ menu: teleport + fixed so overflow does not clip */
 const menuOpenForId = ref(null)
 const menuStyle = ref({
   position: 'fixed',
@@ -144,7 +144,7 @@ const onDocumentPointerDown = (e) => {
 }
 
 onMounted(() => {
-  /* bubble: chạy sau @click trên nút ⋮ — tránh đóng menu trước khi toggle mở */
+  /* Run after ⋮ click so toggle opens before document handler closes the menu */
   document.addEventListener('pointerdown', onDocumentPointerDown, false)
 })
 
@@ -159,7 +159,7 @@ const loadWorkspaces = async () => {
     workspaces.value = Array.isArray(list) ? list : []
   } catch (error) {
     console.error('[Workspace] Load failed:', error)
-    showToast('error', `Không tải được danh sách workspace: ${error?.message || error}`)
+    showToast('error', `Could not load workspaces: ${error?.message || error}`)
   } finally {
     loading.value = false
   }
@@ -171,14 +171,14 @@ const submitModal = async () => {
     if (modalState.value.mode === 'create') {
       const name = formName.value.trim()
       if (!name) {
-        showToast('warning', 'Tên workspace không được để trống')
+        showToast('warning', 'Workspace name cannot be empty')
         return
       }
       await CreateWorkspace({
         workspace_name: name,
         workspace_description: formDescription.value.trim()
       })
-      showToast('success', 'Tạo workspace thành công')
+      showToast('success', 'Workspace created')
       closeModal(true)
       await loadWorkspaces()
       return
@@ -188,11 +188,11 @@ const submitModal = async () => {
       const target = modalState.value.target
       const name = formName.value.trim()
       if (!target || !name) {
-        showToast('warning', 'Thông tin workspace không hợp lệ')
+        showToast('warning', 'Invalid workspace data')
         return
       }
       await Update(target.id, name, formDescription.value.trim())
-      showToast('success', 'Cập nhật workspace thành công')
+      showToast('success', 'Workspace updated')
       closeModal(true)
       await loadWorkspaces()
       return
@@ -201,26 +201,26 @@ const submitModal = async () => {
     if (modalState.value.mode === 'delete') {
       const target = modalState.value.target
       if (!target) {
-        showToast('warning', 'Workspace không hợp lệ')
+        showToast('warning', 'Invalid workspace')
         return
       }
       await Delete(target.id)
-      showToast('success', `Đã xóa workspace "${target.workspace_name}"`)
+      showToast('success', `Deleted workspace "${target.workspace_name}"`)
       closeModal(true)
       await loadWorkspaces()
     }
   } catch (error) {
     console.error('[Workspace] Action failed:', error)
     const label = modalState.value.mode === 'create'
-      ? 'Tạo'
-      : (modalState.value.mode === 'edit' ? 'Cập nhật' : 'Xóa')
+      ? 'Create'
+      : (modalState.value.mode === 'edit' ? 'Update' : 'Delete')
     const msg = error?.message || String(error)
-    if (msg.includes('WS_301') || msg.includes('đã tồn tại')) {
-      showToast('warning', 'Tên workspace này đã được dùng. Chọn tên khác.')
+    if (msg.includes('WS_301') || msg.includes('already exists')) {
+      showToast('warning', 'That workspace name is already in use. Choose another name.')
     } else {
-      showToast('error', `${label} workspace thất bại: ${msg}`)
+      showToast('error', `${label} workspace failed: ${msg}`)
     }
-    // Giữ modal mở để sửa tên / thử lại
+    // Keep modal open to fix name / retry
   } finally {
     submitting.value = false
   }
@@ -251,9 +251,9 @@ onMounted(loadWorkspaces)
         </button>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
-        <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Đang tải workspace...</div>
+        <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading workspaces…</div>
         <div v-else-if="workspaceList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
-          Chưa có workspace nào.
+          No workspaces yet.
         </div>
         <div
           v-for="ws in workspaceList"
@@ -269,7 +269,7 @@ onMounted(loadWorkspaces)
             style="min-width: 28px; line-height: 1"
             :aria-expanded="menuOpenForId === ws.id"
             aria-haspopup="menu"
-            :aria-label="'Thao tác workspace ' + (ws.workspace_name || '')"
+            :aria-label="'Workspace actions ' + (ws.workspace_name || '')"
             @click="toggleWorkspaceMenu(ws, $event)"
           >
             ⋮
@@ -292,7 +292,7 @@ onMounted(loadWorkspaces)
           class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
           @click="onEditFromMenu(menuTargetWs)"
         >
-          Sửa workspace
+          Edit workspace
         </button>
         <button
           type="button"
@@ -300,7 +300,7 @@ onMounted(loadWorkspaces)
           class="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
           @click="onDeleteFromMenu(menuTargetWs)"
         >
-          Xóa workspace
+          Delete workspace
         </button>
       </div>
     </Teleport>
@@ -316,24 +316,24 @@ onMounted(loadWorkspaces)
       <div class="p-4">
         <template v-if="modalState.mode === 'delete'">
           <p class="text-sm text-gray-300">
-            Bạn có chắc muốn xóa workspace
+            Are you sure you want to delete workspace
             <span class="text-white font-semibold">"{{ modalState.target?.workspace_name }}"</span>?
           </p>
         </template>
         <template v-else>
-          <label class="block text-xs text-gray-400 mb-1">Tên workspace</label>
+          <label class="block text-xs text-gray-400 mb-1">Name</label>
           <input
             v-model="formName"
             type="text"
             class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
-            placeholder="Nhập tên workspace"
+            placeholder="Workspace name"
           />
-          <label class="block text-xs text-gray-400 mt-3 mb-1">Mô tả</label>
+          <label class="block text-xs text-gray-400 mt-3 mb-1">Description</label>
           <textarea
             v-model="formDescription"
             rows="3"
             class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
-            placeholder="Mô tả workspace (tuỳ chọn)"
+            placeholder="Description (optional)"
           />
         </template>
       </div>
@@ -345,7 +345,7 @@ onMounted(loadWorkspaces)
           :disabled="submitting"
           class="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-xs text-white disabled:opacity-50"
         >
-          Hủy
+          Cancel
         </button>
         <button
           @click="submitModal"
@@ -353,7 +353,7 @@ onMounted(loadWorkspaces)
           class="px-3 py-1.5 rounded text-xs text-white disabled:opacity-50"
           :class="modalState.mode === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'"
         >
-          {{ submitting ? 'Đang xử lý...' : modalState.submitLabel }}
+          {{ submitting ? 'Working…' : modalState.submitLabel }}
         </button>
       </div>
     </div>

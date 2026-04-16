@@ -6,7 +6,12 @@ const (
 	LogPath      = "logs/app.log"
 	DebugLogPath = "logs/debug.log"
 
-	// DBSchemaUserVersion — SQLite PRAGMA user_version mong đợi sau khi schema/data đã khớp code Ent hiện tại.
-	// Khi tăng số này: thêm nhánh trong dbmanage.migrateOneStep (data) và backup sẽ chạy trước khi Schema.Create.
+	// DBSchemaUserVersion — expected SQLite PRAGMA user_version after schema/data matches current Ent code.
+	// When bumping: add a branch in dbmanage.migrateOneStep (data); backup runs before Schema.Create.
 	DBSchemaUserVersion = 2
+
+	// HTTPClientTimeout — total time for one request (including reading the response body).
+	HTTPClientTimeoutSeconds = 60
+	// HTTPMaxResponseBodyBytes — max response body read size (avoid OOM).
+	HTTPMaxResponseBodyBytes = 10 << 20
 )
