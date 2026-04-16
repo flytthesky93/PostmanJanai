@@ -205,19 +205,61 @@ erDiagram
 3. Repository/entity theo UUID và quan hệ FK.
 4. Phase 1 HTTP runner + Wails DTO (sau khi DB đã ổn định).
 
+*Thực tế (2026-04): các bước 1–4 đã triển khai cho phần HTTP + history; phần collection/saved request/env vẫn theo backlog ở mục **Tiến độ đã triển khai**.*
+
 ---
 
-## Trạng thái
+## Trạng thái (schema)
 
 - **`histories`:** chốt **đầy đủ** cột như bảng (đã xác nhận).
-- **Đang chờ:** bạn sign-off cuối cùng trên toàn bộ các bảng/cột ở trên trước khi chỉnh Ent/code.
+- **Schema Ent:** đã generate theo các bảng mô tả ở trên (UUID, FK, v.v.).
+- **Sign-off tài liệu:** có thể coi là đã khớp code; các mục còn lại là **feature / usecase**, không chặn schema nữa.
 
-# Todos (lập lại từ kế hoạch tổng)
+---
 
-- [ ] Sign-off schema (tài liệu này)
-- [ ] Ent schema + generate
-- [ ] Migrate int→UUID / backup
-- [ ] Thêm schema environments + environment_variables (global scope)
+## DB & migration (ghi nhận kỹ thuật)
+
+- **`PRAGMA user_version` hiện tại:** **`2`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
+- **Bản gần đây (roadmap UI/HTTP):** **không** thêm bảng/cột mới, **không** bump `DBSchemaUserVersion` — chỉ **đọc/ghi** đúng bảng đã có (đặc biệt `histories`).
+- **Luồng migrate đã có:** `0 → 1` (placeholder), `1 → 2` drop bảng legacy rồi `Schema.Create` (xem `internal/dbmanage/data_migrate.go`). Nếu sau này đổi DDL lớn: backup → `migrateOneStep` → bump version.
+- **`histories` trong app:** insert sau mỗi lần **Send** thành công ở tầng HTTP (kể cả lỗi transport / đọc body sau response); **không** insert khi lỗi validation URL. Cột `workspace_id` / `request_id` (nullable) — UI gửi `workspace_id` khi có workspace chọn; `request_id` dành cho saved request (chưa nối).
+
+---
+
+## Tiến độ đã triển khai (cập nhật 2026-04-16)
+
+### Đã xong (gần đúng Phase 1 “chạy app + lịch sử + import”)
+
+- [x] Ent schema + generate (workspaces, collections, requests, …, **histories**, environments, …)
+- [x] Migrate / backup theo `DBSchemaUserVersion` (path hiện tại: legacy → drop → recreate tại bước 1→2)
+- [x] **HTTP executor** thật (`net/http`): raw / form-urlencoded / multipart + file path; test Go `internal/service/http_executor_test.go`
+- [x] **Wails:** `HTTPHandler.Execute`, `PickFileForBody`, `ImportFromCurl` (parser shell + `go-shellwords`)
+- [x] **UI:** layout 3 cột; Request (method, URL, Query/Headers/Body); Response + Console; **Import** → chọn **Request from cURL** / **Collection** (placeholder); **scrollbar** tinh chỉnh (hover mới rõ)
+- [x] **History:** ghi DB khi Send; **`HistoryHandler.List`**; tab **History** trên sidebar; refresh sau Send
+- [x] **Workspace:** CRUD + chọn workspace (gắn `workspace_id` khi gửi); footer **Add workspace** gọn
+- [x] **Test data:** `testdata/curl/*.curl` mẫu cho httpbin
+- [x] **Repo hygiene:** `.gitignore` (node_modules, dist, build, env, …)
+- [x] **Lỗi / UX nhỏ:** modal import không đóng khi select text (bỏ click backdrop); console **không** tự mở khi có log
+
+### Chưa làm / backlog Phase 1 trở đi
+
+- [ ] **Collections & saved requests:** CRUD + cây sidebar, load/save request → lúc đó gắn `request_id` vào history
+- [ ] **Environments + biến:** CRUD, một env active, resolve `{{var}}` trước khi gửi
+- [ ] **Import collection** (Postman/OpenAPI) — hiện placeholder + message console
+- [ ] **History chi tiết:** mở snapshot request/response từ một dòng history (UI)
+- [ ] **Migrate dữ liệu** int→UUID **giữ bản ghi** (nếu cần cho user DB cũ) — hiện bước 1→2 là **drop** legacy
+
+---
+
+# Todos (cập nhật checklist)
+
+- [x] Sign-off schema (đã khớp code / Ent)
+- [x] Ent schema + generate
+- [x] Migrate int→UUID / backup *(tồn tại path drop+recreate; chưa có migrate giữ dữ liệu chi tiết)*
+- [x] HTTP executor & UI (core)
+- [x] History: persist + list API + tab sidebar
+- [x] Import request từ cURL (parser + UI)
+- [ ] Thêm / hoàn thiện **environments** + **environment_variables** (usecase + UI)
 - [ ] Quy tắc active env duy nhất + resolve `{{var}}` trước khi gửi request
-- [ ] Repository & DTO
-- [ ] HTTP executor & UI
+- [ ] Repository & usecase cho **collections / requests** đã lưu + UI cây
+- [ ] Import **collection** (file / clipboard)

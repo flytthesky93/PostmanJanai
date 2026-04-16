@@ -79,7 +79,7 @@ watch(
     <div
       v-show="expanded"
       ref="scrollEl"
-      class="min-h-0 overflow-auto p-2 font-mono text-[11px] leading-relaxed"
+      class="app-scrollbar min-h-0 overflow-auto p-2 font-mono text-[11px] leading-relaxed"
       style="height: 140px; min-height: 100px; max-height: 35vh"
     >
       <div v-if="!lines.length" class="select-none text-gray-600">No messages.</div>

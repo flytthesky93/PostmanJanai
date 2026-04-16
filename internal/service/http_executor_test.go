@@ -53,7 +53,7 @@ func TestHTTPExecutor_QueryParams(t *testing.T) {
 	defer srv.Close()
 
 	ex := NewHTTPExecutor()
-	_, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
+	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method: "GET",
 		URL:    srv.URL + "/path",
 		QueryParams: []entity.KeyValue{
@@ -64,6 +64,9 @@ func TestHTTPExecutor_QueryParams(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if res.FinalURL == "" || !strings.Contains(res.FinalURL, "x=1") || !strings.Contains(res.FinalURL, "y=two") {
+		t.Fatalf("final URL missing query: %q", res.FinalURL)
 	}
 }
 

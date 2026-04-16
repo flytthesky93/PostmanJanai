@@ -9,6 +9,12 @@ import { Execute } from '../wailsjs/wailsjs/go/delivery/HTTPHandler'
 const responseResult = ref(null)
 const loading = ref(false)
 
+/** Selected workspace (sidebar); sent as workspace_id for request history. */
+const activeWorkspaceId = ref(null)
+
+/** Console expanded/collapsed (default collapsed to give space to Response). */
+const consoleExpanded = ref(false)
+
 /** Console log lines (below Response); used for Format JSON errors from Request. */
 const consoleLines = ref([])
 let consoleLineId = 0
@@ -19,7 +25,6 @@ function pushConsole(text) {
   if (consoleLines.value.length > 200) {
     consoleLines.value.splice(0, consoleLines.value.length - 200)
   }
-  consoleExpanded.value = true
 }
 
 function clearConsole() {
@@ -32,8 +37,7 @@ function onRequestConsole(msg) {
   }
 }
 
-/** Console expanded/collapsed (default collapsed to give space to Response). */
-const consoleExpanded = ref(false)
+const sidebarRef = ref(null)
 
 const onExecuteRequest = async (payload) => {
   loading.value = true
@@ -53,6 +57,11 @@ const onExecuteRequest = async (payload) => {
     }
   } finally {
     loading.value = false
+    try {
+      await sidebarRef.value?.refreshHistory?.()
+    } catch {
+      /* ignore refresh errors */
+    }
   }
 }
 </script>
@@ -86,7 +95,11 @@ const onExecuteRequest = async (payload) => {
         border-right: 1px solid #2a2a2a;
       "
     >
-      <Sidebar />
+      <Sidebar
+        ref="sidebarRef"
+        :active-workspace-id="activeWorkspaceId"
+        @update:activeWorkspaceId="(v) => (activeWorkspaceId = v)"
+      />
     </div>
 
     <main
@@ -94,7 +107,11 @@ const onExecuteRequest = async (payload) => {
       style="min-width: 0; min-height: 0; height: 100%"
     >
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-[#2a2a2a]">
-        <RequestPanel @send="onExecuteRequest" @console="onRequestConsole" />
+        <RequestPanel
+          :active-workspace-id="activeWorkspaceId"
+          @send="onExecuteRequest"
+          @console="onRequestConsole"
+        />
       </div>
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ResponsePanel :result="responseResult" :loading="loading" />

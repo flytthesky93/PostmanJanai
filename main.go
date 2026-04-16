@@ -78,15 +78,16 @@ func main() {
 
 	// 3. Khởi tạo các lớp theo Clean Architecture
 	//Repository
-	//historyRepo := repository.NewHistoryRepository(client)
+	historyRepo := repository.NewHistoryRepository(client)
 	workspaceRepo := repository.NewWorkspaceRepository(client)
 	// Usecase
 	workspaceUc := usecase.NewWorkspaceUsecase(workspaceRepo)
 	// Handler
 	appHandler := delivery.NewAppHandler() // Truyền uc vào đây nếu cần
 	workspaceHandler := delivery.NewWorkspaceHandler(workspaceUc)
+	historyHandler := delivery.NewHistoryHandler(historyRepo)
 	httpExecutor := service.NewHTTPExecutor()
-	httpHandler := delivery.NewHTTPHandler(httpExecutor)
+	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo)
 
 	// Create application with options
 	// Fullscreen:true often breaks WebView2 layout/clientsize on Windows (narrow column / blank area).
@@ -112,11 +113,13 @@ func main() {
 		OnStartup: func(ctx context.Context) {
 			appHandler.SetContext(ctx)
 			workspaceHandler.SetContext(ctx)
+			historyHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
 			appHandler,
 			workspaceHandler,
+			historyHandler,
 			httpHandler,
 		},
 	})

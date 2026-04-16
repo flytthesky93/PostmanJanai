@@ -10,6 +10,7 @@ var (
 	// HTTP / request
 	ErrInvalidURL     = apperror.ErrDetail{Code: "REQ_101", Message: "Invalid URL."}
 	ErrRequestTimeout = apperror.ErrDetail{Code: "REQ_102", Message: "Request timed out."}
+	ErrInvalidCurl    = apperror.ErrDetail{Code: "REQ_103", Message: "Could not parse cURL command."}
 
 	// History
 	ErrHistoryNotFound = apperror.ErrDetail{Code: "HIS_201", Message: "Request history not found."}

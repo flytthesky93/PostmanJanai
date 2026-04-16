@@ -6,6 +6,7 @@ require (
 	entgo.io/ent v0.14.5
 	github.com/glebarez/go-sqlite v1.22.0
 	github.com/google/uuid v1.6.0
+	github.com/mattn/go-shellwords v1.0.12
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/wailsapp/wails/v2 v2.11.0
 )

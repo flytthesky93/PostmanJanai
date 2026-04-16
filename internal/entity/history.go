@@ -4,6 +4,8 @@ import "time"
 
 type HistoryItem struct {
 	ID                   string    `json:"id"`
+	WorkspaceID          *string   `json:"workspace_id,omitempty"`
+	RequestID            *string   `json:"request_id,omitempty"`
 	Method               string    `json:"method"`
 	URL                  string    `json:"url"`
 	StatusCode           int       `json:"status_code"`

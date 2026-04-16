@@ -6,6 +6,7 @@ import (
 	"PostmanJanai/internal/pkg/apperror"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -13,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -103,10 +105,15 @@ func (e *HTTPExecutor) Execute(ctx context.Context, in *entity.HTTPExecuteInput)
 		req.Header.Set("User-Agent", constant.AppName+"/1.0")
 	}
 
+	out := &entity.HTTPExecuteResult{
+		FinalURL:               finalURL,
+		RequestHeadersSnapshot: headerSnapshotForHistory(req.Header),
+		RequestBodySnapshot:    requestBodySnapshot(mode, in),
+	}
+
 	start := time.Now()
 	resp, err := e.Client.Do(req)
-	duration := time.Since(start).Milliseconds()
-	out := &entity.HTTPExecuteResult{DurationMs: duration}
+	out.DurationMs = time.Since(start).Milliseconds()
 
 	if err != nil {
 		out.ErrorMessage = err.Error()
@@ -218,5 +225,73 @@ func (e *HTTPExecutor) buildRequestBody(mode entity.BodyMode, in *entity.HTTPExe
 			return bytes.NewReader([]byte(in.Body)), "", nil
 		}
 		return nil, "", nil
+	}
+}
+
+func headerSnapshotForHistory(h http.Header) []entity.KeyValue {
+	if len(h) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(h))
+	for k := range h {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var out []entity.KeyValue
+	for _, k := range keys {
+		for _, v := range h[k] {
+			out = append(out, entity.KeyValue{Key: k, Value: v})
+		}
+	}
+	return out
+}
+
+type multipartSnapshotRow struct {
+	Key      string `json:"key"`
+	Kind     string `json:"kind"`
+	Value    string `json:"value,omitempty"`
+	FileName string `json:"file_name,omitempty"`
+}
+
+func requestBodySnapshot(mode entity.BodyMode, in *entity.HTTPExecuteInput) string {
+	switch mode {
+	case entity.BodyModeNone:
+		return ""
+	case entity.BodyModeRaw:
+		return in.Body
+	case entity.BodyModeFormURLEncoded:
+		v := url.Values{}
+		for _, f := range in.FormFields {
+			k := strings.TrimSpace(f.Key)
+			if k != "" {
+				v.Add(k, f.Value)
+			}
+		}
+		return v.Encode()
+	case entity.BodyModeMultipartFormData:
+		var rows []multipartSnapshotRow
+		for _, p := range in.MultipartParts {
+			k := strings.TrimSpace(p.Key)
+			if k == "" {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(p.Kind), "file") {
+				fp := strings.TrimSpace(p.FilePath)
+				fn := ""
+				if fp != "" {
+					fn = filepath.Base(fp)
+				}
+				rows = append(rows, multipartSnapshotRow{Key: k, Kind: "file", FileName: fn})
+			} else {
+				rows = append(rows, multipartSnapshotRow{Key: k, Kind: "text", Value: p.Value})
+			}
+		}
+		b, err := json.Marshal(rows)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	default:
+		return in.Body
 	}
 }

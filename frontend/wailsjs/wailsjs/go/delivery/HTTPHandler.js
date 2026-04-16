@@ -6,6 +6,10 @@ export function Execute(arg1) {
   return window['go']['delivery']['HTTPHandler']['Execute'](arg1);
 }
 
+export function ImportFromCurl(arg1) {
+  return window['go']['delivery']['HTTPHandler']['ImportFromCurl'](arg1);
+}
+
 export function PickFileForBody() {
   return window['go']['delivery']['HTTPHandler']['PickFileForBody']();
 }

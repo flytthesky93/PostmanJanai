@@ -31,6 +31,10 @@ type HTTPExecuteInput struct {
 	Headers     []KeyValue `json:"headers,omitempty"`
 	QueryParams []KeyValue `json:"query_params,omitempty"`
 
+	// Optional UUIDs (RFC string) for history: workspace context and/or saved request (when implemented).
+	WorkspaceID *string `json:"workspace_id,omitempty"`
+	RequestID   *string `json:"request_id,omitempty"`
+
 	BodyMode string `json:"body_mode,omitempty"` // BodyMode* (string for JSON)
 
 	// Raw (JSON/text) when body_mode is raw or default.
@@ -52,4 +56,11 @@ type HTTPExecuteResult struct {
 	ResponseBody      string     `json:"response_body"`
 	BodyTruncated     bool       `json:"body_truncated"`
 	ErrorMessage      string     `json:"error_message,omitempty"`
+
+	// FinalURL is the URL after merging query params (scheme + host + path + query).
+	FinalURL string `json:"final_url,omitempty"`
+
+	// Snapshots for persisting history (not serialized to the frontend).
+	RequestHeadersSnapshot []KeyValue `json:"-"`
+	RequestBodySnapshot    string     `json:"-"`
 }

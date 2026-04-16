@@ -5,6 +5,7 @@ import (
 	"PostmanJanai/ent/history"
 	"PostmanJanai/internal/entity"
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -34,6 +35,20 @@ func (r *historyRepo) Save(ctx context.Context, item *entity.HistoryItem) error 
 		SetNillableResponseHeadersJSON(item.ResponseHeadersJSON).
 		SetNillableRequestBody(item.RequestBody).
 		SetNillableResponseBody(item.ResponseBody)
+	if item.WorkspaceID != nil {
+		if s := strings.TrimSpace(*item.WorkspaceID); s != "" {
+			if uid, err := uuid.Parse(s); err == nil {
+				b = b.SetWorkspaceID(uid)
+			}
+		}
+	}
+	if item.RequestID != nil {
+		if s := strings.TrimSpace(*item.RequestID); s != "" {
+			if uid, err := uuid.Parse(s); err == nil {
+				b = b.SetRequestID(uid)
+			}
+		}
+	}
 	if !item.CreatedAt.IsZero() {
 		b = b.SetCreatedAt(item.CreatedAt)
 	}
@@ -53,8 +68,20 @@ func (r *historyRepo) GetAll(ctx context.Context) ([]entity.HistoryItem, error) 
 
 	var result []entity.HistoryItem
 	for _, row := range rows {
+		var wsID *string
+		if row.WorkspaceID != nil {
+			s := row.WorkspaceID.String()
+			wsID = &s
+		}
+		var reqID *string
+		if row.RequestID != nil {
+			s := row.RequestID.String()
+			reqID = &s
+		}
 		result = append(result, entity.HistoryItem{
 			ID:                   row.ID.String(),
+			WorkspaceID:          wsID,
+			RequestID:            reqID,
 			Method:               row.Method,
 			URL:                  row.URL,
 			StatusCode:           row.StatusCode,

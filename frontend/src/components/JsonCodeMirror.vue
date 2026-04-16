@@ -92,5 +92,29 @@ onBeforeUnmount(() => {
 }
 .json-cm-host :deep(.cm-scroller) {
   min-height: 120px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0) transparent;
+}
+.json-cm-host:hover :deep(.cm-scroller) {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Match app-scrollbar: subtle thumb on hover (WebKit) */
+.json-cm-host :deep(.cm-scroller)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.json-cm-host :deep(.cm-scroller)::-webkit-scrollbar-track {
+  background: transparent;
+}
+.json-cm-host :deep(.cm-scroller)::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+.json-cm-host:hover :deep(.cm-scroller)::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+.json-cm-host:hover :deep(.cm-scroller)::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 </style>

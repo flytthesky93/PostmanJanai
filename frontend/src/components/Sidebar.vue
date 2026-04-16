@@ -1,11 +1,26 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { GetAll, CreateWorkspace, Update, Delete } from '../../wailsjs/wailsjs/go/delivery/WorkspaceHandler'
+import { List as ListHistory } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
+
+const props = defineProps({
+  /** Currently selected workspace id (UUID string), for linking sends to history. */
+  activeWorkspaceId: { type: String, default: null }
+})
+
+const emit = defineEmits(['update:activeWorkspaceId'])
+
+/** @type {import('vue').Ref<'workspaces' | 'history'>} */
+const sidebarTab = ref('workspaces')
 
 const workspaces = ref([])
 /** Backend may return null; never let v-for / .length throw or the whole sidebar can go blank */
 const workspaceList = computed(() => (Array.isArray(workspaces.value) ? workspaces.value : []))
 const loading = ref(false)
+
+const historyItems = ref([])
+const historyLoading = ref(false)
+const historyList = computed(() => (Array.isArray(historyItems.value) ? historyItems.value : []))
 const submitting = ref(false)
 
 const toast = ref({
@@ -152,11 +167,54 @@ onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown, false)
 })
 
+const selectWorkspace = (ws) => {
+  if (!ws?.id) return
+  emit('update:activeWorkspaceId', ws.id)
+}
+
+const syncSelectionAfterLoad = () => {
+  const list = workspaceList.value
+  const ids = new Set(list.map((w) => w.id))
+  if (props.activeWorkspaceId && !ids.has(props.activeWorkspaceId)) {
+    emit('update:activeWorkspaceId', list[0]?.id ?? null)
+    return
+  }
+  if (!props.activeWorkspaceId && list.length > 0) {
+    emit('update:activeWorkspaceId', list[0].id)
+  }
+}
+
+const loadHistory = async () => {
+  historyLoading.value = true
+  try {
+    const list = await ListHistory()
+    historyItems.value = Array.isArray(list) ? list : []
+  } catch (error) {
+    console.error('[History] Load failed:', error)
+    historyItems.value = []
+    showToast('error', `Could not load history: ${error?.message || error}`)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+/** Called after a request is sent so the History tab stays fresh. */
+const refreshHistory = async () => {
+  await loadHistory()
+}
+
+watch(sidebarTab, (tab) => {
+  if (tab === 'history') {
+    loadHistory()
+  }
+})
+
 const loadWorkspaces = async () => {
   loading.value = true
   try {
     const list = await GetAll()
     workspaces.value = Array.isArray(list) ? list : []
+    syncSelectionAfterLoad()
   } catch (error) {
     console.error('[Workspace] Load failed:', error)
     showToast('error', `Could not load workspaces: ${error?.message || error}`)
@@ -206,6 +264,9 @@ const submitModal = async () => {
       }
       await Delete(target.id)
       showToast('success', `Deleted workspace "${target.workspace_name}"`)
+      if (props.activeWorkspaceId === target.id) {
+        emit('update:activeWorkspaceId', null)
+      }
       closeModal(true)
       await loadWorkspaces()
     }
@@ -227,6 +288,47 @@ const submitModal = async () => {
 }
 
 onMounted(loadWorkspaces)
+
+function truncateMiddle(s, max) {
+  if (s == null || s === '') return ''
+  const str = String(s)
+  if (str.length <= max) return str
+  const half = Math.max(1, Math.floor((max - 1) / 2))
+  return str.slice(0, half) + '…' + str.slice(str.length - half)
+}
+
+function formatHistoryTime(raw) {
+  if (raw == null || raw === '') return '—'
+  if (typeof raw === 'string') {
+    const d = new Date(raw)
+    return Number.isNaN(d.getTime())
+      ? raw
+      : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    try {
+      const d = new Date(raw)
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return String(raw)
+}
+
+function statusBadgeClass(code) {
+  const c = Number(code)
+  if (c === 0) return 'bg-gray-600 text-gray-100'
+  if (c >= 200 && c < 300) return 'bg-emerald-900/90 text-emerald-200'
+  if (c >= 300 && c < 400) return 'bg-blue-900/90 text-blue-200'
+  if (c >= 400 && c < 500) return 'bg-amber-900/90 text-amber-200'
+  if (c >= 500) return 'bg-red-900/90 text-red-200'
+  return 'bg-gray-700 text-gray-200'
+}
+
+defineExpose({ refreshHistory })
 </script>
 
 <template>
@@ -239,43 +341,120 @@ onMounted(loadWorkspaces)
       class="flex min-h-0 flex-1 flex-col border-r border-gray-800 bg-[#212121]"
       style="flex: 1 1 0; min-height: 0; background: #212121"
     >
-      <div class="flex shrink-0 items-center justify-between border-b border-gray-800 p-4">
-        <span class="text-xs font-bold uppercase tracking-widest text-white" style="color: #ffffff">Workspaces</span>
+      <div class="flex shrink-0 border-b border-gray-800">
         <button
           type="button"
-          @click="openCreateModal"
-          class="rounded px-2 text-lg font-bold text-orange-500 hover:bg-gray-700"
-          style="color: #f97316"
+          class="flex-1 px-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors"
+          :class="
+            sidebarTab === 'workspaces'
+              ? 'border-b-2 border-orange-500 bg-[#1a1a1a] text-white'
+              : 'border-b-2 border-transparent text-gray-500 hover:text-gray-300'
+          "
+          @click="sidebarTab = 'workspaces'"
         >
-          +
+          Workspaces
+        </button>
+        <button
+          type="button"
+          class="flex-1 px-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors"
+          :class="
+            sidebarTab === 'history'
+              ? 'border-b-2 border-orange-500 bg-[#1a1a1a] text-white'
+              : 'border-b-2 border-transparent text-gray-500 hover:text-gray-300'
+          "
+          @click="sidebarTab = 'history'"
+        >
+          History
         </button>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
-        <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading workspaces…</div>
-        <div v-else-if="workspaceList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
-          No workspaces yet.
+
+      <template v-if="sidebarTab === 'workspaces'">
+        <div class="flex min-h-0 flex-1 flex-col">
+          <div class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
+            <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading workspaces…</div>
+            <div v-else-if="workspaceList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
+              No workspaces yet.
+            </div>
+            <div
+              v-for="ws in workspaceList"
+              :key="ws.id"
+              role="button"
+              tabindex="0"
+              class="mb-1 flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group cursor-pointer"
+              :class="{ 'bg-gray-800/80': activeWorkspaceId === ws.id }"
+              @click="selectWorkspace(ws)"
+              @keydown.enter.prevent="selectWorkspace(ws)"
+            >
+              <span class="text-gray-500 shrink-0">📁</span>
+              <span class="min-w-0 flex-1 truncate pr-1">{{ ws.workspace_name }}</span>
+              <button
+                type="button"
+                data-ws-menu
+                class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
+                style="min-width: 28px; line-height: 1"
+                :aria-expanded="menuOpenForId === ws.id"
+                aria-haspopup="menu"
+                :aria-label="'Workspace actions ' + (ws.workspace_name || '')"
+                @click.stop="toggleWorkspaceMenu(ws, $event)"
+              >
+                ⋮
+              </button>
+            </div>
+          </div>
+          <div class="flex shrink-0 justify-end border-t border-gray-800 bg-[#1c1c1c] px-2 py-1">
+            <button
+              type="button"
+              class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
+              style="color: #f97316"
+              aria-label="Add workspace"
+              title="Add workspace"
+              @click="openCreateModal"
+            >
+              Add workspace
+            </button>
+          </div>
         </div>
-        <div
-          v-for="ws in workspaceList"
-          :key="ws.id"
-          class="mb-1 flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
-        >
-          <span class="text-gray-500 shrink-0">📁</span>
-          <span class="min-w-0 flex-1 truncate pr-1">{{ ws.workspace_name }}</span>
+      </template>
+
+      <template v-else>
+        <div class="flex shrink-0 items-center justify-between border-b border-gray-800 px-3 py-2">
+          <span class="text-xs text-gray-500" style="color: #9ca3af">Recent requests</span>
           <button
             type="button"
-            data-ws-menu
-            class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
-            style="min-width: 28px; line-height: 1"
-            :aria-expanded="menuOpenForId === ws.id"
-            aria-haspopup="menu"
-            :aria-label="'Workspace actions ' + (ws.workspace_name || '')"
-            @click="toggleWorkspaceMenu(ws, $event)"
+            class="text-xs font-medium text-orange-500 hover:underline"
+            style="color: #f97316"
+            :disabled="historyLoading"
+            @click="loadHistory"
           >
-            ⋮
+            Refresh
           </button>
         </div>
-      </div>
+        <div class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2">
+          <div v-if="historyLoading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading history…</div>
+          <div v-else-if="historyList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
+            No request history yet. Send a request to see it here.
+          </div>
+          <div
+            v-for="h in historyList"
+            :key="h.id"
+            class="mb-2 rounded border border-gray-700/90 bg-[#1a1a1a] p-2 text-left"
+          >
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span
+                class="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                style="background: #374151"
+                >{{ h.method }}</span>
+              <span
+                class="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold"
+                :class="statusBadgeClass(h.status_code)"
+                >{{ h.status_code }}</span>
+              <span v-if="h.duration_ms != null" class="text-[10px] text-gray-500">{{ h.duration_ms }} ms</span>
+            </div>
+            <div class="mt-1 truncate text-xs text-gray-300" :title="h.url">{{ truncateMiddle(h.url, 52) }}</div>
+            <div class="mt-1 text-[10px] text-gray-500">{{ formatHistoryTime(h.created_at) }}</div>
+          </div>
+        </div>
+      </template>
     </aside>
 
     <Teleport to="#app">

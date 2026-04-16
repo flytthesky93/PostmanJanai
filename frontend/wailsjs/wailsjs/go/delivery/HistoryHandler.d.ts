@@ -3,10 +3,6 @@
 import {entity} from '../models';
 import {context} from '../models';
 
-export function Execute(arg1:entity.HTTPExecuteInput):Promise<entity.HTTPExecuteResult>;
-
-export function ImportFromCurl(arg1:string):Promise<entity.HTTPExecuteInput>;
-
-export function PickFileForBody():Promise<string>;
+export function List():Promise<Array<entity.HistoryItem>>;
 
 export function SetContext(arg1:context.Context):Promise<void>;

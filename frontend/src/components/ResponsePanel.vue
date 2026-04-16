@@ -110,7 +110,7 @@ const summaryParts = computed(() => {
       </div>
       <pre
         v-else-if="activeTab === 'headers' && result"
-        class="h-full overflow-auto break-words whitespace-pre-wrap p-1 leading-relaxed text-gray-300"
+        class="app-scrollbar h-full overflow-auto break-words whitespace-pre-wrap p-1 leading-relaxed text-gray-300"
         >{{ headersText || '(no headers)' }}</pre
       >
       <div v-else-if="!loading" class="flex h-full min-h-[120px] items-center justify-center italic text-gray-600">
