@@ -327,9 +327,24 @@ const formatJsonBody = () => {
                 </button>
               </td>
             </tr>
+            <tr>
+              <td class="border-t border-gray-800/50 p-0 pt-2" colspan="2"></td>
+              <td class="border-t border-gray-800/50 p-0 pt-2 align-middle">
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-orange-500/15 hover:text-orange-400"
+                  aria-label="Add query param"
+                  title="Add param"
+                  @click="addQueryRow"
+                >
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
-        <button type="button" class="mt-2 text-xs text-orange-500 hover:text-orange-400" @click="addQueryRow">+ Add param</button>
       </div>
 
       <div v-show="activeTab === 'headers'" class="app-scrollbar min-h-0 flex-1 overflow-auto p-3 text-sm">
@@ -363,9 +378,24 @@ const formatJsonBody = () => {
                 </button>
               </td>
             </tr>
+            <tr>
+              <td class="border-t border-gray-800/50 p-0 pt-2" colspan="2"></td>
+              <td class="border-t border-gray-800/50 p-0 pt-2 align-middle">
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-orange-500/15 hover:text-orange-400"
+                  aria-label="Add header"
+                  title="Add header"
+                  @click="addHeaderRow"
+                >
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
-        <button type="button" class="mt-2 text-xs text-orange-500 hover:text-orange-400" @click="addHeaderRow">+ Add header</button>
       </div>
 
       <div v-show="activeTab === 'body'" class="flex min-h-0 flex-1 flex-col p-3" style="min-height: 80px">
@@ -435,9 +465,24 @@ const formatJsonBody = () => {
                   </button>
                 </td>
               </tr>
+              <tr>
+                <td class="border-t border-gray-800/50 p-0 pt-2" colspan="2"></td>
+                <td class="border-t border-gray-800/50 p-0 pt-2 align-middle">
+                  <button
+                    type="button"
+                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-orange-500/15 hover:text-orange-400"
+                    aria-label="Add form field"
+                    title="Add field"
+                    @click="addFormFieldRow"
+                  >
+                    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
-          <button type="button" class="mt-2 text-xs text-orange-500 hover:text-orange-400" @click="addFormFieldRow">+ Add field</button>
         </div>
 
         <!-- multipart -->
@@ -501,9 +546,24 @@ const formatJsonBody = () => {
                   </button>
                 </td>
               </tr>
+              <tr>
+                <td class="border-t border-gray-800/50 p-0 pt-2" colspan="3"></td>
+                <td class="border-t border-gray-800/50 p-0 pt-2 align-middle">
+                  <button
+                    type="button"
+                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-orange-500/15 hover:text-orange-400"
+                    aria-label="Add multipart field"
+                    title="Add field"
+                    @click="addMultipartField"
+                  >
+                    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
-          <button type="button" class="mt-2 text-xs text-orange-500 hover:text-orange-400" @click="addMultipartField">+ Add field</button>
         </div>
       </div>
     </div>

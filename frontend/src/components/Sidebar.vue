@@ -417,12 +417,14 @@ defineExpose({ refreshHistory })
       </template>
 
       <template v-else>
-        <div class="flex shrink-0 items-center justify-between border-b border-gray-800 px-3 py-2">
-          <span class="text-xs text-gray-500" style="color: #9ca3af">Recent requests</span>
+        <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 px-3 py-2">
+          <span class="min-w-0 text-xs text-gray-500" style="color: #9ca3af">Recent requests</span>
           <button
             type="button"
-            class="text-xs font-medium text-orange-500 hover:underline"
+            class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             style="color: #f97316"
+            aria-label="Refresh history"
+            title="Refresh history"
             :disabled="historyLoading"
             @click="loadHistory"
           >
