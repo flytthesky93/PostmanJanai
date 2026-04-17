@@ -7,9 +7,44 @@ This is the official Wails Vue template.
 You can configure the project by editing `wails.json`. More information about the project settings can be found
 here: https://wails.io/docs/reference/project-config
 
+## Cursor IDE: rules and plans
+
+The repository includes **Cursor** rules (`.cursor/rules/`) and plans (`.cursor/plans/`) so AI-assisted work and human contributors share the same conventions, architecture, and product direction.
+
+### Rules (`.cursor/rules/*.mdc`)
+
+Rules use the `.mdc` format with YAML frontmatter (`alwaysApply` and/or `globs`). The table below summarizes each file.
+
+| File | Scope | Purpose |
+|------|--------|---------|
+| `postmanjanai-project.mdc` | Always | Project context (Wails, Ent, Vue), generated paths, pointers to other rules |
+| `postmanjanai-project-structure.mdc` | Always | Where code belongs (packages, `ent/`, `frontend/`) |
+| `postmanjanai-architecture.mdc` | Always | Layering: delivery → usecase / service / repository → Ent |
+| `postmanjanai-backend.mdc` | `**/*.go` | Go style, errors, logging, Wails handlers, Ent workflow |
+| `postmanjanai-frontend.mdc` | `frontend/src/**`, Vite/Tailwind config, `index.html` | Vue 3, Wails bindings, guards for null/arrays |
+| `postmanjanai-security.mdc` | Always | Trust boundaries, HTTP/TLS, logs, local data |
+| `postmanjanai-performance.mdc` | Always | Timeouts, DB pagination, UI list performance |
+| `postmanjanai-testing.mdc` | Always | `go test`, `httptest`, when to add tests |
+| `postmanjanai-ai-instruction.mdc` | Always | How the AI should behave (clarify requirements, prefer maintainable fixes) |
+| `postmanjanai-prohibited.mdc` | Always | What not to do (break layers, skip errors, magic values, etc.) |
+
+### Plans (`.cursor/plans/`)
+
+| File | Purpose |
+|------|---------|
+| [`roadmap.md`](.cursor/plans/roadmap.md) | Product phases (0–5), phase completion, backlog, **suggested next steps** |
+| [`data-model-and-delivery-status.md`](.cursor/plans/data-model-and-delivery-status.md) | **Source of truth for DB** (tables, FKs, ERD), `user_version` / migration notes, technical delivery checklist |
+
+There is **no** `ROADMAP.md` at the repository root; roadmap content lives under `.cursor/plans/roadmap.md`.
+
+### Using this in Cursor
+
+- In chat or Composer, attach files with **`@`** (for example `@.cursor/plans/roadmap.md` or `@.cursor/plans/data-model-and-delivery-status.md`) when work should follow the roadmap or database spec.
+- Rules marked **always apply** are loaded automatically for this workspace; file-scoped rules apply when editing matching paths.
+
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - Node.js + npm
 - Wails CLI v2
 
