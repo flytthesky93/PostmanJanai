@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
 import { PickFileForBody, ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 
@@ -14,16 +15,32 @@ const url = ref('')
 const method = ref('GET')
 const body = ref('')
 
-/** none | raw | form_urlencoded | multipart */
+/** none | raw | xml | form_urlencoded | multipart */
 const bodyMode = ref('raw')
 
 /** @type {import('vue').Ref<Array<{ key: string, value: string }>>} */
 const queryParams = ref([{ key: '', value: '' }])
-/** @type {import('vue').Ref<Array<{ key: string, value: string }>>} */
+/** @type {import('vue').Ref<Array<{ key: string, value: string, locked?: boolean }>>} */
 const headers = ref([
   { key: 'Accept', value: 'application/json' },
   { key: '', value: '' }
 ])
+
+function stripContentTypeHeaders(rows) {
+  return rows.filter((h) => !/^content-type$/i.test(String(h.key || '').trim()))
+}
+
+function formUrlencodedLockedHeader() {
+  return { key: 'Content-Type', value: 'application/x-www-form-urlencoded', locked: true }
+}
+
+watch(bodyMode, (mode, prev) => {
+  if (mode === 'form_urlencoded') {
+    headers.value = [formUrlencodedLockedHeader(), ...stripContentTypeHeaders(headers.value)]
+  } else if (prev === 'form_urlencoded') {
+    headers.value = headers.value.filter((h) => !h.locked)
+  }
+})
 
 /** form-urlencoded */
 const formFields = ref([{ key: '', value: '' }])
@@ -83,7 +100,6 @@ function applyInputToForm(payload) {
   }
 
   const bm = payload.body_mode || 'none'
-  bodyMode.value = bm
   body.value = payload.body || ''
 
   if (payload.headers?.length) {
@@ -92,6 +108,11 @@ function applyInputToForm(payload) {
   } else {
     headers.value = [{ key: '', value: '' }]
   }
+  if (bm === 'form_urlencoded') {
+    headers.value = [formUrlencodedLockedHeader(), ...stripContentTypeHeaders(headers.value)]
+  }
+
+  bodyMode.value = bm
 
   if (payload.form_fields?.length) {
     formFields.value = payload.form_fields.map((f) => ({ key: f.key || '', value: f.value || '' }))
@@ -141,6 +162,7 @@ const removeQueryRow = (i) => {
 
 const addHeaderRow = () => headers.value.push({ key: '', value: '' })
 const removeHeaderRow = (i) => {
+  if (headers.value[i]?.locked) return
   headers.value.splice(i, 1)
   if (headers.value.length === 0) headers.value.push({ key: '', value: '' })
 }
@@ -183,7 +205,7 @@ const handleSend = () => {
     query_params: q,
     headers: h,
     body_mode: bodyMode.value,
-    body: bodyMode.value === 'raw' ? body.value : '',
+    body: bodyMode.value === 'raw' || bodyMode.value === 'xml' ? body.value : '',
     form_fields:
       bodyMode.value === 'form_urlencoded'
         ? formFields.value.filter((p) => (p.key || '').trim() !== '')
@@ -218,6 +240,19 @@ const formatJsonBody = () => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Invalid JSON.'
     emit('console', `[Format JSON] ${msg}`)
+  }
+}
+
+const formatXmlBody = () => {
+  const raw = (body.value ?? '').trim()
+  if (!raw) {
+    return
+  }
+  try {
+    body.value = formatXml(raw, { indentation: '  ', collapseContent: true, lineSeparator: '\n' })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    emit('console', `[Format XML] ${msg}`)
   }
 }
 </script>
@@ -359,13 +394,38 @@ const formatJsonBody = () => {
           <tbody>
             <tr v-for="(row, i) in headers" :key="'h-' + i">
               <td class="pr-2 pb-1 align-top">
-                <input v-model="row.key" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                <input
+                  v-if="!row.locked"
+                  v-model="row.key"
+                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
+                />
+                <input
+                  v-else
+                  :value="row.key"
+                  readonly
+                  tabindex="-1"
+                  title="Set automatically for x-www-form-urlencoded body"
+                  class="w-full cursor-default rounded border border-gray-600/80 bg-gray-800/90 px-2 py-1 text-gray-300"
+                />
               </td>
               <td class="pr-2 pb-1 align-top">
-                <input v-model="row.value" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                <input
+                  v-if="!row.locked"
+                  v-model="row.value"
+                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
+                />
+                <input
+                  v-else
+                  :value="row.value"
+                  readonly
+                  tabindex="-1"
+                  title="Set automatically for x-www-form-urlencoded body"
+                  class="w-full cursor-default rounded border border-gray-600/80 bg-gray-800/90 px-2 py-1 text-gray-300"
+                />
               </td>
               <td class="pb-1 align-middle">
                 <button
+                  v-if="!row.locked"
                   type="button"
                   class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-red-500/15 hover:text-red-400"
                   aria-label="Remove header"
@@ -376,6 +436,11 @@ const formatJsonBody = () => {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
+                <span v-else class="inline-flex h-8 w-8 shrink-0 items-center justify-center text-gray-600" title="Managed by Body type">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </span>
               </td>
             </tr>
             <tr>
@@ -399,24 +464,23 @@ const formatJsonBody = () => {
       </div>
 
       <div v-show="activeTab === 'body'" class="flex min-h-0 flex-1 flex-col p-3" style="min-height: 80px">
-        <div class="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-          <label class="text-xs text-gray-500">Body type</label>
-          <select
-            v-model="bodyMode"
-            class="rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
-          >
-            <option value="none">None</option>
-            <option value="raw">Raw / JSON</option>
-            <option value="form_urlencoded">x-www-form-urlencoded</option>
-            <option value="multipart">form-data (multipart)</option>
-          </select>
-        </div>
-
-        <!-- Raw -->
-        <template v-if="bodyMode === 'raw'">
-          <div class="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <span class="text-xs text-gray-500">Content (JSON or raw text)</span>
+        <div class="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-xs text-gray-500">Body type</label>
+            <select
+              v-model="bodyMode"
+              class="rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+            >
+              <option value="none">None</option>
+              <option value="raw">Raw / JSON</option>
+              <option value="xml">XML</option>
+              <option value="form_urlencoded">x-www-form-urlencoded</option>
+              <option value="multipart">form-data (multipart)</option>
+            </select>
+          </div>
+          <div v-if="bodyMode === 'raw' || bodyMode === 'xml'" class="flex shrink-0 items-center gap-2">
             <button
+              v-if="bodyMode === 'raw'"
               type="button"
               class="rounded border border-gray-600 bg-gray-800 px-3 py-1 text-xs font-medium text-gray-200 hover:border-orange-500 hover:text-orange-300"
               title="Pretty-print JSON"
@@ -424,8 +488,26 @@ const formatJsonBody = () => {
             >
               Format JSON
             </button>
+            <button
+              v-else
+              type="button"
+              class="rounded border border-gray-600 bg-gray-800 px-3 py-1 text-xs font-medium text-gray-200 hover:border-orange-500 hover:text-orange-300"
+              title="Pretty-print XML"
+              @click="formatXmlBody"
+            >
+              Format XML
+            </button>
           </div>
-          <JsonCodeMirror v-model="body" class="min-h-0 flex-1" />
+        </div>
+
+        <!-- Raw (JSON) or XML -->
+        <template v-if="bodyMode === 'raw' || bodyMode === 'xml'">
+          <JsonCodeMirror
+            v-model="body"
+            class="min-h-0 flex-1"
+            :language="bodyMode === 'xml' ? 'xml' : 'json'"
+            :placeholder="bodyMode === 'xml' ? 'Content (XML)' : 'Content (JSON or raw text)'"
+          />
         </template>
 
         <!-- none -->
@@ -435,7 +517,6 @@ const formatJsonBody = () => {
 
         <!-- urlencoded -->
         <div v-else-if="bodyMode === 'form_urlencoded'" class="app-scrollbar min-h-0 flex-1 overflow-auto text-sm">
-          <p class="mb-2 text-[11px] text-gray-500">Content-Type: application/x-www-form-urlencoded (set automatically unless overridden in Headers).</p>
           <table class="w-full border-collapse text-xs">
             <thead>
               <tr class="text-left text-gray-500">
@@ -487,9 +568,6 @@ const formatJsonBody = () => {
 
         <!-- multipart -->
         <div v-else-if="bodyMode === 'multipart'" class="app-scrollbar min-h-0 flex-1 overflow-auto text-sm">
-          <p class="mb-2 text-[11px] text-gray-500">
-            multipart/form-data — boundary is sent with the request. Files: pick a local path.
-          </p>
           <table class="w-full border-collapse text-xs">
             <thead>
               <tr class="text-left text-gray-500">

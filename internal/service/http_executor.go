@@ -160,6 +160,12 @@ func (e *HTTPExecutor) buildRequestBody(mode entity.BodyMode, in *entity.HTTPExe
 		}
 		return bytes.NewReader([]byte(in.Body)), "", nil
 
+	case entity.BodyModeXML:
+		if strings.TrimSpace(in.Body) == "" {
+			return nil, "", nil
+		}
+		return bytes.NewReader([]byte(in.Body)), "application/xml", nil
+
 	case entity.BodyModeFormURLEncoded:
 		v := url.Values{}
 		for _, f := range in.FormFields {
@@ -258,6 +264,8 @@ func requestBodySnapshot(mode entity.BodyMode, in *entity.HTTPExecuteInput) stri
 	case entity.BodyModeNone:
 		return ""
 	case entity.BodyModeRaw:
+		return in.Body
+	case entity.BodyModeXML:
 		return in.Body
 	case entity.BodyModeFormURLEncoded:
 		v := url.Values{}

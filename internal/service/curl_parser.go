@@ -213,12 +213,25 @@ func ParseCurlCommand(cmd string) (*entity.HTTPExecuteInput, error) {
 
 	joined := strings.Join(dataParts, "&")
 	ct := headerValueCI(headers, "Content-Type")
+	ctLower := strings.ToLower(ct)
 
 	if out.Method == "" {
 		out.Method = "POST"
 	}
 
-	if strings.Contains(strings.ToLower(ct), "application/json") || looksLikeJSON(joined) {
+	if strings.Contains(ctLower, "application/xml") || strings.Contains(ctLower, "text/xml") {
+		out.BodyMode = string(entity.BodyModeXML)
+		out.Body = joined
+		return out, nil
+	}
+
+	if strings.HasPrefix(strings.TrimSpace(joined), "<?xml") {
+		out.BodyMode = string(entity.BodyModeXML)
+		out.Body = joined
+		return out, nil
+	}
+
+	if strings.Contains(ctLower, "application/json") || looksLikeJSON(joined) {
 		out.BodyMode = string(entity.BodyModeRaw)
 		out.Body = joined
 		return out, nil

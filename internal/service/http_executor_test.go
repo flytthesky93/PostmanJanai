@@ -100,6 +100,38 @@ func TestHTTPExecutor_POST_rawJSON(t *testing.T) {
 	}
 }
 
+func TestHTTPExecutor_POST_xml(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if string(b) != `<note><to>x</to></note>` {
+			t.Errorf("body %s", b)
+		}
+		if ct := r.Header.Get("Content-Type"); ct != "application/xml" {
+			t.Errorf("Content-Type: want application/xml, got %q", ct)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<ok/>`))
+	}))
+	defer srv.Close()
+
+	ex := NewHTTPExecutor()
+	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
+		Method:   "POST",
+		URL:      srv.URL,
+		BodyMode: "xml",
+		Body:     `<note><to>x</to></note>`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ErrorMessage != "" {
+		t.Fatalf("transport: %s", res.ErrorMessage)
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+}
+
 func TestHTTPExecutor_FormURLEncoded(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {

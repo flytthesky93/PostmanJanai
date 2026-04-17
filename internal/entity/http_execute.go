@@ -10,10 +10,11 @@ type KeyValue struct {
 type BodyMode string
 
 const (
-	BodyModeNone               BodyMode = "none"
-	BodyModeRaw                BodyMode = "raw"
-	BodyModeFormURLEncoded     BodyMode = "form_urlencoded"
-	BodyModeMultipartFormData  BodyMode = "multipart"
+	BodyModeNone              BodyMode = "none"
+	BodyModeRaw               BodyMode = "raw"
+	BodyModeXML               BodyMode = "xml"
+	BodyModeFormURLEncoded    BodyMode = "form_urlencoded"
+	BodyModeMultipartFormData BodyMode = "multipart"
 )
 
 // MultipartPart is one part of multipart/form-data (text field or local file).
