@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { GetAll, CreateWorkspace, Update, Delete } from '../../wailsjs/wailsjs/go/delivery/WorkspaceHandler'
 import { List as ListHistory } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
+import HistoryDetailModal from './HistoryDetailModal.vue'
 
 const props = defineProps({
   /** Currently selected workspace id (UUID string), for linking sends to history. */
@@ -22,6 +23,21 @@ const historyItems = ref([])
 const historyLoading = ref(false)
 const historyList = computed(() => (Array.isArray(historyItems.value) ? historyItems.value : []))
 const submitting = ref(false)
+
+const historyDetailOpen = ref(false)
+/** @type {import('vue').Ref<Record<string, unknown> | null>} */
+const historyDetailItem = ref(null)
+
+const openHistoryDetail = (h) => {
+  if (!h) return
+  historyDetailItem.value = h
+  historyDetailOpen.value = true
+}
+
+const closeHistoryDetail = () => {
+  historyDetailOpen.value = false
+  historyDetailItem.value = null
+}
 
 const toast = ref({
   show: false,
@@ -439,7 +455,12 @@ defineExpose({ refreshHistory })
           <div
             v-for="h in historyList"
             :key="h.id"
-            class="mb-2 rounded border border-gray-700/90 bg-[#1a1a1a] p-2 text-left"
+            role="button"
+            tabindex="0"
+            class="mb-2 cursor-pointer rounded border border-gray-700/90 bg-[#1a1a1a] p-2 text-left transition-colors hover:border-orange-500/40 hover:bg-[#222]"
+            title="View request & response snapshot"
+            @click="openHistoryDetail(h)"
+            @keydown.enter.prevent="openHistoryDetail(h)"
           >
             <div class="flex flex-wrap items-center gap-1.5">
               <span
@@ -540,6 +561,8 @@ defineExpose({ refreshHistory })
     </div>
   </div>
     </Teleport>
+
+    <HistoryDetailModal :open="historyDetailOpen" :item="historyDetailItem" @close="closeHistoryDetail" />
 
     <div v-if="toast.show" class="pointer-events-none fixed bottom-4 right-4 z-50">
       <div
