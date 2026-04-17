@@ -15,7 +15,13 @@ var (
 	// History
 	ErrHistoryNotFound = apperror.ErrDetail{Code: "HIS_201", Message: "Request history not found."}
 
-	// Workspace
-	ErrWorkspaceAlreadyExisted = apperror.ErrDetail{Code: "WS_301", Message: "Workspace already exists"}
-	ErrWorkspaceSaveFail       = apperror.ErrDetail{Code: "WS_302", Message: "Failed to create workspace"}
+	// Folder (root + nested; replaces workspace/collection)
+	ErrFolderRootNameConflict  = apperror.ErrDetail{Code: "FOL_301", Message: "A root folder with this name already exists"}
+	ErrFolderChildNameConflict = apperror.ErrDetail{Code: "FOL_302", Message: "A folder with this name already exists here"}
+	ErrFolderNotFound          = apperror.ErrDetail{Code: "FOL_303", Message: "Folder not found"}
+	ErrFolderSaveFail          = apperror.ErrDetail{Code: "FOL_304", Message: "Failed to save folder"}
+
+	// Saved request
+	ErrSavedRequestNotFound     = apperror.ErrDetail{Code: "REQ_501", Message: "Request not found"}
+	ErrSavedRequestNameConflict = apperror.ErrDetail{Code: "REQ_502", Message: "A request with this name already exists in this location"}
 )

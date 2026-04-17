@@ -3,7 +3,7 @@
 package ent
 
 import (
-	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/predicate"
 	"context"
 
@@ -12,26 +12,26 @@ import (
 	"entgo.io/ent/schema/field"
 )
 
-// CollectionDelete is the builder for deleting a Collection entity.
-type CollectionDelete struct {
+// FolderDelete is the builder for deleting a Folder entity.
+type FolderDelete struct {
 	config
 	hooks    []Hook
-	mutation *CollectionMutation
+	mutation *FolderMutation
 }
 
-// Where appends a list predicates to the CollectionDelete builder.
-func (_d *CollectionDelete) Where(ps ...predicate.Collection) *CollectionDelete {
+// Where appends a list predicates to the FolderDelete builder.
+func (_d *FolderDelete) Where(ps ...predicate.Folder) *FolderDelete {
 	_d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query and returns how many vertices were deleted.
-func (_d *CollectionDelete) Exec(ctx context.Context) (int, error) {
+func (_d *FolderDelete) Exec(ctx context.Context) (int, error) {
 	return withHooks(ctx, _d.sqlExec, _d.mutation, _d.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *CollectionDelete) ExecX(ctx context.Context) int {
+func (_d *FolderDelete) ExecX(ctx context.Context) int {
 	n, err := _d.Exec(ctx)
 	if err != nil {
 		panic(err)
@@ -39,8 +39,8 @@ func (_d *CollectionDelete) ExecX(ctx context.Context) int {
 	return n
 }
 
-func (_d *CollectionDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(collection.Table, sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID))
+func (_d *FolderDelete) sqlExec(ctx context.Context) (int, error) {
+	_spec := sqlgraph.NewDeleteSpec(folder.Table, sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID))
 	if ps := _d.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -56,32 +56,32 @@ func (_d *CollectionDelete) sqlExec(ctx context.Context) (int, error) {
 	return affected, err
 }
 
-// CollectionDeleteOne is the builder for deleting a single Collection entity.
-type CollectionDeleteOne struct {
-	_d *CollectionDelete
+// FolderDeleteOne is the builder for deleting a single Folder entity.
+type FolderDeleteOne struct {
+	_d *FolderDelete
 }
 
-// Where appends a list predicates to the CollectionDelete builder.
-func (_d *CollectionDeleteOne) Where(ps ...predicate.Collection) *CollectionDeleteOne {
+// Where appends a list predicates to the FolderDelete builder.
+func (_d *FolderDeleteOne) Where(ps ...predicate.Folder) *FolderDeleteOne {
 	_d._d.mutation.Where(ps...)
 	return _d
 }
 
 // Exec executes the deletion query.
-func (_d *CollectionDeleteOne) Exec(ctx context.Context) error {
+func (_d *FolderDeleteOne) Exec(ctx context.Context) error {
 	n, err := _d._d.Exec(ctx)
 	switch {
 	case err != nil:
 		return err
 	case n == 0:
-		return &NotFoundError{collection.Label}
+		return &NotFoundError{folder.Label}
 	default:
 		return nil
 	}
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_d *CollectionDeleteOne) ExecX(ctx context.Context) {
+func (_d *FolderDeleteOne) ExecX(ctx context.Context) {
 	if err := _d.Exec(ctx); err != nil {
 		panic(err)
 	}

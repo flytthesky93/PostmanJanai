@@ -1,5 +1,60 @@
 export namespace entity {
 	
+	export class CreateFolderInput {
+	    parent_id?: string;
+	    name: string;
+	    description: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateFolderInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.parent_id = source["parent_id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	    }
+	}
+	export class FolderItem {
+	    id: string;
+	    parent_id?: string;
+	    name: string;
+	    description: string;
+	    // Go type: time
+	    created_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new FolderItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.parent_id = source["parent_id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.created_at = this.convertValues(source["created_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class MultipartPart {
 	    key: string;
 	    kind: string;
@@ -37,7 +92,7 @@ export namespace entity {
 	    url: string;
 	    headers?: KeyValue[];
 	    query_params?: KeyValue[];
-	    workspace_id?: string;
+	    root_folder_id?: string;
 	    request_id?: string;
 	    body_mode?: string;
 	    body?: string;
@@ -54,7 +109,7 @@ export namespace entity {
 	        this.url = source["url"];
 	        this.headers = this.convertValues(source["headers"], KeyValue);
 	        this.query_params = this.convertValues(source["query_params"], KeyValue);
-	        this.workspace_id = source["workspace_id"];
+	        this.root_folder_id = source["root_folder_id"];
 	        this.request_id = source["request_id"];
 	        this.body_mode = source["body_mode"];
 	        this.body = source["body"];
@@ -126,7 +181,7 @@ export namespace entity {
 	}
 	export class HistoryItem {
 	    id: string;
-	    workspace_id?: string;
+	    root_folder_id?: string;
 	    request_id?: string;
 	    method: string;
 	    url: string;
@@ -147,7 +202,7 @@ export namespace entity {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.workspace_id = source["workspace_id"];
+	        this.root_folder_id = source["root_folder_id"];
 	        this.request_id = source["request_id"];
 	        this.method = source["method"];
 	        this.url = source["url"];
@@ -181,23 +236,83 @@ export namespace entity {
 	}
 	
 	
-	export class WorkspaceItem {
+	export class SavedRequestFull {
 	    id: string;
-	    workspace_name: string;
-	    workspace_description: string;
+	    folder_id: string;
+	    name: string;
+	    method: string;
+	    url: string;
+	    body_mode: string;
+	    raw_body?: string;
+	    headers?: KeyValue[];
+	    query_params?: KeyValue[];
+	    form_fields?: KeyValue[];
+	    multipart_parts?: MultipartPart[];
 	    // Go type: time
 	    created_at: any;
+	    // Go type: time
+	    updated_at: any;
 	
 	    static createFrom(source: any = {}) {
-	        return new WorkspaceItem(source);
+	        return new SavedRequestFull(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.workspace_name = source["workspace_name"];
-	        this.workspace_description = source["workspace_description"];
+	        this.folder_id = source["folder_id"];
+	        this.name = source["name"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.body_mode = source["body_mode"];
+	        this.raw_body = source["raw_body"];
+	        this.headers = this.convertValues(source["headers"], KeyValue);
+	        this.query_params = this.convertValues(source["query_params"], KeyValue);
+	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
+	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
 	        this.created_at = this.convertValues(source["created_at"], null);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SavedRequestSummary {
+	    id: string;
+	    folder_id: string;
+	    name: string;
+	    method: string;
+	    url: string;
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new SavedRequestSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.folder_id = source["folder_id"];
+	        this.name = source["name"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.updated_at = this.convertValues(source["updated_at"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -3,9 +3,9 @@
 package ent
 
 import (
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
@@ -23,16 +23,16 @@ type HistoryCreate struct {
 	hooks    []Hook
 }
 
-// SetWorkspaceID sets the "workspace_id" field.
-func (_c *HistoryCreate) SetWorkspaceID(v uuid.UUID) *HistoryCreate {
-	_c.mutation.SetWorkspaceID(v)
+// SetRootFolderID sets the "root_folder_id" field.
+func (_c *HistoryCreate) SetRootFolderID(v uuid.UUID) *HistoryCreate {
+	_c.mutation.SetRootFolderID(v)
 	return _c
 }
 
-// SetNillableWorkspaceID sets the "workspace_id" field if the given value is not nil.
-func (_c *HistoryCreate) SetNillableWorkspaceID(v *uuid.UUID) *HistoryCreate {
+// SetNillableRootFolderID sets the "root_folder_id" field if the given value is not nil.
+func (_c *HistoryCreate) SetNillableRootFolderID(v *uuid.UUID) *HistoryCreate {
 	if v != nil {
-		_c.SetWorkspaceID(*v)
+		_c.SetRootFolderID(*v)
 	}
 	return _c
 }
@@ -181,9 +181,9 @@ func (_c *HistoryCreate) SetNillableID(v *uuid.UUID) *HistoryCreate {
 	return _c
 }
 
-// SetWorkspace sets the "workspace" edge to the Workspace entity.
-func (_c *HistoryCreate) SetWorkspace(v *Workspace) *HistoryCreate {
-	return _c.SetWorkspaceID(v.ID)
+// SetRootFolder sets the "root_folder" edge to the Folder entity.
+func (_c *HistoryCreate) SetRootFolder(v *Folder) *HistoryCreate {
+	return _c.SetRootFolderID(v.ID)
 }
 
 // SetRequest sets the "request" edge to the Request entity.
@@ -335,21 +335,21 @@ func (_c *HistoryCreate) createSpec() (*History, *sqlgraph.CreateSpec) {
 		_spec.SetField(history.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
 	}
-	if nodes := _c.mutation.WorkspaceIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.RootFolderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   history.WorkspaceTable,
-			Columns: []string{history.WorkspaceColumn},
+			Table:   history.RootFolderTable,
+			Columns: []string{history.RootFolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.WorkspaceID = &nodes[0]
+		_node.RootFolderID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.RequestIDs(); len(nodes) > 0 {

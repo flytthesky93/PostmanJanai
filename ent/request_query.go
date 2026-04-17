@@ -3,14 +3,13 @@
 package ent
 
 import (
-	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
 	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"database/sql/driver"
 	"fmt"
@@ -30,8 +29,7 @@ type RequestQuery struct {
 	order                  []request.OrderOption
 	inters                 []Interceptor
 	predicates             []predicate.Request
-	withWorkspace          *WorkspaceQuery
-	withCollection         *CollectionQuery
+	withFolder             *FolderQuery
 	withRequestHeaders     *RequestHeaderQuery
 	withRequestQueryParams *RequestQueryParamQuery
 	withRequestFormFields  *RequestFormFieldQuery
@@ -72,9 +70,9 @@ func (_q *RequestQuery) Order(o ...request.OrderOption) *RequestQuery {
 	return _q
 }
 
-// QueryWorkspace chains the current query on the "workspace" edge.
-func (_q *RequestQuery) QueryWorkspace() *WorkspaceQuery {
-	query := (&WorkspaceClient{config: _q.config}).Query()
+// QueryFolder chains the current query on the "folder" edge.
+func (_q *RequestQuery) QueryFolder() *FolderQuery {
+	query := (&FolderClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -85,30 +83,8 @@ func (_q *RequestQuery) QueryWorkspace() *WorkspaceQuery {
 		}
 		step := sqlgraph.NewStep(
 			sqlgraph.From(request.Table, request.FieldID, selector),
-			sqlgraph.To(workspace.Table, workspace.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, request.WorkspaceTable, request.WorkspaceColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryCollection chains the current query on the "collection" edge.
-func (_q *RequestQuery) QueryCollection() *CollectionQuery {
-	query := (&CollectionClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(request.Table, request.FieldID, selector),
-			sqlgraph.To(collection.Table, collection.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, request.CollectionTable, request.CollectionColumn),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, request.FolderTable, request.FolderColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -396,8 +372,7 @@ func (_q *RequestQuery) Clone() *RequestQuery {
 		order:                  append([]request.OrderOption{}, _q.order...),
 		inters:                 append([]Interceptor{}, _q.inters...),
 		predicates:             append([]predicate.Request{}, _q.predicates...),
-		withWorkspace:          _q.withWorkspace.Clone(),
-		withCollection:         _q.withCollection.Clone(),
+		withFolder:             _q.withFolder.Clone(),
 		withRequestHeaders:     _q.withRequestHeaders.Clone(),
 		withRequestQueryParams: _q.withRequestQueryParams.Clone(),
 		withRequestFormFields:  _q.withRequestFormFields.Clone(),
@@ -408,25 +383,14 @@ func (_q *RequestQuery) Clone() *RequestQuery {
 	}
 }
 
-// WithWorkspace tells the query-builder to eager-load the nodes that are connected to
-// the "workspace" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *RequestQuery) WithWorkspace(opts ...func(*WorkspaceQuery)) *RequestQuery {
-	query := (&WorkspaceClient{config: _q.config}).Query()
+// WithFolder tells the query-builder to eager-load the nodes that are connected to
+// the "folder" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *RequestQuery) WithFolder(opts ...func(*FolderQuery)) *RequestQuery {
+	query := (&FolderClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withWorkspace = query
-	return _q
-}
-
-// WithCollection tells the query-builder to eager-load the nodes that are connected to
-// the "collection" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *RequestQuery) WithCollection(opts ...func(*CollectionQuery)) *RequestQuery {
-	query := (&CollectionClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withCollection = query
+	_q.withFolder = query
 	return _q
 }
 
@@ -480,12 +444,12 @@ func (_q *RequestQuery) WithHistories(opts ...func(*HistoryQuery)) *RequestQuery
 // Example:
 //
 //	var v []struct {
-//		WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
+//		FolderID uuid.UUID `json:"folder_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Request.Query().
-//		GroupBy(request.FieldWorkspaceID).
+//		GroupBy(request.FieldFolderID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *RequestQuery) GroupBy(field string, fields ...string) *RequestGroupBy {
@@ -503,11 +467,11 @@ func (_q *RequestQuery) GroupBy(field string, fields ...string) *RequestGroupBy 
 // Example:
 //
 //	var v []struct {
-//		WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
+//		FolderID uuid.UUID `json:"folder_id,omitempty"`
 //	}
 //
 //	client.Request.Query().
-//		Select(request.FieldWorkspaceID).
+//		Select(request.FieldFolderID).
 //		Scan(ctx, &v)
 func (_q *RequestQuery) Select(fields ...string) *RequestSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
@@ -552,9 +516,8 @@ func (_q *RequestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Requ
 	var (
 		nodes       = []*Request{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
-			_q.withWorkspace != nil,
-			_q.withCollection != nil,
+		loadedTypes = [5]bool{
+			_q.withFolder != nil,
 			_q.withRequestHeaders != nil,
 			_q.withRequestQueryParams != nil,
 			_q.withRequestFormFields != nil,
@@ -579,15 +542,9 @@ func (_q *RequestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Requ
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withWorkspace; query != nil {
-		if err := _q.loadWorkspace(ctx, query, nodes, nil,
-			func(n *Request, e *Workspace) { n.Edges.Workspace = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withCollection; query != nil {
-		if err := _q.loadCollection(ctx, query, nodes, nil,
-			func(n *Request, e *Collection) { n.Edges.Collection = e }); err != nil {
+	if query := _q.withFolder; query != nil {
+		if err := _q.loadFolder(ctx, query, nodes, nil,
+			func(n *Request, e *Folder) { n.Edges.Folder = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -626,11 +583,11 @@ func (_q *RequestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Requ
 	return nodes, nil
 }
 
-func (_q *RequestQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery, nodes []*Request, init func(*Request), assign func(*Request, *Workspace)) error {
+func (_q *RequestQuery) loadFolder(ctx context.Context, query *FolderQuery, nodes []*Request, init func(*Request), assign func(*Request, *Folder)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Request)
 	for i := range nodes {
-		fk := nodes[i].WorkspaceID
+		fk := nodes[i].FolderID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -639,7 +596,7 @@ func (_q *RequestQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery
 	if len(ids) == 0 {
 		return nil
 	}
-	query.Where(workspace.IDIn(ids...))
+	query.Where(folder.IDIn(ids...))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
@@ -647,39 +604,7 @@ func (_q *RequestQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "workspace_id" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-func (_q *RequestQuery) loadCollection(ctx context.Context, query *CollectionQuery, nodes []*Request, init func(*Request), assign func(*Request, *Collection)) error {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	nodeids := make(map[uuid.UUID][]*Request)
-	for i := range nodes {
-		if nodes[i].CollectionID == nil {
-			continue
-		}
-		fk := *nodes[i].CollectionID
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(collection.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "collection_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "folder_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -836,11 +761,8 @@ func (_q *RequestQuery) querySpec() *sqlgraph.QuerySpec {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
-		if _q.withWorkspace != nil {
-			_spec.Node.AddColumnOnce(request.FieldWorkspaceID)
-		}
-		if _q.withCollection != nil {
-			_spec.Node.AddColumnOnce(request.FieldCollectionID)
+		if _q.withFolder != nil {
+			_spec.Node.AddColumnOnce(request.FieldFolderID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

@@ -3,10 +3,10 @@
 package ent
 
 import (
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
 	"PostmanJanai/ent/request"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
@@ -30,23 +30,23 @@ func (_u *HistoryUpdate) Where(ps ...predicate.History) *HistoryUpdate {
 	return _u
 }
 
-// SetWorkspaceID sets the "workspace_id" field.
-func (_u *HistoryUpdate) SetWorkspaceID(v uuid.UUID) *HistoryUpdate {
-	_u.mutation.SetWorkspaceID(v)
+// SetRootFolderID sets the "root_folder_id" field.
+func (_u *HistoryUpdate) SetRootFolderID(v uuid.UUID) *HistoryUpdate {
+	_u.mutation.SetRootFolderID(v)
 	return _u
 }
 
-// SetNillableWorkspaceID sets the "workspace_id" field if the given value is not nil.
-func (_u *HistoryUpdate) SetNillableWorkspaceID(v *uuid.UUID) *HistoryUpdate {
+// SetNillableRootFolderID sets the "root_folder_id" field if the given value is not nil.
+func (_u *HistoryUpdate) SetNillableRootFolderID(v *uuid.UUID) *HistoryUpdate {
 	if v != nil {
-		_u.SetWorkspaceID(*v)
+		_u.SetRootFolderID(*v)
 	}
 	return _u
 }
 
-// ClearWorkspaceID clears the value of the "workspace_id" field.
-func (_u *HistoryUpdate) ClearWorkspaceID() *HistoryUpdate {
-	_u.mutation.ClearWorkspaceID()
+// ClearRootFolderID clears the value of the "root_folder_id" field.
+func (_u *HistoryUpdate) ClearRootFolderID() *HistoryUpdate {
+	_u.mutation.ClearRootFolderID()
 	return _u
 }
 
@@ -253,9 +253,9 @@ func (_u *HistoryUpdate) ClearResponseBody() *HistoryUpdate {
 	return _u
 }
 
-// SetWorkspace sets the "workspace" edge to the Workspace entity.
-func (_u *HistoryUpdate) SetWorkspace(v *Workspace) *HistoryUpdate {
-	return _u.SetWorkspaceID(v.ID)
+// SetRootFolder sets the "root_folder" edge to the Folder entity.
+func (_u *HistoryUpdate) SetRootFolder(v *Folder) *HistoryUpdate {
+	return _u.SetRootFolderID(v.ID)
 }
 
 // SetRequest sets the "request" edge to the Request entity.
@@ -268,9 +268,9 @@ func (_u *HistoryUpdate) Mutation() *HistoryMutation {
 	return _u.mutation
 }
 
-// ClearWorkspace clears the "workspace" edge to the Workspace entity.
-func (_u *HistoryUpdate) ClearWorkspace() *HistoryUpdate {
-	_u.mutation.ClearWorkspace()
+// ClearRootFolder clears the "root_folder" edge to the Folder entity.
+func (_u *HistoryUpdate) ClearRootFolder() *HistoryUpdate {
+	_u.mutation.ClearRootFolder()
 	return _u
 }
 
@@ -388,28 +388,28 @@ func (_u *HistoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.ResponseBodyCleared() {
 		_spec.ClearField(history.FieldResponseBody, field.TypeString)
 	}
-	if _u.mutation.WorkspaceCleared() {
+	if _u.mutation.RootFolderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   history.WorkspaceTable,
-			Columns: []string{history.WorkspaceColumn},
+			Table:   history.RootFolderTable,
+			Columns: []string{history.RootFolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.WorkspaceIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.RootFolderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   history.WorkspaceTable,
-			Columns: []string{history.WorkspaceColumn},
+			Table:   history.RootFolderTable,
+			Columns: []string{history.RootFolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -466,23 +466,23 @@ type HistoryUpdateOne struct {
 	mutation *HistoryMutation
 }
 
-// SetWorkspaceID sets the "workspace_id" field.
-func (_u *HistoryUpdateOne) SetWorkspaceID(v uuid.UUID) *HistoryUpdateOne {
-	_u.mutation.SetWorkspaceID(v)
+// SetRootFolderID sets the "root_folder_id" field.
+func (_u *HistoryUpdateOne) SetRootFolderID(v uuid.UUID) *HistoryUpdateOne {
+	_u.mutation.SetRootFolderID(v)
 	return _u
 }
 
-// SetNillableWorkspaceID sets the "workspace_id" field if the given value is not nil.
-func (_u *HistoryUpdateOne) SetNillableWorkspaceID(v *uuid.UUID) *HistoryUpdateOne {
+// SetNillableRootFolderID sets the "root_folder_id" field if the given value is not nil.
+func (_u *HistoryUpdateOne) SetNillableRootFolderID(v *uuid.UUID) *HistoryUpdateOne {
 	if v != nil {
-		_u.SetWorkspaceID(*v)
+		_u.SetRootFolderID(*v)
 	}
 	return _u
 }
 
-// ClearWorkspaceID clears the value of the "workspace_id" field.
-func (_u *HistoryUpdateOne) ClearWorkspaceID() *HistoryUpdateOne {
-	_u.mutation.ClearWorkspaceID()
+// ClearRootFolderID clears the value of the "root_folder_id" field.
+func (_u *HistoryUpdateOne) ClearRootFolderID() *HistoryUpdateOne {
+	_u.mutation.ClearRootFolderID()
 	return _u
 }
 
@@ -689,9 +689,9 @@ func (_u *HistoryUpdateOne) ClearResponseBody() *HistoryUpdateOne {
 	return _u
 }
 
-// SetWorkspace sets the "workspace" edge to the Workspace entity.
-func (_u *HistoryUpdateOne) SetWorkspace(v *Workspace) *HistoryUpdateOne {
-	return _u.SetWorkspaceID(v.ID)
+// SetRootFolder sets the "root_folder" edge to the Folder entity.
+func (_u *HistoryUpdateOne) SetRootFolder(v *Folder) *HistoryUpdateOne {
+	return _u.SetRootFolderID(v.ID)
 }
 
 // SetRequest sets the "request" edge to the Request entity.
@@ -704,9 +704,9 @@ func (_u *HistoryUpdateOne) Mutation() *HistoryMutation {
 	return _u.mutation
 }
 
-// ClearWorkspace clears the "workspace" edge to the Workspace entity.
-func (_u *HistoryUpdateOne) ClearWorkspace() *HistoryUpdateOne {
-	_u.mutation.ClearWorkspace()
+// ClearRootFolder clears the "root_folder" edge to the Folder entity.
+func (_u *HistoryUpdateOne) ClearRootFolder() *HistoryUpdateOne {
+	_u.mutation.ClearRootFolder()
 	return _u
 }
 
@@ -854,28 +854,28 @@ func (_u *HistoryUpdateOne) sqlSave(ctx context.Context) (_node *History, err er
 	if _u.mutation.ResponseBodyCleared() {
 		_spec.ClearField(history.FieldResponseBody, field.TypeString)
 	}
-	if _u.mutation.WorkspaceCleared() {
+	if _u.mutation.RootFolderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   history.WorkspaceTable,
-			Columns: []string{history.WorkspaceColumn},
+			Table:   history.RootFolderTable,
+			Columns: []string{history.RootFolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.WorkspaceIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.RootFolderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   history.WorkspaceTable,
-			Columns: []string{history.WorkspaceColumn},
+			Table:   history.RootFolderTable,
+			Columns: []string{history.RootFolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

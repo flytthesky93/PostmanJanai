@@ -5,12 +5,13 @@ import RequestPanel from './components/RequestPanel.vue'
 import ResponsePanel from './components/ResponsePanel.vue'
 import ConsolePanel from './components/ConsolePanel.vue'
 import { Execute } from '../wailsjs/wailsjs/go/delivery/HTTPHandler'
+import { Get as GetSavedRequest } from '../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 
 const responseResult = ref(null)
 const loading = ref(false)
 
-/** Selected workspace (sidebar); sent as workspace_id for request history. */
-const activeWorkspaceId = ref(null)
+/** Selected root folder (sidebar); sent as root_folder_id for HTTP history. */
+const activeRootFolderId = ref(null)
 
 /** Console expanded/collapsed (default collapsed to give space to Response). */
 const consoleExpanded = ref(false)
@@ -38,6 +39,26 @@ function onRequestConsole(msg) {
 }
 
 const sidebarRef = ref(null)
+const requestPanelRef = ref(null)
+
+async function onOpenSavedRequest(id) {
+  if (!id) return
+  try {
+    const dto = await GetSavedRequest(id)
+    requestPanelRef.value?.loadFromSavedRequest?.(dto)
+  } catch (e) {
+    const msg = e?.message || String(e)
+    pushConsole(`[Library] Could not open saved request: ${msg}`)
+  }
+}
+
+async function onSavedRequestUpdated() {
+  try {
+    await sidebarRef.value?.refreshCatalog?.()
+  } catch {
+    /* ignore */
+  }
+}
 
 const onExecuteRequest = async (payload) => {
   loading.value = true
@@ -97,8 +118,10 @@ const onExecuteRequest = async (payload) => {
     >
       <Sidebar
         ref="sidebarRef"
-        :active-workspace-id="activeWorkspaceId"
-        @update:activeWorkspaceId="(v) => (activeWorkspaceId = v)"
+        :active-root-folder-id="activeRootFolderId"
+        @update:activeRootFolderId="(v) => (activeRootFolderId = v)"
+        @open-saved-request="onOpenSavedRequest"
+        @console="onRequestConsole"
       />
     </div>
 
@@ -108,9 +131,11 @@ const onExecuteRequest = async (payload) => {
     >
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-[#2a2a2a]">
         <RequestPanel
-          :active-workspace-id="activeWorkspaceId"
+          ref="requestPanelRef"
+          :active-root-folder-id="activeRootFolderId"
           @send="onExecuteRequest"
           @console="onRequestConsole"
+          @saved-request="onSavedRequestUpdated"
         />
       </div>
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

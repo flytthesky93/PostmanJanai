@@ -56,9 +56,9 @@ func IDLTE(id uuid.UUID) predicate.History {
 	return predicate.History(sql.FieldLTE(FieldID, id))
 }
 
-// WorkspaceID applies equality check predicate on the "workspace_id" field. It's identical to WorkspaceIDEQ.
-func WorkspaceID(v uuid.UUID) predicate.History {
-	return predicate.History(sql.FieldEQ(FieldWorkspaceID, v))
+// RootFolderID applies equality check predicate on the "root_folder_id" field. It's identical to RootFolderIDEQ.
+func RootFolderID(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldRootFolderID, v))
 }
 
 // RequestID applies equality check predicate on the "request_id" field. It's identical to RequestIDEQ.
@@ -116,34 +116,34 @@ func CreatedAt(v time.Time) predicate.History {
 	return predicate.History(sql.FieldEQ(FieldCreatedAt, v))
 }
 
-// WorkspaceIDEQ applies the EQ predicate on the "workspace_id" field.
-func WorkspaceIDEQ(v uuid.UUID) predicate.History {
-	return predicate.History(sql.FieldEQ(FieldWorkspaceID, v))
+// RootFolderIDEQ applies the EQ predicate on the "root_folder_id" field.
+func RootFolderIDEQ(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldEQ(FieldRootFolderID, v))
 }
 
-// WorkspaceIDNEQ applies the NEQ predicate on the "workspace_id" field.
-func WorkspaceIDNEQ(v uuid.UUID) predicate.History {
-	return predicate.History(sql.FieldNEQ(FieldWorkspaceID, v))
+// RootFolderIDNEQ applies the NEQ predicate on the "root_folder_id" field.
+func RootFolderIDNEQ(v uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldNEQ(FieldRootFolderID, v))
 }
 
-// WorkspaceIDIn applies the In predicate on the "workspace_id" field.
-func WorkspaceIDIn(vs ...uuid.UUID) predicate.History {
-	return predicate.History(sql.FieldIn(FieldWorkspaceID, vs...))
+// RootFolderIDIn applies the In predicate on the "root_folder_id" field.
+func RootFolderIDIn(vs ...uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldIn(FieldRootFolderID, vs...))
 }
 
-// WorkspaceIDNotIn applies the NotIn predicate on the "workspace_id" field.
-func WorkspaceIDNotIn(vs ...uuid.UUID) predicate.History {
-	return predicate.History(sql.FieldNotIn(FieldWorkspaceID, vs...))
+// RootFolderIDNotIn applies the NotIn predicate on the "root_folder_id" field.
+func RootFolderIDNotIn(vs ...uuid.UUID) predicate.History {
+	return predicate.History(sql.FieldNotIn(FieldRootFolderID, vs...))
 }
 
-// WorkspaceIDIsNil applies the IsNil predicate on the "workspace_id" field.
-func WorkspaceIDIsNil() predicate.History {
-	return predicate.History(sql.FieldIsNull(FieldWorkspaceID))
+// RootFolderIDIsNil applies the IsNil predicate on the "root_folder_id" field.
+func RootFolderIDIsNil() predicate.History {
+	return predicate.History(sql.FieldIsNull(FieldRootFolderID))
 }
 
-// WorkspaceIDNotNil applies the NotNil predicate on the "workspace_id" field.
-func WorkspaceIDNotNil() predicate.History {
-	return predicate.History(sql.FieldNotNull(FieldWorkspaceID))
+// RootFolderIDNotNil applies the NotNil predicate on the "root_folder_id" field.
+func RootFolderIDNotNil() predicate.History {
+	return predicate.History(sql.FieldNotNull(FieldRootFolderID))
 }
 
 // RequestIDEQ applies the EQ predicate on the "request_id" field.
@@ -786,21 +786,21 @@ func CreatedAtLTE(v time.Time) predicate.History {
 	return predicate.History(sql.FieldLTE(FieldCreatedAt, v))
 }
 
-// HasWorkspace applies the HasEdge predicate on the "workspace" edge.
-func HasWorkspace() predicate.History {
+// HasRootFolder applies the HasEdge predicate on the "root_folder" edge.
+func HasRootFolder() predicate.History {
 	return predicate.History(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, WorkspaceTable, WorkspaceColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, RootFolderTable, RootFolderColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasWorkspaceWith applies the HasEdge predicate on the "workspace" edge with a given conditions (other predicates).
-func HasWorkspaceWith(preds ...predicate.Workspace) predicate.History {
+// HasRootFolderWith applies the HasEdge predicate on the "root_folder" edge with a given conditions (other predicates).
+func HasRootFolderWith(preds ...predicate.Folder) predicate.History {
 	return predicate.History(func(s *sql.Selector) {
-		step := newWorkspaceStep()
+		step := newRootFolderStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

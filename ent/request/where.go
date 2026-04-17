@@ -56,14 +56,9 @@ func IDLTE(id uuid.UUID) predicate.Request {
 	return predicate.Request(sql.FieldLTE(FieldID, id))
 }
 
-// WorkspaceID applies equality check predicate on the "workspace_id" field. It's identical to WorkspaceIDEQ.
-func WorkspaceID(v uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldEQ(FieldWorkspaceID, v))
-}
-
-// CollectionID applies equality check predicate on the "collection_id" field. It's identical to CollectionIDEQ.
-func CollectionID(v uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldEQ(FieldCollectionID, v))
+// FolderID applies equality check predicate on the "folder_id" field. It's identical to FolderIDEQ.
+func FolderID(v uuid.UUID) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldFolderID, v))
 }
 
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
@@ -101,54 +96,24 @@ func UpdatedAt(v time.Time) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
-// WorkspaceIDEQ applies the EQ predicate on the "workspace_id" field.
-func WorkspaceIDEQ(v uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldEQ(FieldWorkspaceID, v))
+// FolderIDEQ applies the EQ predicate on the "folder_id" field.
+func FolderIDEQ(v uuid.UUID) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldFolderID, v))
 }
 
-// WorkspaceIDNEQ applies the NEQ predicate on the "workspace_id" field.
-func WorkspaceIDNEQ(v uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldNEQ(FieldWorkspaceID, v))
+// FolderIDNEQ applies the NEQ predicate on the "folder_id" field.
+func FolderIDNEQ(v uuid.UUID) predicate.Request {
+	return predicate.Request(sql.FieldNEQ(FieldFolderID, v))
 }
 
-// WorkspaceIDIn applies the In predicate on the "workspace_id" field.
-func WorkspaceIDIn(vs ...uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldIn(FieldWorkspaceID, vs...))
+// FolderIDIn applies the In predicate on the "folder_id" field.
+func FolderIDIn(vs ...uuid.UUID) predicate.Request {
+	return predicate.Request(sql.FieldIn(FieldFolderID, vs...))
 }
 
-// WorkspaceIDNotIn applies the NotIn predicate on the "workspace_id" field.
-func WorkspaceIDNotIn(vs ...uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldNotIn(FieldWorkspaceID, vs...))
-}
-
-// CollectionIDEQ applies the EQ predicate on the "collection_id" field.
-func CollectionIDEQ(v uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldEQ(FieldCollectionID, v))
-}
-
-// CollectionIDNEQ applies the NEQ predicate on the "collection_id" field.
-func CollectionIDNEQ(v uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldNEQ(FieldCollectionID, v))
-}
-
-// CollectionIDIn applies the In predicate on the "collection_id" field.
-func CollectionIDIn(vs ...uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldIn(FieldCollectionID, vs...))
-}
-
-// CollectionIDNotIn applies the NotIn predicate on the "collection_id" field.
-func CollectionIDNotIn(vs ...uuid.UUID) predicate.Request {
-	return predicate.Request(sql.FieldNotIn(FieldCollectionID, vs...))
-}
-
-// CollectionIDIsNil applies the IsNil predicate on the "collection_id" field.
-func CollectionIDIsNil() predicate.Request {
-	return predicate.Request(sql.FieldIsNull(FieldCollectionID))
-}
-
-// CollectionIDNotNil applies the NotNil predicate on the "collection_id" field.
-func CollectionIDNotNil() predicate.Request {
-	return predicate.Request(sql.FieldNotNull(FieldCollectionID))
+// FolderIDNotIn applies the NotIn predicate on the "folder_id" field.
+func FolderIDNotIn(vs ...uuid.UUID) predicate.Request {
+	return predicate.Request(sql.FieldNotIn(FieldFolderID, vs...))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -566,44 +531,21 @@ func UpdatedAtLTE(v time.Time) predicate.Request {
 	return predicate.Request(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
-// HasWorkspace applies the HasEdge predicate on the "workspace" edge.
-func HasWorkspace() predicate.Request {
+// HasFolder applies the HasEdge predicate on the "folder" edge.
+func HasFolder() predicate.Request {
 	return predicate.Request(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, WorkspaceTable, WorkspaceColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, FolderTable, FolderColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasWorkspaceWith applies the HasEdge predicate on the "workspace" edge with a given conditions (other predicates).
-func HasWorkspaceWith(preds ...predicate.Workspace) predicate.Request {
+// HasFolderWith applies the HasEdge predicate on the "folder" edge with a given conditions (other predicates).
+func HasFolderWith(preds ...predicate.Folder) predicate.Request {
 	return predicate.Request(func(s *sql.Selector) {
-		step := newWorkspaceStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasCollection applies the HasEdge predicate on the "collection" edge.
-func HasCollection() predicate.Request {
-	return predicate.Request(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, CollectionTable, CollectionColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasCollectionWith applies the HasEdge predicate on the "collection" edge with a given conditions (other predicates).
-func HasCollectionWith(preds ...predicate.Collection) predicate.Request {
-	return predicate.Request(func(s *sql.Selector) {
-		step := newCollectionStep()
+		step := newFolderStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

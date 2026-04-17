@@ -8,35 +8,6 @@ import (
 )
 
 var (
-	// CollectionsColumns holds the columns for the "collections" table.
-	CollectionsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "name", Type: field.TypeString},
-		{Name: "description", Type: field.TypeString, Default: ""},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "workspace_id", Type: field.TypeUUID},
-	}
-	// CollectionsTable holds the schema information for the "collections" table.
-	CollectionsTable = &schema.Table{
-		Name:       "collections",
-		Columns:    CollectionsColumns,
-		PrimaryKey: []*schema.Column{CollectionsColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "collections_workspaces_collections",
-				Columns:    []*schema.Column{CollectionsColumns[4]},
-				RefColumns: []*schema.Column{WorkspacesColumns[0]},
-				OnDelete:   schema.NoAction,
-			},
-		},
-		Indexes: []*schema.Index{
-			{
-				Name:    "collection_workspace_id_name",
-				Unique:  true,
-				Columns: []*schema.Column{CollectionsColumns[4], CollectionsColumns[1]},
-			},
-		},
-	}
 	// EnvironmentsColumns holds the columns for the "environments" table.
 	EnvironmentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -96,6 +67,35 @@ var (
 			},
 		},
 	}
+	// FoldersColumns holds the columns for the "folders" table.
+	FoldersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Default: ""},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "parent_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// FoldersTable holds the schema information for the "folders" table.
+	FoldersTable = &schema.Table{
+		Name:       "folders",
+		Columns:    FoldersColumns,
+		PrimaryKey: []*schema.Column{FoldersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "folders_folders_children",
+				Columns:    []*schema.Column{FoldersColumns[4]},
+				RefColumns: []*schema.Column{FoldersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "folder_parent_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{FoldersColumns[4], FoldersColumns[1]},
+			},
+		},
+	}
 	// HistoriesColumns holds the columns for the "histories" table.
 	HistoriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -109,8 +109,8 @@ var (
 		{Name: "request_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "response_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "root_folder_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "request_id", Type: field.TypeUUID, Nullable: true},
-		{Name: "workspace_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// HistoriesTable holds the schema information for the "histories" table.
 	HistoriesTable = &schema.Table{
@@ -119,15 +119,15 @@ var (
 		PrimaryKey: []*schema.Column{HistoriesColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "histories_requests_histories",
+				Symbol:     "histories_folders_histories",
 				Columns:    []*schema.Column{HistoriesColumns[11]},
-				RefColumns: []*schema.Column{RequestsColumns[0]},
+				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "histories_workspaces_histories",
+				Symbol:     "histories_requests_histories",
 				Columns:    []*schema.Column{HistoriesColumns[12]},
-				RefColumns: []*schema.Column{WorkspacesColumns[0]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 		},
@@ -142,8 +142,7 @@ var (
 		{Name: "raw_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "collection_id", Type: field.TypeUUID, Nullable: true},
-		{Name: "workspace_id", Type: field.TypeUUID},
+		{Name: "folder_id", Type: field.TypeUUID},
 	}
 	// RequestsTable holds the schema information for the "requests" table.
 	RequestsTable = &schema.Table{
@@ -152,16 +151,17 @@ var (
 		PrimaryKey: []*schema.Column{RequestsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "requests_collections_requests",
+				Symbol:     "requests_folders_requests",
 				Columns:    []*schema.Column{RequestsColumns[8]},
-				RefColumns: []*schema.Column{CollectionsColumns[0]},
-				OnDelete:   schema.SetNull,
-			},
-			{
-				Symbol:     "requests_workspaces_requests",
-				Columns:    []*schema.Column{RequestsColumns[9]},
-				RefColumns: []*schema.Column{WorkspacesColumns[0]},
+				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "request_folder_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{RequestsColumns[8], RequestsColumns[1]},
 			},
 		},
 	}
@@ -256,47 +256,25 @@ var (
 			},
 		},
 	}
-	// WorkspacesColumns holds the columns for the "workspaces" table.
-	WorkspacesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "workspace_name", Type: field.TypeString},
-		{Name: "workspace_description", Type: field.TypeString, Default: ""},
-		{Name: "created_at", Type: field.TypeTime},
-	}
-	// WorkspacesTable holds the schema information for the "workspaces" table.
-	WorkspacesTable = &schema.Table{
-		Name:       "workspaces",
-		Columns:    WorkspacesColumns,
-		PrimaryKey: []*schema.Column{WorkspacesColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "workspace_workspace_name",
-				Unique:  true,
-				Columns: []*schema.Column{WorkspacesColumns[1]},
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		CollectionsTable,
 		EnvironmentsTable,
 		EnvironmentVariablesTable,
+		FoldersTable,
 		HistoriesTable,
 		RequestsTable,
 		RequestFormFieldsTable,
 		RequestHeadersTable,
 		RequestQueryParamsTable,
-		WorkspacesTable,
 	}
 )
 
 func init() {
-	CollectionsTable.ForeignKeys[0].RefTable = WorkspacesTable
 	EnvironmentVariablesTable.ForeignKeys[0].RefTable = EnvironmentsTable
-	HistoriesTable.ForeignKeys[0].RefTable = RequestsTable
-	HistoriesTable.ForeignKeys[1].RefTable = WorkspacesTable
-	RequestsTable.ForeignKeys[0].RefTable = CollectionsTable
-	RequestsTable.ForeignKeys[1].RefTable = WorkspacesTable
+	FoldersTable.ForeignKeys[0].RefTable = FoldersTable
+	HistoriesTable.ForeignKeys[0].RefTable = FoldersTable
+	HistoriesTable.ForeignKeys[1].RefTable = RequestsTable
+	RequestsTable.ForeignKeys[0].RefTable = FoldersTable
 	RequestFormFieldsTable.ForeignKeys[0].RefTable = RequestsTable
 	RequestHeadersTable.ForeignKeys[0].RefTable = RequestsTable
 	RequestQueryParamsTable.ForeignKeys[0].RefTable = RequestsTable

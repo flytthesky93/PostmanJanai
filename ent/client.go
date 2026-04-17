@@ -11,15 +11,14 @@ import (
 
 	"PostmanJanai/ent/migrate"
 
-	"PostmanJanai/ent/collection"
 	"PostmanJanai/ent/environment"
 	"PostmanJanai/ent/environmentvariable"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
-	"PostmanJanai/ent/workspace"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -33,12 +32,12 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// Collection is the client for interacting with the Collection builders.
-	Collection *CollectionClient
 	// Environment is the client for interacting with the Environment builders.
 	Environment *EnvironmentClient
 	// EnvironmentVariable is the client for interacting with the EnvironmentVariable builders.
 	EnvironmentVariable *EnvironmentVariableClient
+	// Folder is the client for interacting with the Folder builders.
+	Folder *FolderClient
 	// History is the client for interacting with the History builders.
 	History *HistoryClient
 	// Request is the client for interacting with the Request builders.
@@ -49,8 +48,6 @@ type Client struct {
 	RequestHeader *RequestHeaderClient
 	// RequestQueryParam is the client for interacting with the RequestQueryParam builders.
 	RequestQueryParam *RequestQueryParamClient
-	// Workspace is the client for interacting with the Workspace builders.
-	Workspace *WorkspaceClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -62,15 +59,14 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.Collection = NewCollectionClient(c.config)
 	c.Environment = NewEnvironmentClient(c.config)
 	c.EnvironmentVariable = NewEnvironmentVariableClient(c.config)
+	c.Folder = NewFolderClient(c.config)
 	c.History = NewHistoryClient(c.config)
 	c.Request = NewRequestClient(c.config)
 	c.RequestFormField = NewRequestFormFieldClient(c.config)
 	c.RequestHeader = NewRequestHeaderClient(c.config)
 	c.RequestQueryParam = NewRequestQueryParamClient(c.config)
-	c.Workspace = NewWorkspaceClient(c.config)
 }
 
 type (
@@ -163,15 +159,14 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:                 ctx,
 		config:              cfg,
-		Collection:          NewCollectionClient(cfg),
 		Environment:         NewEnvironmentClient(cfg),
 		EnvironmentVariable: NewEnvironmentVariableClient(cfg),
+		Folder:              NewFolderClient(cfg),
 		History:             NewHistoryClient(cfg),
 		Request:             NewRequestClient(cfg),
 		RequestFormField:    NewRequestFormFieldClient(cfg),
 		RequestHeader:       NewRequestHeaderClient(cfg),
 		RequestQueryParam:   NewRequestQueryParamClient(cfg),
-		Workspace:           NewWorkspaceClient(cfg),
 	}, nil
 }
 
@@ -191,22 +186,21 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:                 ctx,
 		config:              cfg,
-		Collection:          NewCollectionClient(cfg),
 		Environment:         NewEnvironmentClient(cfg),
 		EnvironmentVariable: NewEnvironmentVariableClient(cfg),
+		Folder:              NewFolderClient(cfg),
 		History:             NewHistoryClient(cfg),
 		Request:             NewRequestClient(cfg),
 		RequestFormField:    NewRequestFormFieldClient(cfg),
 		RequestHeader:       NewRequestHeaderClient(cfg),
 		RequestQueryParam:   NewRequestQueryParamClient(cfg),
-		Workspace:           NewWorkspaceClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Collection.
+//		Environment.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -229,8 +223,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Collection, c.Environment, c.EnvironmentVariable, c.History, c.Request,
-		c.RequestFormField, c.RequestHeader, c.RequestQueryParam, c.Workspace,
+		c.Environment, c.EnvironmentVariable, c.Folder, c.History, c.Request,
+		c.RequestFormField, c.RequestHeader, c.RequestQueryParam,
 	} {
 		n.Use(hooks...)
 	}
@@ -240,8 +234,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Collection, c.Environment, c.EnvironmentVariable, c.History, c.Request,
-		c.RequestFormField, c.RequestHeader, c.RequestQueryParam, c.Workspace,
+		c.Environment, c.EnvironmentVariable, c.Folder, c.History, c.Request,
+		c.RequestFormField, c.RequestHeader, c.RequestQueryParam,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -250,12 +244,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *CollectionMutation:
-		return c.Collection.mutate(ctx, m)
 	case *EnvironmentMutation:
 		return c.Environment.mutate(ctx, m)
 	case *EnvironmentVariableMutation:
 		return c.EnvironmentVariable.mutate(ctx, m)
+	case *FolderMutation:
+		return c.Folder.mutate(ctx, m)
 	case *HistoryMutation:
 		return c.History.mutate(ctx, m)
 	case *RequestMutation:
@@ -266,175 +260,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.RequestHeader.mutate(ctx, m)
 	case *RequestQueryParamMutation:
 		return c.RequestQueryParam.mutate(ctx, m)
-	case *WorkspaceMutation:
-		return c.Workspace.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
-	}
-}
-
-// CollectionClient is a client for the Collection schema.
-type CollectionClient struct {
-	config
-}
-
-// NewCollectionClient returns a client for the Collection from the given config.
-func NewCollectionClient(c config) *CollectionClient {
-	return &CollectionClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `collection.Hooks(f(g(h())))`.
-func (c *CollectionClient) Use(hooks ...Hook) {
-	c.hooks.Collection = append(c.hooks.Collection, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `collection.Intercept(f(g(h())))`.
-func (c *CollectionClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Collection = append(c.inters.Collection, interceptors...)
-}
-
-// Create returns a builder for creating a Collection entity.
-func (c *CollectionClient) Create() *CollectionCreate {
-	mutation := newCollectionMutation(c.config, OpCreate)
-	return &CollectionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of Collection entities.
-func (c *CollectionClient) CreateBulk(builders ...*CollectionCreate) *CollectionCreateBulk {
-	return &CollectionCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *CollectionClient) MapCreateBulk(slice any, setFunc func(*CollectionCreate, int)) *CollectionCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &CollectionCreateBulk{err: fmt.Errorf("calling to CollectionClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*CollectionCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &CollectionCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for Collection.
-func (c *CollectionClient) Update() *CollectionUpdate {
-	mutation := newCollectionMutation(c.config, OpUpdate)
-	return &CollectionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *CollectionClient) UpdateOne(_m *Collection) *CollectionUpdateOne {
-	mutation := newCollectionMutation(c.config, OpUpdateOne, withCollection(_m))
-	return &CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *CollectionClient) UpdateOneID(id uuid.UUID) *CollectionUpdateOne {
-	mutation := newCollectionMutation(c.config, OpUpdateOne, withCollectionID(id))
-	return &CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for Collection.
-func (c *CollectionClient) Delete() *CollectionDelete {
-	mutation := newCollectionMutation(c.config, OpDelete)
-	return &CollectionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *CollectionClient) DeleteOne(_m *Collection) *CollectionDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *CollectionClient) DeleteOneID(id uuid.UUID) *CollectionDeleteOne {
-	builder := c.Delete().Where(collection.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &CollectionDeleteOne{builder}
-}
-
-// Query returns a query builder for Collection.
-func (c *CollectionClient) Query() *CollectionQuery {
-	return &CollectionQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeCollection},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a Collection entity by its id.
-func (c *CollectionClient) Get(ctx context.Context, id uuid.UUID) (*Collection, error) {
-	return c.Query().Where(collection.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *CollectionClient) GetX(ctx context.Context, id uuid.UUID) *Collection {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryWorkspace queries the workspace edge of a Collection.
-func (c *CollectionClient) QueryWorkspace(_m *Collection) *WorkspaceQuery {
-	query := (&WorkspaceClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(collection.Table, collection.FieldID, id),
-			sqlgraph.To(workspace.Table, workspace.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, collection.WorkspaceTable, collection.WorkspaceColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryRequests queries the requests edge of a Collection.
-func (c *CollectionClient) QueryRequests(_m *Collection) *RequestQuery {
-	query := (&RequestClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(collection.Table, collection.FieldID, id),
-			sqlgraph.To(request.Table, request.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, collection.RequestsTable, collection.RequestsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *CollectionClient) Hooks() []Hook {
-	return c.hooks.Collection
-}
-
-// Interceptors returns the client interceptors.
-func (c *CollectionClient) Interceptors() []Interceptor {
-	return c.inters.Collection
-}
-
-func (c *CollectionClient) mutate(ctx context.Context, m *CollectionMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&CollectionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&CollectionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&CollectionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&CollectionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown Collection mutation op: %q", m.Op())
 	}
 }
 
@@ -736,6 +563,203 @@ func (c *EnvironmentVariableClient) mutate(ctx context.Context, m *EnvironmentVa
 	}
 }
 
+// FolderClient is a client for the Folder schema.
+type FolderClient struct {
+	config
+}
+
+// NewFolderClient returns a client for the Folder from the given config.
+func NewFolderClient(c config) *FolderClient {
+	return &FolderClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `folder.Hooks(f(g(h())))`.
+func (c *FolderClient) Use(hooks ...Hook) {
+	c.hooks.Folder = append(c.hooks.Folder, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `folder.Intercept(f(g(h())))`.
+func (c *FolderClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Folder = append(c.inters.Folder, interceptors...)
+}
+
+// Create returns a builder for creating a Folder entity.
+func (c *FolderClient) Create() *FolderCreate {
+	mutation := newFolderMutation(c.config, OpCreate)
+	return &FolderCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Folder entities.
+func (c *FolderClient) CreateBulk(builders ...*FolderCreate) *FolderCreateBulk {
+	return &FolderCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *FolderClient) MapCreateBulk(slice any, setFunc func(*FolderCreate, int)) *FolderCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &FolderCreateBulk{err: fmt.Errorf("calling to FolderClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*FolderCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &FolderCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Folder.
+func (c *FolderClient) Update() *FolderUpdate {
+	mutation := newFolderMutation(c.config, OpUpdate)
+	return &FolderUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *FolderClient) UpdateOne(_m *Folder) *FolderUpdateOne {
+	mutation := newFolderMutation(c.config, OpUpdateOne, withFolder(_m))
+	return &FolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *FolderClient) UpdateOneID(id uuid.UUID) *FolderUpdateOne {
+	mutation := newFolderMutation(c.config, OpUpdateOne, withFolderID(id))
+	return &FolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Folder.
+func (c *FolderClient) Delete() *FolderDelete {
+	mutation := newFolderMutation(c.config, OpDelete)
+	return &FolderDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *FolderClient) DeleteOne(_m *Folder) *FolderDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *FolderClient) DeleteOneID(id uuid.UUID) *FolderDeleteOne {
+	builder := c.Delete().Where(folder.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &FolderDeleteOne{builder}
+}
+
+// Query returns a query builder for Folder.
+func (c *FolderClient) Query() *FolderQuery {
+	return &FolderQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeFolder},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Folder entity by its id.
+func (c *FolderClient) Get(ctx context.Context, id uuid.UUID) (*Folder, error) {
+	return c.Query().Where(folder.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *FolderClient) GetX(ctx context.Context, id uuid.UUID) *Folder {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryChildren queries the children edge of a Folder.
+func (c *FolderClient) QueryChildren(_m *Folder) *FolderQuery {
+	query := (&FolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(folder.Table, folder.FieldID, id),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, folder.ChildrenTable, folder.ChildrenColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryParent queries the parent edge of a Folder.
+func (c *FolderClient) QueryParent(_m *Folder) *FolderQuery {
+	query := (&FolderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(folder.Table, folder.FieldID, id),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, folder.ParentTable, folder.ParentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequests queries the requests edge of a Folder.
+func (c *FolderClient) QueryRequests(_m *Folder) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(folder.Table, folder.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, folder.RequestsTable, folder.RequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryHistories queries the histories edge of a Folder.
+func (c *FolderClient) QueryHistories(_m *Folder) *HistoryQuery {
+	query := (&HistoryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(folder.Table, folder.FieldID, id),
+			sqlgraph.To(history.Table, history.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, folder.HistoriesTable, folder.HistoriesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *FolderClient) Hooks() []Hook {
+	return c.hooks.Folder
+}
+
+// Interceptors returns the client interceptors.
+func (c *FolderClient) Interceptors() []Interceptor {
+	return c.inters.Folder
+}
+
+func (c *FolderClient) mutate(ctx context.Context, m *FolderMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&FolderCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&FolderUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&FolderUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&FolderDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Folder mutation op: %q", m.Op())
+	}
+}
+
 // HistoryClient is a client for the History schema.
 type HistoryClient struct {
 	config
@@ -844,15 +868,15 @@ func (c *HistoryClient) GetX(ctx context.Context, id uuid.UUID) *History {
 	return obj
 }
 
-// QueryWorkspace queries the workspace edge of a History.
-func (c *HistoryClient) QueryWorkspace(_m *History) *WorkspaceQuery {
-	query := (&WorkspaceClient{config: c.config}).Query()
+// QueryRootFolder queries the root_folder edge of a History.
+func (c *HistoryClient) QueryRootFolder(_m *History) *FolderQuery {
+	query := (&FolderClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(history.Table, history.FieldID, id),
-			sqlgraph.To(workspace.Table, workspace.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, history.WorkspaceTable, history.WorkspaceColumn),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, history.RootFolderTable, history.RootFolderColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1009,31 +1033,15 @@ func (c *RequestClient) GetX(ctx context.Context, id uuid.UUID) *Request {
 	return obj
 }
 
-// QueryWorkspace queries the workspace edge of a Request.
-func (c *RequestClient) QueryWorkspace(_m *Request) *WorkspaceQuery {
-	query := (&WorkspaceClient{config: c.config}).Query()
+// QueryFolder queries the folder edge of a Request.
+func (c *RequestClient) QueryFolder(_m *Request) *FolderQuery {
+	query := (&FolderClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(request.Table, request.FieldID, id),
-			sqlgraph.To(workspace.Table, workspace.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, request.WorkspaceTable, request.WorkspaceColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryCollection queries the collection edge of a Request.
-func (c *RequestClient) QueryCollection(_m *Request) *CollectionQuery {
-	query := (&CollectionClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(request.Table, request.FieldID, id),
-			sqlgraph.To(collection.Table, collection.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, request.CollectionTable, request.CollectionColumn),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, request.FolderTable, request.FolderColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1577,195 +1585,14 @@ func (c *RequestQueryParamClient) mutate(ctx context.Context, m *RequestQueryPar
 	}
 }
 
-// WorkspaceClient is a client for the Workspace schema.
-type WorkspaceClient struct {
-	config
-}
-
-// NewWorkspaceClient returns a client for the Workspace from the given config.
-func NewWorkspaceClient(c config) *WorkspaceClient {
-	return &WorkspaceClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `workspace.Hooks(f(g(h())))`.
-func (c *WorkspaceClient) Use(hooks ...Hook) {
-	c.hooks.Workspace = append(c.hooks.Workspace, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `workspace.Intercept(f(g(h())))`.
-func (c *WorkspaceClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Workspace = append(c.inters.Workspace, interceptors...)
-}
-
-// Create returns a builder for creating a Workspace entity.
-func (c *WorkspaceClient) Create() *WorkspaceCreate {
-	mutation := newWorkspaceMutation(c.config, OpCreate)
-	return &WorkspaceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of Workspace entities.
-func (c *WorkspaceClient) CreateBulk(builders ...*WorkspaceCreate) *WorkspaceCreateBulk {
-	return &WorkspaceCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *WorkspaceClient) MapCreateBulk(slice any, setFunc func(*WorkspaceCreate, int)) *WorkspaceCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &WorkspaceCreateBulk{err: fmt.Errorf("calling to WorkspaceClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*WorkspaceCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &WorkspaceCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for Workspace.
-func (c *WorkspaceClient) Update() *WorkspaceUpdate {
-	mutation := newWorkspaceMutation(c.config, OpUpdate)
-	return &WorkspaceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *WorkspaceClient) UpdateOne(_m *Workspace) *WorkspaceUpdateOne {
-	mutation := newWorkspaceMutation(c.config, OpUpdateOne, withWorkspace(_m))
-	return &WorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *WorkspaceClient) UpdateOneID(id uuid.UUID) *WorkspaceUpdateOne {
-	mutation := newWorkspaceMutation(c.config, OpUpdateOne, withWorkspaceID(id))
-	return &WorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for Workspace.
-func (c *WorkspaceClient) Delete() *WorkspaceDelete {
-	mutation := newWorkspaceMutation(c.config, OpDelete)
-	return &WorkspaceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *WorkspaceClient) DeleteOne(_m *Workspace) *WorkspaceDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *WorkspaceClient) DeleteOneID(id uuid.UUID) *WorkspaceDeleteOne {
-	builder := c.Delete().Where(workspace.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &WorkspaceDeleteOne{builder}
-}
-
-// Query returns a query builder for Workspace.
-func (c *WorkspaceClient) Query() *WorkspaceQuery {
-	return &WorkspaceQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeWorkspace},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a Workspace entity by its id.
-func (c *WorkspaceClient) Get(ctx context.Context, id uuid.UUID) (*Workspace, error) {
-	return c.Query().Where(workspace.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *WorkspaceClient) GetX(ctx context.Context, id uuid.UUID) *Workspace {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// QueryCollections queries the collections edge of a Workspace.
-func (c *WorkspaceClient) QueryCollections(_m *Workspace) *CollectionQuery {
-	query := (&CollectionClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(workspace.Table, workspace.FieldID, id),
-			sqlgraph.To(collection.Table, collection.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, workspace.CollectionsTable, workspace.CollectionsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryRequests queries the requests edge of a Workspace.
-func (c *WorkspaceClient) QueryRequests(_m *Workspace) *RequestQuery {
-	query := (&RequestClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(workspace.Table, workspace.FieldID, id),
-			sqlgraph.To(request.Table, request.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, workspace.RequestsTable, workspace.RequestsColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// QueryHistories queries the histories edge of a Workspace.
-func (c *WorkspaceClient) QueryHistories(_m *Workspace) *HistoryQuery {
-	query := (&HistoryClient{config: c.config}).Query()
-	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := _m.ID
-		step := sqlgraph.NewStep(
-			sqlgraph.From(workspace.Table, workspace.FieldID, id),
-			sqlgraph.To(history.Table, history.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, workspace.HistoriesTable, workspace.HistoriesColumn),
-		)
-		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
-		return fromV, nil
-	}
-	return query
-}
-
-// Hooks returns the client hooks.
-func (c *WorkspaceClient) Hooks() []Hook {
-	return c.hooks.Workspace
-}
-
-// Interceptors returns the client interceptors.
-func (c *WorkspaceClient) Interceptors() []Interceptor {
-	return c.inters.Workspace
-}
-
-func (c *WorkspaceClient) mutate(ctx context.Context, m *WorkspaceMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&WorkspaceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&WorkspaceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&WorkspaceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&WorkspaceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown Workspace mutation op: %q", m.Op())
-	}
-}
-
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Collection, Environment, EnvironmentVariable, History, Request,
-		RequestFormField, RequestHeader, RequestQueryParam, Workspace []ent.Hook
+		Environment, EnvironmentVariable, Folder, History, Request, RequestFormField,
+		RequestHeader, RequestQueryParam []ent.Hook
 	}
 	inters struct {
-		Collection, Environment, EnvironmentVariable, History, Request,
-		RequestFormField, RequestHeader, RequestQueryParam, Workspace []ent.Interceptor
+		Environment, EnvironmentVariable, Folder, History, Request, RequestFormField,
+		RequestHeader, RequestQueryParam []ent.Interceptor
 	}
 )

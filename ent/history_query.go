@@ -3,10 +3,10 @@
 package ent
 
 import (
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
 	"PostmanJanai/ent/request"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"fmt"
 	"math"
@@ -21,12 +21,12 @@ import (
 // HistoryQuery is the builder for querying History entities.
 type HistoryQuery struct {
 	config
-	ctx           *QueryContext
-	order         []history.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.History
-	withWorkspace *WorkspaceQuery
-	withRequest   *RequestQuery
+	ctx            *QueryContext
+	order          []history.OrderOption
+	inters         []Interceptor
+	predicates     []predicate.History
+	withRootFolder *FolderQuery
+	withRequest    *RequestQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -63,9 +63,9 @@ func (_q *HistoryQuery) Order(o ...history.OrderOption) *HistoryQuery {
 	return _q
 }
 
-// QueryWorkspace chains the current query on the "workspace" edge.
-func (_q *HistoryQuery) QueryWorkspace() *WorkspaceQuery {
-	query := (&WorkspaceClient{config: _q.config}).Query()
+// QueryRootFolder chains the current query on the "root_folder" edge.
+func (_q *HistoryQuery) QueryRootFolder() *FolderQuery {
+	query := (&FolderClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -76,8 +76,8 @@ func (_q *HistoryQuery) QueryWorkspace() *WorkspaceQuery {
 		}
 		step := sqlgraph.NewStep(
 			sqlgraph.From(history.Table, history.FieldID, selector),
-			sqlgraph.To(workspace.Table, workspace.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, history.WorkspaceTable, history.WorkspaceColumn),
+			sqlgraph.To(folder.Table, folder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, history.RootFolderTable, history.RootFolderColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -294,27 +294,27 @@ func (_q *HistoryQuery) Clone() *HistoryQuery {
 		return nil
 	}
 	return &HistoryQuery{
-		config:        _q.config,
-		ctx:           _q.ctx.Clone(),
-		order:         append([]history.OrderOption{}, _q.order...),
-		inters:        append([]Interceptor{}, _q.inters...),
-		predicates:    append([]predicate.History{}, _q.predicates...),
-		withWorkspace: _q.withWorkspace.Clone(),
-		withRequest:   _q.withRequest.Clone(),
+		config:         _q.config,
+		ctx:            _q.ctx.Clone(),
+		order:          append([]history.OrderOption{}, _q.order...),
+		inters:         append([]Interceptor{}, _q.inters...),
+		predicates:     append([]predicate.History{}, _q.predicates...),
+		withRootFolder: _q.withRootFolder.Clone(),
+		withRequest:    _q.withRequest.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
 }
 
-// WithWorkspace tells the query-builder to eager-load the nodes that are connected to
-// the "workspace" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *HistoryQuery) WithWorkspace(opts ...func(*WorkspaceQuery)) *HistoryQuery {
-	query := (&WorkspaceClient{config: _q.config}).Query()
+// WithRootFolder tells the query-builder to eager-load the nodes that are connected to
+// the "root_folder" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *HistoryQuery) WithRootFolder(opts ...func(*FolderQuery)) *HistoryQuery {
+	query := (&FolderClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withWorkspace = query
+	_q.withRootFolder = query
 	return _q
 }
 
@@ -335,12 +335,12 @@ func (_q *HistoryQuery) WithRequest(opts ...func(*RequestQuery)) *HistoryQuery {
 // Example:
 //
 //	var v []struct {
-//		WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
+//		RootFolderID uuid.UUID `json:"root_folder_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.History.Query().
-//		GroupBy(history.FieldWorkspaceID).
+//		GroupBy(history.FieldRootFolderID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (_q *HistoryQuery) GroupBy(field string, fields ...string) *HistoryGroupBy {
@@ -358,11 +358,11 @@ func (_q *HistoryQuery) GroupBy(field string, fields ...string) *HistoryGroupBy 
 // Example:
 //
 //	var v []struct {
-//		WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
+//		RootFolderID uuid.UUID `json:"root_folder_id,omitempty"`
 //	}
 //
 //	client.History.Query().
-//		Select(history.FieldWorkspaceID).
+//		Select(history.FieldRootFolderID).
 //		Scan(ctx, &v)
 func (_q *HistoryQuery) Select(fields ...string) *HistorySelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
@@ -408,7 +408,7 @@ func (_q *HistoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Hist
 		nodes       = []*History{}
 		_spec       = _q.querySpec()
 		loadedTypes = [2]bool{
-			_q.withWorkspace != nil,
+			_q.withRootFolder != nil,
 			_q.withRequest != nil,
 		}
 	)
@@ -430,9 +430,9 @@ func (_q *HistoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Hist
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withWorkspace; query != nil {
-		if err := _q.loadWorkspace(ctx, query, nodes, nil,
-			func(n *History, e *Workspace) { n.Edges.Workspace = e }); err != nil {
+	if query := _q.withRootFolder; query != nil {
+		if err := _q.loadRootFolder(ctx, query, nodes, nil,
+			func(n *History, e *Folder) { n.Edges.RootFolder = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -445,14 +445,14 @@ func (_q *HistoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Hist
 	return nodes, nil
 }
 
-func (_q *HistoryQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery, nodes []*History, init func(*History), assign func(*History, *Workspace)) error {
+func (_q *HistoryQuery) loadRootFolder(ctx context.Context, query *FolderQuery, nodes []*History, init func(*History), assign func(*History, *Folder)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*History)
 	for i := range nodes {
-		if nodes[i].WorkspaceID == nil {
+		if nodes[i].RootFolderID == nil {
 			continue
 		}
-		fk := *nodes[i].WorkspaceID
+		fk := *nodes[i].RootFolderID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -461,7 +461,7 @@ func (_q *HistoryQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery
 	if len(ids) == 0 {
 		return nil
 	}
-	query.Where(workspace.IDIn(ids...))
+	query.Where(folder.IDIn(ids...))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
@@ -469,7 +469,7 @@ func (_q *HistoryQuery) loadWorkspace(ctx context.Context, query *WorkspaceQuery
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "workspace_id" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "root_folder_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -535,8 +535,8 @@ func (_q *HistoryQuery) querySpec() *sqlgraph.QuerySpec {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
-		if _q.withWorkspace != nil {
-			_spec.Node.AddColumnOnce(history.FieldWorkspaceID)
+		if _q.withRootFolder != nil {
+			_spec.Node.AddColumnOnce(history.FieldRootFolderID)
 		}
 		if _q.withRequest != nil {
 			_spec.Node.AddColumnOnce(history.FieldRequestID)

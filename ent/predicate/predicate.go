@@ -6,14 +6,14 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// Collection is the predicate function for collection builders.
-type Collection func(*sql.Selector)
-
 // Environment is the predicate function for environment builders.
 type Environment func(*sql.Selector)
 
 // EnvironmentVariable is the predicate function for environmentvariable builders.
 type EnvironmentVariable func(*sql.Selector)
+
+// Folder is the predicate function for folder builders.
+type Folder func(*sql.Selector)
 
 // History is the predicate function for history builders.
 type History func(*sql.Selector)
@@ -29,6 +29,3 @@ type RequestHeader func(*sql.Selector)
 
 // RequestQueryParam is the predicate function for requestqueryparam builders.
 type RequestQueryParam func(*sql.Selector)
-
-// Workspace is the predicate function for workspace builders.
-type Workspace func(*sql.Selector)

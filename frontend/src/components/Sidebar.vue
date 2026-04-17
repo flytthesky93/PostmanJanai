@@ -1,22 +1,23 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { GetAll, CreateWorkspace, Update, Delete } from '../../wailsjs/wailsjs/go/delivery/WorkspaceHandler'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
 import { List as ListHistory } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
 import HistoryDetailModal from './HistoryDetailModal.vue'
+import FolderCatalog from './FolderCatalog.vue'
 
 const props = defineProps({
-  /** Currently selected workspace id (UUID string), for linking sends to history. */
-  activeWorkspaceId: { type: String, default: null }
+  /** Selected root folder id (UUID) — history + tree scope */
+  activeRootFolderId: { type: String, default: null }
 })
 
-const emit = defineEmits(['update:activeWorkspaceId'])
+const emit = defineEmits(['update:activeRootFolderId', 'open-saved-request', 'console'])
 
-/** @type {import('vue').Ref<'workspaces' | 'history'>} */
-const sidebarTab = ref('workspaces')
+/** @type {import('vue').Ref<'folders' | 'history'>} */
+const sidebarTab = ref('folders')
 
-const workspaces = ref([])
+const rootFolders = ref([])
 /** Backend may return null; never let v-for / .length throw or the whole sidebar can go blank */
-const workspaceList = computed(() => (Array.isArray(workspaces.value) ? workspaces.value : []))
+const rootFolderList = computed(() => (Array.isArray(rootFolders.value) ? rootFolders.value : []))
 const loading = ref(false)
 
 const historyItems = ref([])
@@ -78,7 +79,7 @@ const openCreateModal = () => {
   modalState.value = {
     show: true,
     mode: 'create',
-    title: 'Create workspace',
+    title: 'Create root folder',
     submitLabel: 'Create',
     target: null
   }
@@ -86,12 +87,12 @@ const openCreateModal = () => {
 
 const openEditModal = (ws) => {
   if (!ws) return
-  formName.value = ws.workspace_name || ''
-  formDescription.value = ws.workspace_description || ''
+  formName.value = ws.name || ''
+  formDescription.value = ws.description || ''
   modalState.value = {
     show: true,
     mode: 'edit',
-    title: 'Edit workspace',
+    title: 'Edit folder',
     submitLabel: 'Save',
     target: ws
   }
@@ -102,7 +103,7 @@ const openDeleteModal = (ws) => {
   modalState.value = {
     show: true,
     mode: 'delete',
-    title: 'Delete workspace',
+    title: 'Delete folder',
     submitLabel: 'Delete',
     target: ws
   }
@@ -113,7 +114,7 @@ const closeModal = (force = false) => {
   modalState.value.show = false
 }
 
-/** Per-workspace ⋮ menu: teleport + fixed so overflow does not clip */
+/** Per-folder ⋮ menu: teleport + fixed so overflow does not clip */
 const menuOpenForId = ref(null)
 const menuStyle = ref({
   position: 'fixed',
@@ -122,10 +123,12 @@ const menuStyle = ref({
   zIndex: 45
 })
 
+const folderCatalogRef = ref(null)
+
 const menuTargetWs = computed(() => {
   const id = menuOpenForId.value
   if (id == null) return null
-  return workspaceList.value.find((w) => w.id === id) ?? null
+  return rootFolderList.value.find((w) => w.id === id) ?? null
 })
 
 const closeWorkspaceMenu = () => {
@@ -143,7 +146,7 @@ const toggleWorkspaceMenu = (ws, event) => {
   const el = event?.currentTarget
   if (el && typeof el.getBoundingClientRect === 'function') {
     const r = el.getBoundingClientRect()
-    const width = 168
+    const width = 220
     let left = r.right - width
     if (left < 8) left = 8
     if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8
@@ -167,6 +170,25 @@ const onDeleteFromMenu = (ws) => {
   openDeleteModal(ws)
 }
 
+/** Select root folder then open nested-folder / request modal for that row */
+const onNewFolderFromMenu = async (ws) => {
+  closeWorkspaceMenu()
+  if (!ws?.id) return
+  emit('update:activeRootFolderId', ws.id)
+  await nextTick()
+  await nextTick()
+  folderCatalogRef.value?.openCreateChildFolderForRoot?.(ws.id)
+}
+
+const onNewRootRequestFromMenu = async (ws) => {
+  closeWorkspaceMenu()
+  if (!ws?.id) return
+  emit('update:activeRootFolderId', ws.id)
+  await nextTick()
+  await nextTick()
+  folderCatalogRef.value?.openCreateRootRequestForFolder?.(ws.id)
+}
+
 const onDocumentPointerDown = (e) => {
   if (menuOpenForId.value == null) return
   const t = e.target
@@ -185,18 +207,18 @@ onUnmounted(() => {
 
 const selectWorkspace = (ws) => {
   if (!ws?.id) return
-  emit('update:activeWorkspaceId', ws.id)
+  emit('update:activeRootFolderId', ws.id)
 }
 
 const syncSelectionAfterLoad = () => {
-  const list = workspaceList.value
+  const list = rootFolderList.value
   const ids = new Set(list.map((w) => w.id))
-  if (props.activeWorkspaceId && !ids.has(props.activeWorkspaceId)) {
-    emit('update:activeWorkspaceId', list[0]?.id ?? null)
+  if (props.activeRootFolderId && !ids.has(props.activeRootFolderId)) {
+    emit('update:activeRootFolderId', list[0]?.id ?? null)
     return
   }
-  if (!props.activeWorkspaceId && list.length > 0) {
-    emit('update:activeWorkspaceId', list[0].id)
+  if (!props.activeRootFolderId && list.length > 0) {
+    emit('update:activeRootFolderId', list[0].id)
   }
 }
 
@@ -225,15 +247,15 @@ watch(sidebarTab, (tab) => {
   }
 })
 
-const loadWorkspaces = async () => {
+const loadRootFolders = async () => {
   loading.value = true
   try {
-    const list = await GetAll()
-    workspaces.value = Array.isArray(list) ? list : []
+    const list = await FolderAPI.ListRootFolders()
+    rootFolders.value = Array.isArray(list) ? list : []
     syncSelectionAfterLoad()
   } catch (error) {
-    console.error('[Workspace] Load failed:', error)
-    showToast('error', `Could not load workspaces: ${error?.message || error}`)
+    console.error('[Folder] Load failed:', error)
+    showToast('error', `Could not load folders: ${error?.message || error}`)
   } finally {
     loading.value = false
   }
@@ -245,16 +267,16 @@ const submitModal = async () => {
     if (modalState.value.mode === 'create') {
       const name = formName.value.trim()
       if (!name) {
-        showToast('warning', 'Workspace name cannot be empty')
+        showToast('warning', 'Folder name cannot be empty')
         return
       }
-      await CreateWorkspace({
-        workspace_name: name,
-        workspace_description: formDescription.value.trim()
+      await FolderAPI.CreateFolder({
+        name,
+        description: formDescription.value.trim()
       })
-      showToast('success', 'Workspace created')
+      showToast('success', 'Folder created')
       closeModal(true)
-      await loadWorkspaces()
+      await loadRootFolders()
       return
     }
 
@@ -262,40 +284,40 @@ const submitModal = async () => {
       const target = modalState.value.target
       const name = formName.value.trim()
       if (!target || !name) {
-        showToast('warning', 'Invalid workspace data')
+        showToast('warning', 'Invalid folder data')
         return
       }
-      await Update(target.id, name, formDescription.value.trim())
-      showToast('success', 'Workspace updated')
+      await FolderAPI.UpdateFolder(target.id, name, formDescription.value.trim())
+      showToast('success', 'Folder updated')
       closeModal(true)
-      await loadWorkspaces()
+      await loadRootFolders()
       return
     }
 
     if (modalState.value.mode === 'delete') {
       const target = modalState.value.target
       if (!target) {
-        showToast('warning', 'Invalid workspace')
+        showToast('warning', 'Invalid folder')
         return
       }
-      await Delete(target.id)
-      showToast('success', `Deleted workspace "${target.workspace_name}"`)
-      if (props.activeWorkspaceId === target.id) {
-        emit('update:activeWorkspaceId', null)
+      await FolderAPI.DeleteFolder(target.id)
+      showToast('success', `Deleted folder "${target.name}"`)
+      if (props.activeRootFolderId === target.id) {
+        emit('update:activeRootFolderId', null)
       }
       closeModal(true)
-      await loadWorkspaces()
+      await loadRootFolders()
     }
   } catch (error) {
-    console.error('[Workspace] Action failed:', error)
+    console.error('[Folder] Action failed:', error)
     const label = modalState.value.mode === 'create'
       ? 'Create'
       : (modalState.value.mode === 'edit' ? 'Update' : 'Delete')
     const msg = error?.message || String(error)
-    if (msg.includes('WS_301') || msg.includes('already exists')) {
-      showToast('warning', 'That workspace name is already in use. Choose another name.')
+    if (msg.includes('FOL_301') || msg.includes('already exists')) {
+      showToast('warning', 'That folder name is already in use here. Choose another name.')
     } else {
-      showToast('error', `${label} workspace failed: ${msg}`)
+      showToast('error', `${label} folder failed: ${msg}`)
     }
     // Keep modal open to fix name / retry
   } finally {
@@ -303,7 +325,7 @@ const submitModal = async () => {
   }
 }
 
-onMounted(loadWorkspaces)
+onMounted(loadRootFolders)
 
 function truncateMiddle(s, max) {
   if (s == null || s === '') return ''
@@ -344,7 +366,10 @@ function statusBadgeClass(code) {
   return 'bg-gray-700 text-gray-200'
 }
 
-defineExpose({ refreshHistory })
+defineExpose({
+  refreshHistory,
+  refreshCatalog: () => folderCatalogRef.value?.loadTree?.()
+})
 </script>
 
 <template>
@@ -362,13 +387,13 @@ defineExpose({ refreshHistory })
           type="button"
           class="flex-1 px-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors"
           :class="
-            sidebarTab === 'workspaces'
+            sidebarTab === 'folders'
               ? 'border-b-2 border-orange-500 bg-[#1a1a1a] text-white'
               : 'border-b-2 border-transparent text-gray-500 hover:text-gray-300'
           "
-          @click="sidebarTab = 'workspaces'"
+          @click="sidebarTab = 'folders'"
         >
-          Workspaces
+          Folders
         </button>
         <button
           type="button"
@@ -384,25 +409,25 @@ defineExpose({ refreshHistory })
         </button>
       </div>
 
-      <template v-if="sidebarTab === 'workspaces'">
+      <template v-if="sidebarTab === 'folders'">
         <div class="flex min-h-0 flex-1 flex-col">
           <div class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
-            <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading workspaces…</div>
-            <div v-else-if="workspaceList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
-              No workspaces yet.
+            <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading folders…</div>
+            <div v-else-if="rootFolderList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
+              No root folders yet.
             </div>
             <div
-              v-for="ws in workspaceList"
+              v-for="ws in rootFolderList"
               :key="ws.id"
               role="button"
               tabindex="0"
               class="mb-1 flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group cursor-pointer"
-              :class="{ 'bg-gray-800/80': activeWorkspaceId === ws.id }"
+              :class="{ 'bg-gray-800/80': activeRootFolderId === ws.id }"
               @click="selectWorkspace(ws)"
               @keydown.enter.prevent="selectWorkspace(ws)"
             >
               <span class="text-gray-500 shrink-0">📁</span>
-              <span class="min-w-0 flex-1 truncate pr-1">{{ ws.workspace_name }}</span>
+              <span class="min-w-0 flex-1 truncate pr-1">{{ ws.name }}</span>
               <button
                 type="button"
                 data-ws-menu
@@ -410,23 +435,30 @@ defineExpose({ refreshHistory })
                 style="min-width: 28px; line-height: 1"
                 :aria-expanded="menuOpenForId === ws.id"
                 aria-haspopup="menu"
-                :aria-label="'Workspace actions ' + (ws.workspace_name || '')"
+                :aria-label="'Folder actions ' + (ws.name || '')"
                 @click.stop="toggleWorkspaceMenu(ws, $event)"
               >
                 ⋮
               </button>
             </div>
           </div>
+          <FolderCatalog
+            v-if="activeRootFolderId"
+            ref="folderCatalogRef"
+            :root-folder-id="activeRootFolderId"
+            @open-saved-request="(id) => emit('open-saved-request', id)"
+            @console="(msg) => emit('console', msg)"
+          />
           <div class="flex shrink-0 justify-end border-t border-gray-800 bg-[#1c1c1c] px-2 py-1">
             <button
               type="button"
               class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
               style="color: #f97316"
-              aria-label="Add workspace"
-              title="Add workspace"
+              aria-label="Add root folder"
+              title="Add root folder"
               @click="openCreateModal"
             >
-              Add workspace
+              Add folder
             </button>
           </div>
         </div>
@@ -484,17 +516,34 @@ defineExpose({ refreshHistory })
       <div
         v-if="menuOpenForId !== null && menuTargetWs"
         data-ws-menu
-        class="min-w-[168px] rounded-md border border-gray-600 bg-[#2a2a2a] py-1 shadow-xl"
+        class="min-w-[220px] rounded-md border border-gray-600 bg-[#2a2a2a] py-1 shadow-xl"
         :style="menuStyle"
         role="menu"
       >
         <button
           type="button"
           role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-orange-300 hover:bg-gray-700"
+          @click="onNewFolderFromMenu(menuTargetWs)"
+        >
+          New subfolder
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-orange-300 hover:bg-gray-700"
+          @click="onNewRootRequestFromMenu(menuTargetWs)"
+        >
+          New request (in folder)
+        </button>
+        <div class="my-1 border-t border-gray-600" role="separator" />
+        <button
+          type="button"
+          role="menuitem"
           class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
           @click="onEditFromMenu(menuTargetWs)"
         >
-          Edit workspace
+          Edit folder
         </button>
         <button
           type="button"
@@ -502,7 +551,7 @@ defineExpose({ refreshHistory })
           class="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
           @click="onDeleteFromMenu(menuTargetWs)"
         >
-          Delete workspace
+          Delete folder
         </button>
       </div>
     </Teleport>
@@ -518,8 +567,8 @@ defineExpose({ refreshHistory })
       <div class="p-4">
         <template v-if="modalState.mode === 'delete'">
           <p class="text-sm text-gray-300">
-            Are you sure you want to delete workspace
-            <span class="text-white font-semibold">"{{ modalState.target?.workspace_name }}"</span>?
+            Are you sure you want to delete folder
+            <span class="text-white font-semibold">"{{ modalState.target?.name }}"</span>?
           </p>
         </template>
         <template v-else>
@@ -528,7 +577,7 @@ defineExpose({ refreshHistory })
             v-model="formName"
             type="text"
             class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
-            placeholder="Workspace name"
+            placeholder="Folder name"
           />
           <label class="block text-xs text-gray-400 mt-3 mb-1">Description</label>
           <textarea

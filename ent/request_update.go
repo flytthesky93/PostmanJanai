@@ -3,14 +3,13 @@
 package ent
 
 import (
-	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
 	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
@@ -35,37 +34,17 @@ func (_u *RequestUpdate) Where(ps ...predicate.Request) *RequestUpdate {
 	return _u
 }
 
-// SetWorkspaceID sets the "workspace_id" field.
-func (_u *RequestUpdate) SetWorkspaceID(v uuid.UUID) *RequestUpdate {
-	_u.mutation.SetWorkspaceID(v)
+// SetFolderID sets the "folder_id" field.
+func (_u *RequestUpdate) SetFolderID(v uuid.UUID) *RequestUpdate {
+	_u.mutation.SetFolderID(v)
 	return _u
 }
 
-// SetNillableWorkspaceID sets the "workspace_id" field if the given value is not nil.
-func (_u *RequestUpdate) SetNillableWorkspaceID(v *uuid.UUID) *RequestUpdate {
+// SetNillableFolderID sets the "folder_id" field if the given value is not nil.
+func (_u *RequestUpdate) SetNillableFolderID(v *uuid.UUID) *RequestUpdate {
 	if v != nil {
-		_u.SetWorkspaceID(*v)
+		_u.SetFolderID(*v)
 	}
-	return _u
-}
-
-// SetCollectionID sets the "collection_id" field.
-func (_u *RequestUpdate) SetCollectionID(v uuid.UUID) *RequestUpdate {
-	_u.mutation.SetCollectionID(v)
-	return _u
-}
-
-// SetNillableCollectionID sets the "collection_id" field if the given value is not nil.
-func (_u *RequestUpdate) SetNillableCollectionID(v *uuid.UUID) *RequestUpdate {
-	if v != nil {
-		_u.SetCollectionID(*v)
-	}
-	return _u
-}
-
-// ClearCollectionID clears the value of the "collection_id" field.
-func (_u *RequestUpdate) ClearCollectionID() *RequestUpdate {
-	_u.mutation.ClearCollectionID()
 	return _u
 }
 
@@ -151,14 +130,9 @@ func (_u *RequestUpdate) SetUpdatedAt(v time.Time) *RequestUpdate {
 	return _u
 }
 
-// SetWorkspace sets the "workspace" edge to the Workspace entity.
-func (_u *RequestUpdate) SetWorkspace(v *Workspace) *RequestUpdate {
-	return _u.SetWorkspaceID(v.ID)
-}
-
-// SetCollection sets the "collection" edge to the Collection entity.
-func (_u *RequestUpdate) SetCollection(v *Collection) *RequestUpdate {
-	return _u.SetCollectionID(v.ID)
+// SetFolder sets the "folder" edge to the Folder entity.
+func (_u *RequestUpdate) SetFolder(v *Folder) *RequestUpdate {
+	return _u.SetFolderID(v.ID)
 }
 
 // AddRequestHeaderIDs adds the "request_headers" edge to the RequestHeader entity by IDs.
@@ -226,15 +200,9 @@ func (_u *RequestUpdate) Mutation() *RequestMutation {
 	return _u.mutation
 }
 
-// ClearWorkspace clears the "workspace" edge to the Workspace entity.
-func (_u *RequestUpdate) ClearWorkspace() *RequestUpdate {
-	_u.mutation.ClearWorkspace()
-	return _u
-}
-
-// ClearCollection clears the "collection" edge to the Collection entity.
-func (_u *RequestUpdate) ClearCollection() *RequestUpdate {
-	_u.mutation.ClearCollection()
+// ClearFolder clears the "folder" edge to the Folder entity.
+func (_u *RequestUpdate) ClearFolder() *RequestUpdate {
+	_u.mutation.ClearFolder()
 	return _u
 }
 
@@ -375,8 +343,8 @@ func (_u *RequestUpdate) check() error {
 			return &ValidationError{Name: "body_mode", err: fmt.Errorf(`ent: validator failed for field "Request.body_mode": %w`, err)}
 		}
 	}
-	if _u.mutation.WorkspaceCleared() && len(_u.mutation.WorkspaceIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "Request.workspace"`)
+	if _u.mutation.FolderCleared() && len(_u.mutation.FolderIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Request.folder"`)
 	}
 	return nil
 }
@@ -414,57 +382,28 @@ func (_u *RequestUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if _u.mutation.WorkspaceCleared() {
+	if _u.mutation.FolderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   request.WorkspaceTable,
-			Columns: []string{request.WorkspaceColumn},
+			Table:   request.FolderTable,
+			Columns: []string{request.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.WorkspaceIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.FolderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   request.WorkspaceTable,
-			Columns: []string{request.WorkspaceColumn},
+			Table:   request.FolderTable,
+			Columns: []string{request.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.CollectionCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   request.CollectionTable,
-			Columns: []string{request.CollectionColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.CollectionIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   request.CollectionTable,
-			Columns: []string{request.CollectionColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -672,37 +611,17 @@ type RequestUpdateOne struct {
 	mutation *RequestMutation
 }
 
-// SetWorkspaceID sets the "workspace_id" field.
-func (_u *RequestUpdateOne) SetWorkspaceID(v uuid.UUID) *RequestUpdateOne {
-	_u.mutation.SetWorkspaceID(v)
+// SetFolderID sets the "folder_id" field.
+func (_u *RequestUpdateOne) SetFolderID(v uuid.UUID) *RequestUpdateOne {
+	_u.mutation.SetFolderID(v)
 	return _u
 }
 
-// SetNillableWorkspaceID sets the "workspace_id" field if the given value is not nil.
-func (_u *RequestUpdateOne) SetNillableWorkspaceID(v *uuid.UUID) *RequestUpdateOne {
+// SetNillableFolderID sets the "folder_id" field if the given value is not nil.
+func (_u *RequestUpdateOne) SetNillableFolderID(v *uuid.UUID) *RequestUpdateOne {
 	if v != nil {
-		_u.SetWorkspaceID(*v)
+		_u.SetFolderID(*v)
 	}
-	return _u
-}
-
-// SetCollectionID sets the "collection_id" field.
-func (_u *RequestUpdateOne) SetCollectionID(v uuid.UUID) *RequestUpdateOne {
-	_u.mutation.SetCollectionID(v)
-	return _u
-}
-
-// SetNillableCollectionID sets the "collection_id" field if the given value is not nil.
-func (_u *RequestUpdateOne) SetNillableCollectionID(v *uuid.UUID) *RequestUpdateOne {
-	if v != nil {
-		_u.SetCollectionID(*v)
-	}
-	return _u
-}
-
-// ClearCollectionID clears the value of the "collection_id" field.
-func (_u *RequestUpdateOne) ClearCollectionID() *RequestUpdateOne {
-	_u.mutation.ClearCollectionID()
 	return _u
 }
 
@@ -788,14 +707,9 @@ func (_u *RequestUpdateOne) SetUpdatedAt(v time.Time) *RequestUpdateOne {
 	return _u
 }
 
-// SetWorkspace sets the "workspace" edge to the Workspace entity.
-func (_u *RequestUpdateOne) SetWorkspace(v *Workspace) *RequestUpdateOne {
-	return _u.SetWorkspaceID(v.ID)
-}
-
-// SetCollection sets the "collection" edge to the Collection entity.
-func (_u *RequestUpdateOne) SetCollection(v *Collection) *RequestUpdateOne {
-	return _u.SetCollectionID(v.ID)
+// SetFolder sets the "folder" edge to the Folder entity.
+func (_u *RequestUpdateOne) SetFolder(v *Folder) *RequestUpdateOne {
+	return _u.SetFolderID(v.ID)
 }
 
 // AddRequestHeaderIDs adds the "request_headers" edge to the RequestHeader entity by IDs.
@@ -863,15 +777,9 @@ func (_u *RequestUpdateOne) Mutation() *RequestMutation {
 	return _u.mutation
 }
 
-// ClearWorkspace clears the "workspace" edge to the Workspace entity.
-func (_u *RequestUpdateOne) ClearWorkspace() *RequestUpdateOne {
-	_u.mutation.ClearWorkspace()
-	return _u
-}
-
-// ClearCollection clears the "collection" edge to the Collection entity.
-func (_u *RequestUpdateOne) ClearCollection() *RequestUpdateOne {
-	_u.mutation.ClearCollection()
+// ClearFolder clears the "folder" edge to the Folder entity.
+func (_u *RequestUpdateOne) ClearFolder() *RequestUpdateOne {
+	_u.mutation.ClearFolder()
 	return _u
 }
 
@@ -1025,8 +933,8 @@ func (_u *RequestUpdateOne) check() error {
 			return &ValidationError{Name: "body_mode", err: fmt.Errorf(`ent: validator failed for field "Request.body_mode": %w`, err)}
 		}
 	}
-	if _u.mutation.WorkspaceCleared() && len(_u.mutation.WorkspaceIDs()) > 0 {
-		return errors.New(`ent: clearing a required unique edge "Request.workspace"`)
+	if _u.mutation.FolderCleared() && len(_u.mutation.FolderIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Request.folder"`)
 	}
 	return nil
 }
@@ -1081,57 +989,28 @@ func (_u *RequestUpdateOne) sqlSave(ctx context.Context) (_node *Request, err er
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if _u.mutation.WorkspaceCleared() {
+	if _u.mutation.FolderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   request.WorkspaceTable,
-			Columns: []string{request.WorkspaceColumn},
+			Table:   request.FolderTable,
+			Columns: []string{request.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := _u.mutation.WorkspaceIDs(); len(nodes) > 0 {
+	if nodes := _u.mutation.FolderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   request.WorkspaceTable,
-			Columns: []string{request.WorkspaceColumn},
+			Table:   request.FolderTable,
+			Columns: []string{request.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.CollectionCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   request.CollectionTable,
-			Columns: []string{request.CollectionColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.CollectionIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   request.CollectionTable,
-			Columns: []string{request.CollectionColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

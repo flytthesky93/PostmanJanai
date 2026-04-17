@@ -27,6 +27,9 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 	case 1:
 		// → 2: schema Ent chuyển từ int PK sang UUID + bảng mới; DB cũ (chỉ workspaces/histories kiểu cũ) cần drop để Schema.Create tạo lại
 		return dropLegacyTablesForUUIDSchema(db)
+	case 2:
+		// → 3: workspace + collection → nested folders + requests under folder_id; drop UUID schema để Ent tạo lại
+		return dropLegacyTablesForUUIDSchema(db)
 	default:
 		return nil
 	}
@@ -44,6 +47,7 @@ func dropLegacyTablesForUUIDSchema(db *sql.DB) error {
 		`DROP TABLE IF EXISTS requests`,
 		`DROP TABLE IF EXISTS collections`,
 		`DROP TABLE IF EXISTS workspaces`,
+		`DROP TABLE IF EXISTS folders`,
 	}
 	for _, q := range stmts {
 		if _, err := db.Exec(q); err != nil {

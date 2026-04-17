@@ -35,10 +35,10 @@ func (r *historyRepo) Save(ctx context.Context, item *entity.HistoryItem) error 
 		SetNillableResponseHeadersJSON(item.ResponseHeadersJSON).
 		SetNillableRequestBody(item.RequestBody).
 		SetNillableResponseBody(item.ResponseBody)
-	if item.WorkspaceID != nil {
-		if s := strings.TrimSpace(*item.WorkspaceID); s != "" {
+	if item.RootFolderID != nil {
+		if s := strings.TrimSpace(*item.RootFolderID); s != "" {
 			if uid, err := uuid.Parse(s); err == nil {
-				b = b.SetWorkspaceID(uid)
+				b = b.SetRootFolderID(uid)
 			}
 		}
 	}
@@ -69,8 +69,8 @@ func (r *historyRepo) GetAll(ctx context.Context) ([]entity.HistoryItem, error) 
 	var result []entity.HistoryItem
 	for _, row := range rows {
 		var wsID *string
-		if row.WorkspaceID != nil {
-			s := row.WorkspaceID.String()
+		if row.RootFolderID != nil {
+			s := row.RootFolderID.String()
 			wsID = &s
 		}
 		var reqID *string
@@ -79,19 +79,19 @@ func (r *historyRepo) GetAll(ctx context.Context) ([]entity.HistoryItem, error) 
 			reqID = &s
 		}
 		result = append(result, entity.HistoryItem{
-			ID:                   row.ID.String(),
-			WorkspaceID:          wsID,
-			RequestID:            reqID,
-			Method:               row.Method,
-			URL:                  row.URL,
-			StatusCode:           row.StatusCode,
-			DurationMs:           row.DurationMs,
-			ResponseSizeBytes:    row.ResponseSizeBytes,
-			RequestHeadersJSON:   row.RequestHeadersJSON,
-			ResponseHeadersJSON:  row.ResponseHeadersJSON,
-			RequestBody:          row.RequestBody,
-			ResponseBody:         row.ResponseBody,
-			CreatedAt:            row.CreatedAt,
+			ID:                  row.ID.String(),
+			RootFolderID:      wsID,
+			RequestID:           reqID,
+			Method:              row.Method,
+			URL:                 row.URL,
+			StatusCode:          row.StatusCode,
+			DurationMs:          row.DurationMs,
+			ResponseSizeBytes:   row.ResponseSizeBytes,
+			RequestHeadersJSON:  row.RequestHeadersJSON,
+			ResponseHeadersJSON: row.ResponseHeadersJSON,
+			RequestBody:         row.RequestBody,
+			ResponseBody:        row.ResponseBody,
+			CreatedAt:           row.CreatedAt,
 		})
 	}
 

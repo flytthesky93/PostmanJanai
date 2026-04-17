@@ -8,18 +8,6 @@ import (
 	"fmt"
 )
 
-// The CollectionFunc type is an adapter to allow the use of ordinary
-// function as Collection mutator.
-type CollectionFunc func(context.Context, *ent.CollectionMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f CollectionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.CollectionMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CollectionMutation", m)
-}
-
 // The EnvironmentFunc type is an adapter to allow the use of ordinary
 // function as Environment mutator.
 type EnvironmentFunc func(context.Context, *ent.EnvironmentMutation) (ent.Value, error)
@@ -42,6 +30,18 @@ func (f EnvironmentVariableFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EnvironmentVariableMutation", m)
+}
+
+// The FolderFunc type is an adapter to allow the use of ordinary
+// function as Folder mutator.
+type FolderFunc func(context.Context, *ent.FolderMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f FolderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.FolderMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FolderMutation", m)
 }
 
 // The HistoryFunc type is an adapter to allow the use of ordinary
@@ -102,18 +102,6 @@ func (f RequestQueryParamFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestQueryParamMutation", m)
-}
-
-// The WorkspaceFunc type is an adapter to allow the use of ordinary
-// function as Workspace mutator.
-type WorkspaceFunc func(context.Context, *ent.WorkspaceMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f WorkspaceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.WorkspaceMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WorkspaceMutation", m)
 }
 
 // Condition is a hook condition function.

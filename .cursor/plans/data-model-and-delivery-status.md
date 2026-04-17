@@ -15,62 +15,55 @@
   - chỉnh `ent/schema/*.go` + `go generate`,
   - cập nhật `internal/entity`, repository/usecase,
   - nối UI / HTTP executor.
-- **Không** mở rộng feature (HTTP, collection CRUD UI) cho đến khi schema DB đã khóa.
-
-## Quy ước chung
-
-- **PK / FK:** dùng **UUID** dạng **TEXT** 36 ký tự (RFC 4122 string), không dùng `int` autoincrement cho bảng domain mới.
+- **PK / FK:** dùng **UUID** (Ent `field.UUID`), không dùng `int` autoincrement cho bảng domain mới.
 - **Thời gian:** `created_at` / `updated_at` — `datetime` (Ent `time.Time`).
-- **Tên workspace:** `UNIQUE` theo scope global (một app một file SQLite; sau này có thể siết thành unique per-user nếu multi-user).
-- **Xóa theo cây:** `ON DELETE CASCADE` từ `workspaces` → (`collections`, `requests`) và từ `requests` → bảng con (header/query/form).
-- **Environment sets:** scope **global app** (không gắn workspace ở giai đoạn này).
+- **Folder — tên không trùng trong cùng scope cha:** `UNIQUE (parent_id, name)`; **folder gốc** (`parent_id IS NULL`): không trùng tên giữa các root (enforce thêm ở usecase vì SQLite xử lý NULL trong UNIQUE).
+- **Xóa folder:** đệ quy ở repository — xóa folder con trước, request trong từng folder, rồi folder; không còn bảng `workspaces` / `collections` tách biệt.
+- **Environment sets:** scope **global app** (không gắn folder ở giai đoạn này; có thể mở rộng sau).
 - **Secret storage (giai đoạn hiện tại):** lưu giá trị env **plain text** trong SQLite local.
+
+### Thay đổi mô hình (2026-04 — **DB v3**)
+
+- **Trước (v2):** `workspaces` → `collections` → `requests` (`workspace_id` + `collection_id` tùy chọn).
+- **Sau (v3):** chỉ **`folders`** (cây tự tham chiếu `parent_id`) + **`requests.folder_id`** bắt buộc.
+- **History:** `root_folder_id` (FK → folder gốc) thay cho `workspace_id` — ngữ nghĩa: folder đang chọn trên sidebar khi gửi (context lịch sử).
 
 ---
 
-## Bảng và quan hệ (mục tiêu)
+## Bảng và quan hệ (hiện tại trong code)
 
-### `workspaces`
+### `folders`
 
-| Cột | Kiểu | Ràng buộc |
-|-----|------|-----------|
-| `id` | TEXT | PK, UUID |
-| `workspace_name` | TEXT | NOT NULL, **UNIQUE** (trim ở tầng app; DB optional thêm COLLATE NOCASE sau nếu cần) |
-| `workspace_description` | TEXT | NOT NULL, default `''` |
-| `created_at` | DATETIME | NOT NULL |
-
-### `collections`
+Thay thế **workspace + collection**: một bảng, cây lồng nhau.
 
 | Cột | Kiểu | Ràng buộc |
 |-----|------|-----------|
-| `id` | TEXT | PK, UUID |
-| `workspace_id` | TEXT | NOT NULL, FK → `workspaces.id` CASCADE |
+| `id` | UUID (TEXT) | PK |
+| `parent_id` | UUID (TEXT) | NULL = **folder gốc** (hiển thị như hàng đầu sidebar); NOT NULL = con của folder cha |
 | `name` | TEXT | NOT NULL |
 | `description` | TEXT | NOT NULL, default `''` |
 | `created_at` | DATETIME | NOT NULL |
 
-- **UNIQUE** (`workspace_id`, `name`) — tên collection không trùng trong cùng workspace.
+- **UNIQUE** (`parent_id`, `name`) — tên không trùng giữa các folder cùng cấp (cùng parent).
+- **Edge Ent:** `parent` / `children` (self-reference), `requests`, `histories` (root context).
 
 ### `requests`
 
-Lưu “tài nguyên request” có thể nằm **trực tiếp trong workspace** hoặc nằm trong **collection folder**.
+Mỗi request đã lưu thuộc **đúng một** folder.
 
 | Cột | Kiểu | Ràng buộc |
 |-----|------|-----------|
-| `id` | TEXT | PK, UUID |
-| `workspace_id` | TEXT | NOT NULL, FK → `workspaces.id` CASCADE |
-| `collection_id` | TEXT | NULL, FK → `collections.id` CASCADE |
+| `id` | UUID | PK |
+| `folder_id` | UUID | NOT NULL, FK → `folders.id` |
 | `name` | TEXT | NOT NULL |
 | `method` | TEXT | NOT NULL, default `GET` |
 | `url` | TEXT | NOT NULL |
-| `body_mode` | TEXT | NOT NULL — enum logic: `none`, `raw`, `json`, `form`, `multipart` |
-| `raw_body` | TEXT | NULL — dùng khi `raw`/`json` |
+| `body_mode` | TEXT | NOT NULL — enum logic app: `none`, `raw`, `xml`, `form_urlencoded`, `multipart`, … |
+| `raw_body` | TEXT | NULL |
 | `created_at` | DATETIME | NOT NULL |
 | `updated_at` | DATETIME | NOT NULL |
 
-- **UNIQUE** (`workspace_id`, `name`) cho request nằm trực tiếp ở root workspace (`collection_id IS NULL`).
-- **UNIQUE** (`collection_id`, `name`) cho request nằm trong collection (`collection_id IS NOT NULL`).
-- Ràng buộc logic ở tầng app/usecase: nếu có `collection_id` thì collection đó phải thuộc đúng `workspace_id`.
+- **UNIQUE** (`folder_id`, `name`) — tên request không trùng trong cùng folder.
 
 ### `request_headers`
 
@@ -98,56 +91,45 @@ Lưu “tài nguyên request” có thể nằm **trực tiếp trong workspace*
 
 ### `request_form_fields` (form-urlencoded & form-data tối giản)
 
-Dùng một bảng cho cả hai: phân biệt bằng `mode` hoặc `part_kind`.
-
 | Cột | Kiểu | Ràng buộc |
 |-----|------|-----------|
 | `id` | TEXT | PK, UUID |
 | `request_id` | TEXT | NOT NULL, FK → `requests.id` CASCADE |
-| `field_kind` | TEXT | NOT NULL — `urlencoded` \| `multipart` |
+| `field_kind` | TEXT | NOT NULL — `urlencoded` \| `multipart_text` \| `multipart_file` (theo code) |
 | `key` | TEXT | NOT NULL |
-| `value` | TEXT | NULL — với multipart file sau này có thể tách bảng `request_attachments` |
+| `value` | TEXT | NULL |
 | `enabled` | BOOLEAN | NOT NULL, default true |
 | `sort_order` | INTEGER | NOT NULL, default 0 |
 
-*(Multipart file lớn: Phase sau có thể thêm bảng `request_parts` hoặc lưu path trong AppDir — không chốt trong bước schema tối thiểu này trừ khi bạn muốn ngay.)*
+### `histories` (khi **Send** HTTP)
 
-### `histories` (**chỉ** khi một request được **chạy / gửi HTTP** — **chốt đầy đủ trong lần khóa DB này**)
+**Quy tắc sản phẩm:**
 
-**Quy tắc sản phẩm (không thuộc DDL nhưng bắt buộc ở tầng app):**
+- **Có** insert khi người dùng **Send** (kể cả lỗi transport / đọc body).
+- **Không** ghi khi chỉ CRUD folder/request/env hoặc chưa gửi.
 
-- **Có** insert một dòng `histories` khi người dùng thực hiện **Send / chạy request** (luồng thực thi HTTP: thành công HTTP, lỗi 4xx/5xx vẫn là response hợp lệ, hoặc lỗi mạng/timeout — nên lưu vết để debug).
-- **Không** ghi history khi chỉ tạo/sửa/xóa workspace-collection-request, chỉnh env, hoặc lưu draft mà **chưa** gửi.
+**Gắn entity:**
 
-**Gắn với entity đã lưu hay không:**
-
-- `request_id` **NULL** = lần gửi **ad-hoc** (nhập URL trên thanh request chưa map tới bản `requests` đã lưu), vẫn là một “lần chạy”, nên vẫn lưu history nếu có chính sách gửi nhanh.
-- `request_id` **NOT NULL** = lần gửi phát sinh từ một **request đã lưu** trong DB (thường có `workspace_id` để filter theo workspace đang mở).
+- `request_id` NULL = ad-hoc; NOT NULL = gửi từ saved request.
+- `root_folder_id` NULL/optional = không gắn context folder gốc; NOT NULL = folder gốc đang chọn (sidebar) khi gửi — dùng để filter/gom history theo “space” đang làm việc.
 
 | Cột | Kiểu | Ràng buộc |
 |-----|------|-----------|
 | `id` | TEXT | PK, UUID |
-| `workspace_id` | TEXT | NULL, FK → `workspaces.id` SET NULL *(context UI khi gửi; ad-hoc có thể NULL)* |
-| `request_id` | TEXT | NULL, FK → `requests.id` SET NULL *(NULL = gửi không gắn bản saved request)* |
+| `root_folder_id` | TEXT | NULL, FK → `folders.id` *(folder có `parent_id` NULL — ngữ nghĩa app; không enforce bằng CHECK trong schema tối thiểu)* |
+| `request_id` | TEXT | NULL, FK → `requests.id` |
 | `method` | TEXT | NOT NULL |
 | `url` | TEXT | NOT NULL |
-| `status_code` | INTEGER | NOT NULL *(có thể dùng 0 hoặc sentinel nội bộ nếu không có phản hồi HTTP — thống nhất ở usecase)* |
+| `status_code` | INTEGER | NOT NULL |
 | `duration_ms` | INTEGER | NULL |
 | `response_size_bytes` | INTEGER | NULL |
-| `request_headers_json` | TEXT | NULL — snapshot JSON (mảng/object key-value) |
+| `request_headers_json` | TEXT | NULL |
 | `response_headers_json` | TEXT | NULL |
 | `request_body` | TEXT | NULL |
 | `response_body` | TEXT | NULL |
 | `created_at` | DATETIME | NOT NULL |
 
-**Lưu / xem lại (yêu cầu sản phẩm):**
-
-- Mỗi lần chạy tạo **một dòng** `histories` chứa **snapshot đủ để đọc lại** lần gọi đó: method/url, header request & response (JSON), body request & response, status, thời lượng, size response (theo cột phía trên).
-- **Xem lại theo workspace:** filter `workspace_id` (giữ ERD `workspaces → histories`).
-- **Xem lại theo một request đã lưu:** filter `request_id` để có **chuỗi lịch sử** mọi lần Send của đúng request đó (bao gồm request/response từng lần).
-- **Gửi ad-hoc** (`request_id` NULL): vẫn lưu snapshot tương tự; `workspace_id` giúp gom list trong sidebar workspace khi có context.
-
-*Indexing gợi ý: `created_at` DESC cho list; index/filter `workspace_id`, `request_id`.*
+**Wails / UI:** payload gửi `root_folder_id` (thay `workspace_id`); optional `request_id` khi mở saved request.
 
 ### `environments` (global sets)
 
@@ -160,8 +142,6 @@ Dùng một bảng cho cả hai: phân biệt bằng `mode` hoặc `part_kind`.
 | `created_at` | DATETIME | NOT NULL |
 | `updated_at` | DATETIME | NOT NULL |
 
-- Rule: chỉ có **1 environment active** tại một thời điểm (enforce ở tầng usecase/service; có thể thêm partial unique index sau).
-
 ### `environment_variables`
 
 | Cột | Kiểu | Ràng buộc |
@@ -169,14 +149,13 @@ Dùng một bảng cho cả hai: phân biệt bằng `mode` hoặc `part_kind`.
 | `id` | TEXT | PK, UUID |
 | `environment_id` | TEXT | NOT NULL, FK → `environments.id` CASCADE |
 | `key` | TEXT | NOT NULL |
-| `value` | TEXT | NOT NULL *(plain text local ở giai đoạn này)* |
+| `value` | TEXT | NOT NULL |
 | `enabled` | BOOLEAN | NOT NULL, default true |
 | `sort_order` | INTEGER | NOT NULL, default 0 |
 | `created_at` | DATETIME | NOT NULL |
 | `updated_at` | DATETIME | NOT NULL |
 
-- **UNIQUE** (`environment_id`, `key`) để tránh key trùng trong cùng một env set.
-- Index: (`environment_id`, `sort_order`).
+- **UNIQUE** (`environment_id`, `key`).
 
 ---
 
@@ -184,99 +163,85 @@ Dùng một bảng cho cả hai: phân biệt bằng `mode` hoặc `part_kind`.
 
 ```mermaid
 erDiagram
-  workspaces ||--o{ collections : contains
-  workspaces ||--o{ requests : containsRootRequests
-  collections ||--o{ requests : containsRequests
+  folders ||--o{ folders : parent_child
+  folders ||--o{ requests : contains
+  folders ||--o{ histories : rootContext
   requests ||--o{ request_headers : has
   requests ||--o{ request_query_params : has
   requests ||--o{ request_form_fields : has
-  workspaces ||--o{ histories : logs
   requests ||--o{ histories : optional
   environments ||--o{ environment_variables : has
 ```
 
 ---
 
-## Migration khỏi DB cũ (int PK)
+## Migration & phiên bản DB
 
-- Tăng `constant.DBSchemaUserVersion` và trong `internal/dbmanage/data_migrate.go`:
-  - backup file SQLite (đã có cơ chế),
-  - tùy chọn: tạo bảng mới / copy dữ liệu workspace/history sang UUID (generate UUID mới, map old_id → new_id trong bảng tạm hoặc in-code),
-  - **hoặc** lần đầu bump lớn: export tối thiểu JSON và import lại (nếu ít bản ghi).
-- Điều này là **cùng nhịp** với merge Ent schema; không triển khai code cho đến khi bảng trên đã được bạn duyệt.
-
----
-
-## Thứ tự thực hiện sau khi sign-off schema
-
-1. Cập nhật Ent schema + generate.
-2. Chạy hook migrate/backup theo `DBSchemaUserVersion`.
-3. Repository/entity theo UUID và quan hệ FK.
-4. Phase 1 HTTP runner + Wails DTO (sau khi DB đã ổn định).
-
-*Thực tế (2026-04): các bước 1–4 đã triển khai cho phần HTTP + history; phần collection/saved request/env vẫn theo backlog ở mục **Tiến độ đã triển khai**.*
+- **`PRAGMA user_version` hiện tại (code):** **`3`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
+- **Luồng migrate:** backup DB (nếu non-empty) → `MigrateDataBetweenVersions` → `ent.Client.Schema.Create` → set `user_version`.
+- **Các bước đã định nghĩa:**
+  - `0 → 1`: placeholder.
+  - `1 → 2`: drop bảng legacy (int PK) rồi recreate schema UUID (workspaces, collections, requests, …).
+  - `2 → 3`: drop lại toàn bộ bảng domain có trong `dropLegacyTablesForUUIDSchema` (thêm `folders`), rồi `Schema.Create` — **mô hình mới folder + `requests.folder_id` + `histories.root_folder_id`**. **Không** có export/import tự động từ v2: dữ liệu cũ mất sau migrate (có file backup trong `AppDir/backups/` nếu backup chạy).
+- Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm).
 
 ---
 
 ## Trạng thái (schema)
 
-- **`histories`:** chốt **đầy đủ** cột như bảng (đã xác nhận).
-- **Schema Ent:** đã generate theo các bảng mô tả ở trên (UUID, FK, v.v.).
-- **Sign-off tài liệu:** có thể coi là đã khớp code; các mục còn lại là **feature / usecase**, không chặn schema nữa.
+- **Schema Ent** khớp các bảng trên (folder, request, history, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
+- **Wails:** `FolderHandler`, `SavedRequestHandler`, `HTTPHandler`, `HistoryHandler` — binding đã generate trong `frontend/wailsjs/`.
 
 ---
 
-## DB & migration (ghi nhận kỹ thuật)
+## DB & migration (ghi nhận kỹ thuật — cập nhật)
 
-- **`PRAGMA user_version` hiện tại:** **`2`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
-- **Bản gần đây (roadmap UI/HTTP):** **không** thêm bảng/cột mới, **không** bump `DBSchemaUserVersion` — chỉ **đọc/ghi** đúng bảng đã có (đặc biệt `histories`).
-- **Luồng migrate đã có:** `0 → 1` (placeholder), `1 → 2` drop bảng legacy rồi `Schema.Create` (xem `internal/dbmanage/data_migrate.go`). Nếu sau này đổi DDL lớn: backup → `migrateOneStep` → bump version.
-- **`histories` trong app:** insert sau mỗi lần **Send** thành công ở tầng HTTP (kể cả lỗi transport / đọc body sau response); **không** insert khi lỗi validation URL. Cột `workspace_id` / `request_id` (nullable) — UI gửi `workspace_id` khi có workspace chọn; `request_id` dành cho saved request (chưa nối).
+- **`histories`:** cột **`root_folder_id`** thay **`workspace_id`** từ DB v3.
+- **HTTP execute:** DTO `root_folder_id` (JSON) thay `workspace_id`.
+- **Saved request:** `SavedRequestFull.folder_id` duy nhất (bỏ `workspace_id` / `collection_id`).
 
 ---
 
-## Tiến độ đã triển khai (cập nhật 2026-04-17)
+## Tiến độ đã triển khai (cập nhật 2026-04)
 
-- **Roadmap phase:** Phase **0** và **1** (core runner) được coi là **đã đóng** — xem [roadmap.md](roadmap.md) (*Phase completion log*). Việc còn lại nằm ở Phase 2+ và mục backlog bên dưới.
+- **Roadmap:** Phase **0**, **1**, **2** được coi là **đã đóng** — xem [roadmap.md](roadmap.md).
 
-### Đã xong (Phase 1 “chạy app + lịch sử + import” — đã đóng)
+### Đã xong (Phase 1 + Phase 2)
 
-- [x] Ent schema + generate (workspaces, collections, requests, …, **histories**, environments, …)
-- [x] Migrate / backup theo `DBSchemaUserVersion` (path hiện tại: legacy → drop → recreate tại bước 1→2)
-- [x] **HTTP executor** thật (`net/http`): raw / form-urlencoded / multipart + file path; test Go `internal/service/http_executor_test.go`
-- [x] **Wails:** `HTTPHandler.Execute`, `PickFileForBody`, `ImportFromCurl` (parser shell + `go-shellwords`)
-- [x] **UI:** layout 3 cột; Request (method, URL, Query/Headers/Body); Response + Console; **Import** → chọn **Request from cURL** / **Collection** (placeholder); **scrollbar** tinh chỉnh (hover mới rõ)
-- [x] **History:** ghi DB khi Send; **`HistoryHandler.List`**; tab **History** trên sidebar; refresh sau Send
-- [x] **Workspace:** CRUD + chọn workspace (gắn `workspace_id` khi gửi); footer **Add workspace** gọn
-- [x] **Test data:** `testdata/curl/*.curl` mẫu cho httpbin
-- [x] **Repo hygiene:** `.gitignore` (node_modules, dist, build, env, …)
-- [x] **Lỗi / UX nhỏ:** modal import không đóng khi select text (bỏ click backdrop); console **không** tự mở khi có log
+- [x] Ent schema + generate — **v3: `folders`, `requests` + `folder_id`, `histories` + `root_folder_id`**
+- [x] Migrate / backup — bump **2→3** (drop domain tables + recreate)
+- [x] **HTTP executor** + Wails `HTTPHandler` (Execute, PickFile, ImportFromCurl)
+- [x] **UI:** Request / Response / Console; History tab; **Folders** tab: root folders + **cây folder/request đệ quy**
+- [x] **FolderHandler:** root CRUD + `ListChildFolders`
+- [x] **SavedRequestHandler:** CRUD + `ListByFolder` + `Get`; RequestPanel load/save + `root_folder_id` / `request_id` khi Send
+- [x] **Test data / repo hygiene** như trước
 
-### Chưa làm / backlog Phase 1 trở đi
+### Chưa làm / backlog
 
-- [ ] **Collections & saved requests:** CRUD + cây sidebar, load/save request → lúc đó gắn `request_id` vào history
 - [ ] **Environments + biến:** CRUD, một env active, resolve `{{var}}` trước khi gửi
-- [ ] **Import collection** (Postman/OpenAPI) — hiện placeholder + message console
-- [ ] **History chi tiết:** mở snapshot request/response từ một dòng history (UI)
-- [ ] **Migrate dữ liệu** int→UUID **giữ bản ghi** (nếu cần cho user DB cũ) — hiện bước 1→2 là **drop** legacy
+- [ ] **Import collection** (Postman/OpenAPI) — map vào folder tree
+- [ ] **History chi tiết:** UI snapshot từ một dòng history
+- [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path là **drop**
+- [ ] **Polish** cây folder (expand/collapse, DnD, …)
 
 ---
 
-# Todos (cập nhật checklist)
+# Todos (checklist)
 
-- [x] Sign-off schema (đã khớp code / Ent)
-- [x] Ent schema + generate
-- [x] Migrate int→UUID / backup *(tồn tại path drop+recreate; chưa có migrate giữ dữ liệu chi tiết)*
+- [x] Sign-off schema (folder + request — đã triển khai v3)
+- [x] Ent schema + generate (`folders`, cập nhật `requests` / `histories`)
+- [x] Migrate + backup (bump v3; drop — chưa migrate giữ dữ liệu v2)
 - [x] HTTP executor & UI (core)
-- [x] History: persist + list API + tab sidebar
-- [x] Import request từ cURL (parser + UI)
+- [x] History: persist + list + `root_folder_id` từ UI
+- [x] Import request từ cURL
+- [x] **Folder + saved request:** repository, usecase, Wails, UI cây
 - [ ] Thêm / hoàn thiện **environments** + **environment_variables** (usecase + UI)
-- [ ] Quy tắc active env duy nhất + resolve `{{var}}` trước khi gửi request
-- [ ] Repository & usecase cho **collections / requests** đã lưu + UI cây
-- [ ] Import **collection** (file / clipboard)
+- [ ] Quy tắc active env duy nhất + resolve `{{var}}`
+- [ ] Import **collection** (file / clipboard) vào folder tree
+- [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên và lý do đã được cập nhật trong [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**). Tóm tắt: (1) Collection/Request CRUD + repo + UI cây, (2) History chi tiết UI, (3) Environments + `{{var}}`, (4) Auth, (5) Import collection, (6) migrate giữ dữ liệu nếu cần.
+Bảng ưu tiên chi tiết: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**). Tóm tắt: History chi tiết UI → Environments + `{{var}}` → Auth → Import collection → (optional) migrate giữ dữ liệu v2→v3.

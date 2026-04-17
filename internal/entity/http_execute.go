@@ -32,9 +32,9 @@ type HTTPExecuteInput struct {
 	Headers     []KeyValue `json:"headers,omitempty"`
 	QueryParams []KeyValue `json:"query_params,omitempty"`
 
-	// Optional UUIDs (RFC string) for history: workspace context and/or saved request (when implemented).
-	WorkspaceID *string `json:"workspace_id,omitempty"`
-	RequestID   *string `json:"request_id,omitempty"`
+	// Optional UUIDs for history: root folder (sidebar selection) and/or saved request.
+	RootFolderID *string `json:"root_folder_id,omitempty"`
+	RequestID    *string `json:"request_id,omitempty"`
 
 	BodyMode string `json:"body_mode,omitempty"` // BodyMode* (string for JSON)
 

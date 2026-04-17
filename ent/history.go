@@ -3,9 +3,9 @@
 package ent
 
 import (
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
-	"PostmanJanai/ent/workspace"
 	"fmt"
 	"strings"
 	"time"
@@ -20,8 +20,8 @@ type History struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// WorkspaceID holds the value of the "workspace_id" field.
-	WorkspaceID *uuid.UUID `json:"workspace_id,omitempty"`
+	// RootFolderID holds the value of the "root_folder_id" field.
+	RootFolderID *uuid.UUID `json:"root_folder_id,omitempty"`
 	// RequestID holds the value of the "request_id" field.
 	RequestID *uuid.UUID `json:"request_id,omitempty"`
 	// Method holds the value of the "method" field.
@@ -52,8 +52,8 @@ type History struct {
 
 // HistoryEdges holds the relations/edges for other nodes in the graph.
 type HistoryEdges struct {
-	// Workspace holds the value of the workspace edge.
-	Workspace *Workspace `json:"workspace,omitempty"`
+	// RootFolder holds the value of the root_folder edge.
+	RootFolder *Folder `json:"root_folder,omitempty"`
 	// Request holds the value of the request edge.
 	Request *Request `json:"request,omitempty"`
 	// loadedTypes holds the information for reporting if a
@@ -61,15 +61,15 @@ type HistoryEdges struct {
 	loadedTypes [2]bool
 }
 
-// WorkspaceOrErr returns the Workspace value or an error if the edge
+// RootFolderOrErr returns the RootFolder value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e HistoryEdges) WorkspaceOrErr() (*Workspace, error) {
-	if e.Workspace != nil {
-		return e.Workspace, nil
+func (e HistoryEdges) RootFolderOrErr() (*Folder, error) {
+	if e.RootFolder != nil {
+		return e.RootFolder, nil
 	} else if e.loadedTypes[0] {
-		return nil, &NotFoundError{label: workspace.Label}
+		return nil, &NotFoundError{label: folder.Label}
 	}
-	return nil, &NotLoadedError{edge: "workspace"}
+	return nil, &NotLoadedError{edge: "root_folder"}
 }
 
 // RequestOrErr returns the Request value or an error if the edge
@@ -88,7 +88,7 @@ func (*History) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case history.FieldWorkspaceID, history.FieldRequestID:
+		case history.FieldRootFolderID, history.FieldRequestID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case history.FieldStatusCode, history.FieldDurationMs, history.FieldResponseSizeBytes:
 			values[i] = new(sql.NullInt64)
@@ -119,12 +119,12 @@ func (_m *History) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.ID = *value
 			}
-		case history.FieldWorkspaceID:
+		case history.FieldRootFolderID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field workspace_id", values[i])
+				return fmt.Errorf("unexpected type %T for field root_folder_id", values[i])
 			} else if value.Valid {
-				_m.WorkspaceID = new(uuid.UUID)
-				*_m.WorkspaceID = *value.S.(*uuid.UUID)
+				_m.RootFolderID = new(uuid.UUID)
+				*_m.RootFolderID = *value.S.(*uuid.UUID)
 			}
 		case history.FieldRequestID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -212,9 +212,9 @@ func (_m *History) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// QueryWorkspace queries the "workspace" edge of the History entity.
-func (_m *History) QueryWorkspace() *WorkspaceQuery {
-	return NewHistoryClient(_m.config).QueryWorkspace(_m)
+// QueryRootFolder queries the "root_folder" edge of the History entity.
+func (_m *History) QueryRootFolder() *FolderQuery {
+	return NewHistoryClient(_m.config).QueryRootFolder(_m)
 }
 
 // QueryRequest queries the "request" edge of the History entity.
@@ -245,8 +245,8 @@ func (_m *History) String() string {
 	var builder strings.Builder
 	builder.WriteString("History(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
-	if v := _m.WorkspaceID; v != nil {
-		builder.WriteString("workspace_id=")
+	if v := _m.RootFolderID; v != nil {
+		builder.WriteString("root_folder_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

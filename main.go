@@ -65,7 +65,7 @@ func main() {
 	defer func(client *ent.Client) {
 		err := client.Close()
 		if err != nil {
-			log.Fatalf("failed closing client: %v", err)
+			log.Fatalf("failed closing ent client: %v", err)
 		}
 	}(client)
 
@@ -76,22 +76,20 @@ func main() {
 		log.Fatalf("failed setting PRAGMA user_version: %v", err)
 	}
 
-	// 3. Khởi tạo các lớp theo Clean Architecture
-	//Repository
+	folderRepo := repository.NewFolderRepository(client)
+	savedRequestRepo := repository.NewRequestRepository(client)
 	historyRepo := repository.NewHistoryRepository(client)
-	workspaceRepo := repository.NewWorkspaceRepository(client)
-	// Usecase
-	workspaceUc := usecase.NewWorkspaceUsecase(workspaceRepo)
-	// Handler
-	appHandler := delivery.NewAppHandler() // Truyền uc vào đây nếu cần
-	workspaceHandler := delivery.NewWorkspaceHandler(workspaceUc)
+
+	folderUc := usecase.NewFolderUsecase(folderRepo)
+	savedRequestUc := usecase.NewRequestUsecase(folderRepo, savedRequestRepo)
+
+	appHandler := delivery.NewAppHandler()
+	folderHandler := delivery.NewFolderHandler(folderUc)
+	savedRequestHandler := delivery.NewSavedRequestHandler(savedRequestUc)
 	historyHandler := delivery.NewHistoryHandler(historyRepo)
 	httpExecutor := service.NewHTTPExecutor()
 	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo)
 
-	// Create application with options
-	// Fullscreen:true often breaks WebView2 layout/clientsize on Windows (narrow column / blank area).
-	// Use a normal window, start maximised, and enforce a sane minimum size.
 	err = wails.Run(&options.App{
 		Title:            constant.AppName,
 		Width:            1280,
@@ -112,13 +110,15 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup: func(ctx context.Context) {
 			appHandler.SetContext(ctx)
-			workspaceHandler.SetContext(ctx)
+			folderHandler.SetContext(ctx)
+			savedRequestHandler.SetContext(ctx)
 			historyHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
 			appHandler,
-			workspaceHandler,
+			folderHandler,
+			savedRequestHandler,
 			historyHandler,
 			httpHandler,
 		},

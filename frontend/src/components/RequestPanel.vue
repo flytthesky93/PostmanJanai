@@ -3,13 +3,14 @@ import { ref, watch } from 'vue'
 import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
 import { PickFileForBody, ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
+import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 
 const props = defineProps({
-  /** Current workspace UUID for history (optional). */
-  activeWorkspaceId: { type: String, default: null }
+  /** Selected root folder UUID for history (optional). */
+  activeRootFolderId: { type: String, default: null }
 })
 
-const emit = defineEmits(['send', 'console'])
+const emit = defineEmits(['send', 'console', 'saved-request'])
 
 const url = ref('')
 const method = ref('GET')
@@ -57,6 +58,12 @@ const curlText = ref(
   'curl -X GET "https://httpbin.org/get?hello=world"'
 )
 
+/** When set, Send includes request_id; Save updates DB. */
+const savedRequestId = ref(null)
+/** Folder that owns the saved request */
+const savedFolderId = ref(null)
+const savedRequestLabel = ref('')
+
 const openImportMenu = () => {
   importMenuOpen.value = true
 }
@@ -81,6 +88,9 @@ const closeCurlModal = () => {
 
 function applyInputToForm(payload) {
   if (!payload) return
+  savedRequestId.value = null
+  savedFolderId.value = null
+  savedRequestLabel.value = ''
   method.value = (payload.method || 'GET').toUpperCase()
   const rawUrl = String(payload.url || '').trim()
   try {
@@ -222,12 +232,120 @@ const handleSend = () => {
             }))
         : undefined
   }
-  const ws = props.activeWorkspaceId
-  if (typeof ws === 'string' && ws.trim() !== '') {
-    payload.workspace_id = ws.trim()
+  const root = props.activeRootFolderId
+  if (typeof root === 'string' && root.trim() !== '') {
+    payload.root_folder_id = root.trim()
+  }
+  if (savedRequestId.value) {
+    payload.request_id = savedRequestId.value
   }
   emit('send', payload)
 }
+
+/** Load a persisted request from SavedRequestFull (Wails). */
+function applySavedRequestDto(dto) {
+  if (!dto) return
+  method.value = (dto.method || 'GET').toUpperCase()
+  url.value = String(dto.url || '').trim()
+  const bm = dto.body_mode || 'none'
+  body.value = bm === 'raw' || bm === 'xml' ? (dto.raw_body != null ? String(dto.raw_body) : '') : ''
+
+  if (dto.headers?.length) {
+    headers.value = dto.headers.map((h) => ({ key: h.key || '', value: h.value || '' }))
+    if (headers.value.length === 0) headers.value.push({ key: '', value: '' })
+  } else {
+    headers.value = [{ key: '', value: '' }]
+  }
+  if (bm === 'form_urlencoded') {
+    headers.value = [formUrlencodedLockedHeader(), ...stripContentTypeHeaders(headers.value)]
+  }
+
+  if (dto.query_params?.length) {
+    queryParams.value = dto.query_params.map((p) => ({ key: p.key || '', value: p.value || '' }))
+    if (queryParams.value.length === 0) queryParams.value.push({ key: '', value: '' })
+  } else {
+    queryParams.value = [{ key: '', value: '' }]
+  }
+
+  if (dto.form_fields?.length) {
+    formFields.value = dto.form_fields.map((f) => ({ key: f.key || '', value: f.value || '' }))
+    if (formFields.value.length === 0) formFields.value.push({ key: '', value: '' })
+  } else {
+    formFields.value = [{ key: '', value: '' }]
+  }
+
+  if (dto.multipart_parts?.length) {
+    multipartParts.value = dto.multipart_parts.map((p) => ({
+      key: p.key || '',
+      kind: p.kind === 'file' ? 'file' : 'text',
+      value: p.value || '',
+      file_path: p.file_path || ''
+    }))
+    if (multipartParts.value.length === 0) {
+      multipartParts.value.push({ key: '', kind: 'text', value: '', file_path: '' })
+    }
+  } else {
+    multipartParts.value = [{ key: '', kind: 'text', value: '', file_path: '' }]
+  }
+
+  bodyMode.value = bm
+  activeTab.value = bm === 'none' || bm === '' ? 'params' : 'body'
+}
+
+function loadFromSavedRequest(dto) {
+  if (!dto) return
+  savedRequestId.value = dto.id
+  savedFolderId.value = dto.folder_id || null
+  savedRequestLabel.value = dto.name || 'Request'
+  applySavedRequestDto(dto)
+}
+
+function buildSavedRequestFull() {
+  const q = queryParams.value.filter((p) => (p.key || '').trim() !== '')
+  const h = headers.value.filter((p) => (p.key || '').trim() !== '')
+  const full = {
+    id: savedRequestId.value,
+    folder_id: (savedFolderId.value || '').trim(),
+    name: (savedRequestLabel.value || '').trim() || 'Untitled',
+    method: method.value,
+    url: url.value,
+    body_mode: bodyMode.value,
+    headers: h,
+    query_params: q,
+    form_fields:
+      bodyMode.value === 'form_urlencoded'
+        ? formFields.value.filter((p) => (p.key || '').trim() !== '')
+        : [],
+    multipart_parts:
+      bodyMode.value === 'multipart'
+        ? multipartParts.value
+            .filter((p) => (p.key || '').trim() !== '')
+            .map((p) => ({
+              key: p.key.trim(),
+              kind: p.kind === 'file' ? 'file' : 'text',
+              value: p.kind === 'text' ? p.value : '',
+              file_path: p.kind === 'file' ? (p.file_path || '').trim() : ''
+            }))
+        : []
+  }
+  if (bodyMode.value === 'raw' || bodyMode.value === 'xml') {
+    full.raw_body = body.value
+  }
+  return full
+}
+
+async function saveSavedRequest() {
+  if (!savedRequestId.value) return
+  try {
+    await SavedRequestAPI.Update(buildSavedRequestFull())
+    emit('console', `[Saved] "${(savedRequestLabel.value || '').trim() || 'Request'}" updated.`)
+    emit('saved-request')
+  } catch (e) {
+    emit('console', `[Saved] ${e?.message || String(e)}`)
+  }
+}
+
+defineExpose({ loadFromSavedRequest, applySavedRequestDto })
 
 const formatJsonBody = () => {
   const raw = (body.value ?? '').trim()
@@ -285,6 +403,26 @@ const formatXmlBody = () => {
         @click="handleSend"
       >
         Send
+      </button>
+    </div>
+
+    <div
+      v-if="savedRequestId"
+      class="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-800/80 px-3 py-1.5 text-xs"
+    >
+      <span class="shrink-0 text-gray-500">Saved request</span>
+      <input
+        v-model="savedRequestLabel"
+        type="text"
+        class="min-w-0 flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
+        placeholder="Name"
+      />
+      <button
+        type="button"
+        class="shrink-0 rounded border border-orange-600/70 px-2 py-1 font-semibold text-orange-400 hover:bg-orange-600/15"
+        @click="saveSavedRequest"
+      >
+        Save
       </button>
     </div>
 

@@ -126,7 +126,7 @@ func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecute
 		CreatedAt:           time.Now(),
 	}
 	if in != nil {
-		item.WorkspaceID = trimmedStringPtr(in.WorkspaceID)
+		item.RootFolderID = trimmedStringPtr(in.RootFolderID)
 		item.RequestID = trimmedStringPtr(in.RequestID)
 	}
 

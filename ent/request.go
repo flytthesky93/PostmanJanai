@@ -3,9 +3,8 @@
 package ent
 
 import (
-	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/request"
-	"PostmanJanai/ent/workspace"
 	"fmt"
 	"strings"
 	"time"
@@ -20,10 +19,8 @@ type Request struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// WorkspaceID holds the value of the "workspace_id" field.
-	WorkspaceID uuid.UUID `json:"workspace_id,omitempty"`
-	// CollectionID holds the value of the "collection_id" field.
-	CollectionID *uuid.UUID `json:"collection_id,omitempty"`
+	// FolderID holds the value of the "folder_id" field.
+	FolderID uuid.UUID `json:"folder_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Method holds the value of the "method" field.
@@ -46,10 +43,8 @@ type Request struct {
 
 // RequestEdges holds the relations/edges for other nodes in the graph.
 type RequestEdges struct {
-	// Workspace holds the value of the workspace edge.
-	Workspace *Workspace `json:"workspace,omitempty"`
-	// Collection holds the value of the collection edge.
-	Collection *Collection `json:"collection,omitempty"`
+	// Folder holds the value of the folder edge.
+	Folder *Folder `json:"folder,omitempty"`
 	// RequestHeaders holds the value of the request_headers edge.
 	RequestHeaders []*RequestHeader `json:"request_headers,omitempty"`
 	// RequestQueryParams holds the value of the request_query_params edge.
@@ -60,35 +55,24 @@ type RequestEdges struct {
 	Histories []*History `json:"histories,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [5]bool
 }
 
-// WorkspaceOrErr returns the Workspace value or an error if the edge
+// FolderOrErr returns the Folder value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e RequestEdges) WorkspaceOrErr() (*Workspace, error) {
-	if e.Workspace != nil {
-		return e.Workspace, nil
+func (e RequestEdges) FolderOrErr() (*Folder, error) {
+	if e.Folder != nil {
+		return e.Folder, nil
 	} else if e.loadedTypes[0] {
-		return nil, &NotFoundError{label: workspace.Label}
+		return nil, &NotFoundError{label: folder.Label}
 	}
-	return nil, &NotLoadedError{edge: "workspace"}
-}
-
-// CollectionOrErr returns the Collection value or an error if the edge
-// was not loaded in eager-loading, or loaded but was not found.
-func (e RequestEdges) CollectionOrErr() (*Collection, error) {
-	if e.Collection != nil {
-		return e.Collection, nil
-	} else if e.loadedTypes[1] {
-		return nil, &NotFoundError{label: collection.Label}
-	}
-	return nil, &NotLoadedError{edge: "collection"}
+	return nil, &NotLoadedError{edge: "folder"}
 }
 
 // RequestHeadersOrErr returns the RequestHeaders value or an error if the edge
 // was not loaded in eager-loading.
 func (e RequestEdges) RequestHeadersOrErr() ([]*RequestHeader, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[1] {
 		return e.RequestHeaders, nil
 	}
 	return nil, &NotLoadedError{edge: "request_headers"}
@@ -97,7 +81,7 @@ func (e RequestEdges) RequestHeadersOrErr() ([]*RequestHeader, error) {
 // RequestQueryParamsOrErr returns the RequestQueryParams value or an error if the edge
 // was not loaded in eager-loading.
 func (e RequestEdges) RequestQueryParamsOrErr() ([]*RequestQueryParam, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[2] {
 		return e.RequestQueryParams, nil
 	}
 	return nil, &NotLoadedError{edge: "request_query_params"}
@@ -106,7 +90,7 @@ func (e RequestEdges) RequestQueryParamsOrErr() ([]*RequestQueryParam, error) {
 // RequestFormFieldsOrErr returns the RequestFormFields value or an error if the edge
 // was not loaded in eager-loading.
 func (e RequestEdges) RequestFormFieldsOrErr() ([]*RequestFormField, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[3] {
 		return e.RequestFormFields, nil
 	}
 	return nil, &NotLoadedError{edge: "request_form_fields"}
@@ -115,7 +99,7 @@ func (e RequestEdges) RequestFormFieldsOrErr() ([]*RequestFormField, error) {
 // HistoriesOrErr returns the Histories value or an error if the edge
 // was not loaded in eager-loading.
 func (e RequestEdges) HistoriesOrErr() ([]*History, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[4] {
 		return e.Histories, nil
 	}
 	return nil, &NotLoadedError{edge: "histories"}
@@ -126,13 +110,11 @@ func (*Request) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case request.FieldCollectionID:
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case request.FieldName, request.FieldMethod, request.FieldURL, request.FieldBodyMode, request.FieldRawBody:
 			values[i] = new(sql.NullString)
 		case request.FieldCreatedAt, request.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case request.FieldID, request.FieldWorkspaceID:
+		case request.FieldID, request.FieldFolderID:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -155,18 +137,11 @@ func (_m *Request) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.ID = *value
 			}
-		case request.FieldWorkspaceID:
+		case request.FieldFolderID:
 			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field workspace_id", values[i])
+				return fmt.Errorf("unexpected type %T for field folder_id", values[i])
 			} else if value != nil {
-				_m.WorkspaceID = *value
-			}
-		case request.FieldCollectionID:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field collection_id", values[i])
-			} else if value.Valid {
-				_m.CollectionID = new(uuid.UUID)
-				*_m.CollectionID = *value.S.(*uuid.UUID)
+				_m.FolderID = *value
 			}
 		case request.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -224,14 +199,9 @@ func (_m *Request) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// QueryWorkspace queries the "workspace" edge of the Request entity.
-func (_m *Request) QueryWorkspace() *WorkspaceQuery {
-	return NewRequestClient(_m.config).QueryWorkspace(_m)
-}
-
-// QueryCollection queries the "collection" edge of the Request entity.
-func (_m *Request) QueryCollection() *CollectionQuery {
-	return NewRequestClient(_m.config).QueryCollection(_m)
+// QueryFolder queries the "folder" edge of the Request entity.
+func (_m *Request) QueryFolder() *FolderQuery {
+	return NewRequestClient(_m.config).QueryFolder(_m)
 }
 
 // QueryRequestHeaders queries the "request_headers" edge of the Request entity.
@@ -277,13 +247,8 @@ func (_m *Request) String() string {
 	var builder strings.Builder
 	builder.WriteString("Request(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
-	builder.WriteString("workspace_id=")
-	builder.WriteString(fmt.Sprintf("%v", _m.WorkspaceID))
-	builder.WriteString(", ")
-	if v := _m.CollectionID; v != nil {
-		builder.WriteString("collection_id=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
+	builder.WriteString("folder_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.FolderID))
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

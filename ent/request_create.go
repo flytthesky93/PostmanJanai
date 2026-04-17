@@ -3,13 +3,12 @@
 package ent
 
 import (
-	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
@@ -27,23 +26,9 @@ type RequestCreate struct {
 	hooks    []Hook
 }
 
-// SetWorkspaceID sets the "workspace_id" field.
-func (_c *RequestCreate) SetWorkspaceID(v uuid.UUID) *RequestCreate {
-	_c.mutation.SetWorkspaceID(v)
-	return _c
-}
-
-// SetCollectionID sets the "collection_id" field.
-func (_c *RequestCreate) SetCollectionID(v uuid.UUID) *RequestCreate {
-	_c.mutation.SetCollectionID(v)
-	return _c
-}
-
-// SetNillableCollectionID sets the "collection_id" field if the given value is not nil.
-func (_c *RequestCreate) SetNillableCollectionID(v *uuid.UUID) *RequestCreate {
-	if v != nil {
-		_c.SetCollectionID(*v)
-	}
+// SetFolderID sets the "folder_id" field.
+func (_c *RequestCreate) SetFolderID(v uuid.UUID) *RequestCreate {
+	_c.mutation.SetFolderID(v)
 	return _c
 }
 
@@ -135,14 +120,9 @@ func (_c *RequestCreate) SetNillableID(v *uuid.UUID) *RequestCreate {
 	return _c
 }
 
-// SetWorkspace sets the "workspace" edge to the Workspace entity.
-func (_c *RequestCreate) SetWorkspace(v *Workspace) *RequestCreate {
-	return _c.SetWorkspaceID(v.ID)
-}
-
-// SetCollection sets the "collection" edge to the Collection entity.
-func (_c *RequestCreate) SetCollection(v *Collection) *RequestCreate {
-	return _c.SetCollectionID(v.ID)
+// SetFolder sets the "folder" edge to the Folder entity.
+func (_c *RequestCreate) SetFolder(v *Folder) *RequestCreate {
+	return _c.SetFolderID(v.ID)
 }
 
 // AddRequestHeaderIDs adds the "request_headers" edge to the RequestHeader entity by IDs.
@@ -260,8 +240,8 @@ func (_c *RequestCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *RequestCreate) check() error {
-	if _, ok := _c.mutation.WorkspaceID(); !ok {
-		return &ValidationError{Name: "workspace_id", err: errors.New(`ent: missing required field "Request.workspace_id"`)}
+	if _, ok := _c.mutation.FolderID(); !ok {
+		return &ValidationError{Name: "folder_id", err: errors.New(`ent: missing required field "Request.folder_id"`)}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Request.name"`)}
@@ -296,8 +276,8 @@ func (_c *RequestCreate) check() error {
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Request.updated_at"`)}
 	}
-	if len(_c.mutation.WorkspaceIDs()) == 0 {
-		return &ValidationError{Name: "workspace", err: errors.New(`ent: missing required edge "Request.workspace"`)}
+	if len(_c.mutation.FolderIDs()) == 0 {
+		return &ValidationError{Name: "folder", err: errors.New(`ent: missing required edge "Request.folder"`)}
 	}
 	return nil
 }
@@ -362,38 +342,21 @@ func (_c *RequestCreate) createSpec() (*Request, *sqlgraph.CreateSpec) {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
-	if nodes := _c.mutation.WorkspaceIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.FolderIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: true,
-			Table:   request.WorkspaceTable,
-			Columns: []string{request.WorkspaceColumn},
+			Table:   request.FolderTable,
+			Columns: []string{request.FolderColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.WorkspaceID = nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.CollectionIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   request.CollectionTable,
-			Columns: []string{request.CollectionColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.CollectionID = &nodes[0]
+		_node.FolderID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.RequestHeadersIDs(); len(nodes) > 0 {

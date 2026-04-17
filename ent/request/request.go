@@ -15,10 +15,8 @@ const (
 	Label = "request"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
-	// FieldWorkspaceID holds the string denoting the workspace_id field in the database.
-	FieldWorkspaceID = "workspace_id"
-	// FieldCollectionID holds the string denoting the collection_id field in the database.
-	FieldCollectionID = "collection_id"
+	// FieldFolderID holds the string denoting the folder_id field in the database.
+	FieldFolderID = "folder_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldMethod holds the string denoting the method field in the database.
@@ -33,10 +31,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
-	// EdgeWorkspace holds the string denoting the workspace edge name in mutations.
-	EdgeWorkspace = "workspace"
-	// EdgeCollection holds the string denoting the collection edge name in mutations.
-	EdgeCollection = "collection"
+	// EdgeFolder holds the string denoting the folder edge name in mutations.
+	EdgeFolder = "folder"
 	// EdgeRequestHeaders holds the string denoting the request_headers edge name in mutations.
 	EdgeRequestHeaders = "request_headers"
 	// EdgeRequestQueryParams holds the string denoting the request_query_params edge name in mutations.
@@ -47,20 +43,13 @@ const (
 	EdgeHistories = "histories"
 	// Table holds the table name of the request in the database.
 	Table = "requests"
-	// WorkspaceTable is the table that holds the workspace relation/edge.
-	WorkspaceTable = "requests"
-	// WorkspaceInverseTable is the table name for the Workspace entity.
-	// It exists in this package in order to avoid circular dependency with the "workspace" package.
-	WorkspaceInverseTable = "workspaces"
-	// WorkspaceColumn is the table column denoting the workspace relation/edge.
-	WorkspaceColumn = "workspace_id"
-	// CollectionTable is the table that holds the collection relation/edge.
-	CollectionTable = "requests"
-	// CollectionInverseTable is the table name for the Collection entity.
-	// It exists in this package in order to avoid circular dependency with the "collection" package.
-	CollectionInverseTable = "collections"
-	// CollectionColumn is the table column denoting the collection relation/edge.
-	CollectionColumn = "collection_id"
+	// FolderTable is the table that holds the folder relation/edge.
+	FolderTable = "requests"
+	// FolderInverseTable is the table name for the Folder entity.
+	// It exists in this package in order to avoid circular dependency with the "folder" package.
+	FolderInverseTable = "folders"
+	// FolderColumn is the table column denoting the folder relation/edge.
+	FolderColumn = "folder_id"
 	// RequestHeadersTable is the table that holds the request_headers relation/edge.
 	RequestHeadersTable = "request_headers"
 	// RequestHeadersInverseTable is the table name for the RequestHeader entity.
@@ -94,8 +83,7 @@ const (
 // Columns holds all SQL columns for request fields.
 var Columns = []string{
 	FieldID,
-	FieldWorkspaceID,
-	FieldCollectionID,
+	FieldFolderID,
 	FieldName,
 	FieldMethod,
 	FieldURL,
@@ -142,14 +130,9 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
 }
 
-// ByWorkspaceID orders the results by the workspace_id field.
-func ByWorkspaceID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldWorkspaceID, opts...).ToFunc()
-}
-
-// ByCollectionID orders the results by the collection_id field.
-func ByCollectionID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldCollectionID, opts...).ToFunc()
+// ByFolderID orders the results by the folder_id field.
+func ByFolderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFolderID, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.
@@ -187,17 +170,10 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
-// ByWorkspaceField orders the results by workspace field.
-func ByWorkspaceField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByFolderField orders the results by folder field.
+func ByFolderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newWorkspaceStep(), sql.OrderByField(field, opts...))
-	}
-}
-
-// ByCollectionField orders the results by collection field.
-func ByCollectionField(field string, opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newCollectionStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newFolderStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -256,18 +232,11 @@ func ByHistories(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newHistoriesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
-func newWorkspaceStep() *sqlgraph.Step {
+func newFolderStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(WorkspaceInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, WorkspaceTable, WorkspaceColumn),
-	)
-}
-func newCollectionStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(CollectionInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, CollectionTable, CollectionColumn),
+		sqlgraph.To(FolderInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, FolderTable, FolderColumn),
 	)
 }
 func newRequestHeadersStep() *sqlgraph.Step {

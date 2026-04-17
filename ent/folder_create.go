@@ -3,10 +3,9 @@
 package ent
 
 import (
-	"PostmanJanai/ent/collection"
+	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
-	"PostmanJanai/ent/workspace"
 	"context"
 	"errors"
 	"fmt"
@@ -17,41 +16,55 @@ import (
 	"github.com/google/uuid"
 )
 
-// WorkspaceCreate is the builder for creating a Workspace entity.
-type WorkspaceCreate struct {
+// FolderCreate is the builder for creating a Folder entity.
+type FolderCreate struct {
 	config
-	mutation *WorkspaceMutation
+	mutation *FolderMutation
 	hooks    []Hook
 }
 
-// SetWorkspaceName sets the "workspace_name" field.
-func (_c *WorkspaceCreate) SetWorkspaceName(v string) *WorkspaceCreate {
-	_c.mutation.SetWorkspaceName(v)
+// SetParentID sets the "parent_id" field.
+func (_c *FolderCreate) SetParentID(v uuid.UUID) *FolderCreate {
+	_c.mutation.SetParentID(v)
 	return _c
 }
 
-// SetWorkspaceDescription sets the "workspace_description" field.
-func (_c *WorkspaceCreate) SetWorkspaceDescription(v string) *WorkspaceCreate {
-	_c.mutation.SetWorkspaceDescription(v)
-	return _c
-}
-
-// SetNillableWorkspaceDescription sets the "workspace_description" field if the given value is not nil.
-func (_c *WorkspaceCreate) SetNillableWorkspaceDescription(v *string) *WorkspaceCreate {
+// SetNillableParentID sets the "parent_id" field if the given value is not nil.
+func (_c *FolderCreate) SetNillableParentID(v *uuid.UUID) *FolderCreate {
 	if v != nil {
-		_c.SetWorkspaceDescription(*v)
+		_c.SetParentID(*v)
+	}
+	return _c
+}
+
+// SetName sets the "name" field.
+func (_c *FolderCreate) SetName(v string) *FolderCreate {
+	_c.mutation.SetName(v)
+	return _c
+}
+
+// SetDescription sets the "description" field.
+func (_c *FolderCreate) SetDescription(v string) *FolderCreate {
+	_c.mutation.SetDescription(v)
+	return _c
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_c *FolderCreate) SetNillableDescription(v *string) *FolderCreate {
+	if v != nil {
+		_c.SetDescription(*v)
 	}
 	return _c
 }
 
 // SetCreatedAt sets the "created_at" field.
-func (_c *WorkspaceCreate) SetCreatedAt(v time.Time) *WorkspaceCreate {
+func (_c *FolderCreate) SetCreatedAt(v time.Time) *FolderCreate {
 	_c.mutation.SetCreatedAt(v)
 	return _c
 }
 
 // SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (_c *WorkspaceCreate) SetNillableCreatedAt(v *time.Time) *WorkspaceCreate {
+func (_c *FolderCreate) SetNillableCreatedAt(v *time.Time) *FolderCreate {
 	if v != nil {
 		_c.SetCreatedAt(*v)
 	}
@@ -59,42 +72,47 @@ func (_c *WorkspaceCreate) SetNillableCreatedAt(v *time.Time) *WorkspaceCreate {
 }
 
 // SetID sets the "id" field.
-func (_c *WorkspaceCreate) SetID(v uuid.UUID) *WorkspaceCreate {
+func (_c *FolderCreate) SetID(v uuid.UUID) *FolderCreate {
 	_c.mutation.SetID(v)
 	return _c
 }
 
 // SetNillableID sets the "id" field if the given value is not nil.
-func (_c *WorkspaceCreate) SetNillableID(v *uuid.UUID) *WorkspaceCreate {
+func (_c *FolderCreate) SetNillableID(v *uuid.UUID) *FolderCreate {
 	if v != nil {
 		_c.SetID(*v)
 	}
 	return _c
 }
 
-// AddCollectionIDs adds the "collections" edge to the Collection entity by IDs.
-func (_c *WorkspaceCreate) AddCollectionIDs(ids ...uuid.UUID) *WorkspaceCreate {
-	_c.mutation.AddCollectionIDs(ids...)
+// AddChildIDs adds the "children" edge to the Folder entity by IDs.
+func (_c *FolderCreate) AddChildIDs(ids ...uuid.UUID) *FolderCreate {
+	_c.mutation.AddChildIDs(ids...)
 	return _c
 }
 
-// AddCollections adds the "collections" edges to the Collection entity.
-func (_c *WorkspaceCreate) AddCollections(v ...*Collection) *WorkspaceCreate {
+// AddChildren adds the "children" edges to the Folder entity.
+func (_c *FolderCreate) AddChildren(v ...*Folder) *FolderCreate {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
 	}
-	return _c.AddCollectionIDs(ids...)
+	return _c.AddChildIDs(ids...)
+}
+
+// SetParent sets the "parent" edge to the Folder entity.
+func (_c *FolderCreate) SetParent(v *Folder) *FolderCreate {
+	return _c.SetParentID(v.ID)
 }
 
 // AddRequestIDs adds the "requests" edge to the Request entity by IDs.
-func (_c *WorkspaceCreate) AddRequestIDs(ids ...uuid.UUID) *WorkspaceCreate {
+func (_c *FolderCreate) AddRequestIDs(ids ...uuid.UUID) *FolderCreate {
 	_c.mutation.AddRequestIDs(ids...)
 	return _c
 }
 
 // AddRequests adds the "requests" edges to the Request entity.
-func (_c *WorkspaceCreate) AddRequests(v ...*Request) *WorkspaceCreate {
+func (_c *FolderCreate) AddRequests(v ...*Request) *FolderCreate {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
@@ -103,13 +121,13 @@ func (_c *WorkspaceCreate) AddRequests(v ...*Request) *WorkspaceCreate {
 }
 
 // AddHistoryIDs adds the "histories" edge to the History entity by IDs.
-func (_c *WorkspaceCreate) AddHistoryIDs(ids ...uuid.UUID) *WorkspaceCreate {
+func (_c *FolderCreate) AddHistoryIDs(ids ...uuid.UUID) *FolderCreate {
 	_c.mutation.AddHistoryIDs(ids...)
 	return _c
 }
 
 // AddHistories adds the "histories" edges to the History entity.
-func (_c *WorkspaceCreate) AddHistories(v ...*History) *WorkspaceCreate {
+func (_c *FolderCreate) AddHistories(v ...*History) *FolderCreate {
 	ids := make([]uuid.UUID, len(v))
 	for i := range v {
 		ids[i] = v[i].ID
@@ -117,19 +135,19 @@ func (_c *WorkspaceCreate) AddHistories(v ...*History) *WorkspaceCreate {
 	return _c.AddHistoryIDs(ids...)
 }
 
-// Mutation returns the WorkspaceMutation object of the builder.
-func (_c *WorkspaceCreate) Mutation() *WorkspaceMutation {
+// Mutation returns the FolderMutation object of the builder.
+func (_c *FolderCreate) Mutation() *FolderMutation {
 	return _c.mutation
 }
 
-// Save creates the Workspace in the database.
-func (_c *WorkspaceCreate) Save(ctx context.Context) (*Workspace, error) {
+// Save creates the Folder in the database.
+func (_c *FolderCreate) Save(ctx context.Context) (*Folder, error) {
 	_c.defaults()
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
-func (_c *WorkspaceCreate) SaveX(ctx context.Context) *Workspace {
+func (_c *FolderCreate) SaveX(ctx context.Context) *Folder {
 	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
@@ -138,54 +156,54 @@ func (_c *WorkspaceCreate) SaveX(ctx context.Context) *Workspace {
 }
 
 // Exec executes the query.
-func (_c *WorkspaceCreate) Exec(ctx context.Context) error {
+func (_c *FolderCreate) Exec(ctx context.Context) error {
 	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_c *WorkspaceCreate) ExecX(ctx context.Context) {
+func (_c *FolderCreate) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *WorkspaceCreate) defaults() {
-	if _, ok := _c.mutation.WorkspaceDescription(); !ok {
-		v := workspace.DefaultWorkspaceDescription
-		_c.mutation.SetWorkspaceDescription(v)
+func (_c *FolderCreate) defaults() {
+	if _, ok := _c.mutation.Description(); !ok {
+		v := folder.DefaultDescription
+		_c.mutation.SetDescription(v)
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		v := workspace.DefaultCreatedAt()
+		v := folder.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
 	if _, ok := _c.mutation.ID(); !ok {
-		v := workspace.DefaultID()
+		v := folder.DefaultID()
 		_c.mutation.SetID(v)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (_c *WorkspaceCreate) check() error {
-	if _, ok := _c.mutation.WorkspaceName(); !ok {
-		return &ValidationError{Name: "workspace_name", err: errors.New(`ent: missing required field "Workspace.workspace_name"`)}
+func (_c *FolderCreate) check() error {
+	if _, ok := _c.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Folder.name"`)}
 	}
-	if v, ok := _c.mutation.WorkspaceName(); ok {
-		if err := workspace.WorkspaceNameValidator(v); err != nil {
-			return &ValidationError{Name: "workspace_name", err: fmt.Errorf(`ent: validator failed for field "Workspace.workspace_name": %w`, err)}
+	if v, ok := _c.mutation.Name(); ok {
+		if err := folder.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Folder.name": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.WorkspaceDescription(); !ok {
-		return &ValidationError{Name: "workspace_description", err: errors.New(`ent: missing required field "Workspace.workspace_description"`)}
+	if _, ok := _c.mutation.Description(); !ok {
+		return &ValidationError{Name: "description", err: errors.New(`ent: missing required field "Folder.description"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Workspace.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Folder.created_at"`)}
 	}
 	return nil
 }
 
-func (_c *WorkspaceCreate) sqlSave(ctx context.Context) (*Workspace, error) {
+func (_c *FolderCreate) sqlSave(ctx context.Context) (*Folder, error) {
 	if err := _c.check(); err != nil {
 		return nil, err
 	}
@@ -208,36 +226,36 @@ func (_c *WorkspaceCreate) sqlSave(ctx context.Context) (*Workspace, error) {
 	return _node, nil
 }
 
-func (_c *WorkspaceCreate) createSpec() (*Workspace, *sqlgraph.CreateSpec) {
+func (_c *FolderCreate) createSpec() (*Folder, *sqlgraph.CreateSpec) {
 	var (
-		_node = &Workspace{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(workspace.Table, sqlgraph.NewFieldSpec(workspace.FieldID, field.TypeUUID))
+		_node = &Folder{config: _c.config}
+		_spec = sqlgraph.NewCreateSpec(folder.Table, sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID))
 	)
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
 	}
-	if value, ok := _c.mutation.WorkspaceName(); ok {
-		_spec.SetField(workspace.FieldWorkspaceName, field.TypeString, value)
-		_node.WorkspaceName = value
+	if value, ok := _c.mutation.Name(); ok {
+		_spec.SetField(folder.FieldName, field.TypeString, value)
+		_node.Name = value
 	}
-	if value, ok := _c.mutation.WorkspaceDescription(); ok {
-		_spec.SetField(workspace.FieldWorkspaceDescription, field.TypeString, value)
-		_node.WorkspaceDescription = value
+	if value, ok := _c.mutation.Description(); ok {
+		_spec.SetField(folder.FieldDescription, field.TypeString, value)
+		_node.Description = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
-		_spec.SetField(workspace.FieldCreatedAt, field.TypeTime, value)
+		_spec.SetField(folder.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
 	}
-	if nodes := _c.mutation.CollectionsIDs(); len(nodes) > 0 {
+	if nodes := _c.mutation.ChildrenIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workspace.CollectionsTable,
-			Columns: []string{workspace.CollectionsColumn},
-			Bidi:    false,
+			Table:   folder.ChildrenTable,
+			Columns: []string{folder.ChildrenColumn},
+			Bidi:    true,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -245,12 +263,29 @@ func (_c *WorkspaceCreate) createSpec() (*Workspace, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.ParentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   folder.ParentTable,
+			Columns: []string{folder.ParentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(folder.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ParentID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.RequestsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workspace.RequestsTable,
-			Columns: []string{workspace.RequestsColumn},
+			Table:   folder.RequestsTable,
+			Columns: []string{folder.RequestsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(request.FieldID, field.TypeUUID),
@@ -265,8 +300,8 @@ func (_c *WorkspaceCreate) createSpec() (*Workspace, *sqlgraph.CreateSpec) {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
 			Inverse: false,
-			Table:   workspace.HistoriesTable,
-			Columns: []string{workspace.HistoriesColumn},
+			Table:   folder.HistoriesTable,
+			Columns: []string{folder.HistoriesColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
@@ -280,27 +315,27 @@ func (_c *WorkspaceCreate) createSpec() (*Workspace, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
-// WorkspaceCreateBulk is the builder for creating many Workspace entities in bulk.
-type WorkspaceCreateBulk struct {
+// FolderCreateBulk is the builder for creating many Folder entities in bulk.
+type FolderCreateBulk struct {
 	config
 	err      error
-	builders []*WorkspaceCreate
+	builders []*FolderCreate
 }
 
-// Save creates the Workspace entities in the database.
-func (_c *WorkspaceCreateBulk) Save(ctx context.Context) ([]*Workspace, error) {
+// Save creates the Folder entities in the database.
+func (_c *FolderCreateBulk) Save(ctx context.Context) ([]*Folder, error) {
 	if _c.err != nil {
 		return nil, _c.err
 	}
 	specs := make([]*sqlgraph.CreateSpec, len(_c.builders))
-	nodes := make([]*Workspace, len(_c.builders))
+	nodes := make([]*Folder, len(_c.builders))
 	mutators := make([]Mutator, len(_c.builders))
 	for i := range _c.builders {
 		func(i int, root context.Context) {
 			builder := _c.builders[i]
 			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
-				mutation, ok := m.(*WorkspaceMutation)
+				mutation, ok := m.(*FolderMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
 				}
@@ -343,7 +378,7 @@ func (_c *WorkspaceCreateBulk) Save(ctx context.Context) ([]*Workspace, error) {
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (_c *WorkspaceCreateBulk) SaveX(ctx context.Context) []*Workspace {
+func (_c *FolderCreateBulk) SaveX(ctx context.Context) []*Folder {
 	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
@@ -352,13 +387,13 @@ func (_c *WorkspaceCreateBulk) SaveX(ctx context.Context) []*Workspace {
 }
 
 // Exec executes the query.
-func (_c *WorkspaceCreateBulk) Exec(ctx context.Context) error {
+func (_c *FolderCreateBulk) Exec(ctx context.Context) error {
 	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_c *WorkspaceCreateBulk) ExecX(ctx context.Context) {
+func (_c *FolderCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}

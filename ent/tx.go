@@ -12,12 +12,12 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
-	// Collection is the client for interacting with the Collection builders.
-	Collection *CollectionClient
 	// Environment is the client for interacting with the Environment builders.
 	Environment *EnvironmentClient
 	// EnvironmentVariable is the client for interacting with the EnvironmentVariable builders.
 	EnvironmentVariable *EnvironmentVariableClient
+	// Folder is the client for interacting with the Folder builders.
+	Folder *FolderClient
 	// History is the client for interacting with the History builders.
 	History *HistoryClient
 	// Request is the client for interacting with the Request builders.
@@ -28,8 +28,6 @@ type Tx struct {
 	RequestHeader *RequestHeaderClient
 	// RequestQueryParam is the client for interacting with the RequestQueryParam builders.
 	RequestQueryParam *RequestQueryParamClient
-	// Workspace is the client for interacting with the Workspace builders.
-	Workspace *WorkspaceClient
 
 	// lazily loaded.
 	client     *Client
@@ -161,15 +159,14 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
-	tx.Collection = NewCollectionClient(tx.config)
 	tx.Environment = NewEnvironmentClient(tx.config)
 	tx.EnvironmentVariable = NewEnvironmentVariableClient(tx.config)
+	tx.Folder = NewFolderClient(tx.config)
 	tx.History = NewHistoryClient(tx.config)
 	tx.Request = NewRequestClient(tx.config)
 	tx.RequestFormField = NewRequestFormFieldClient(tx.config)
 	tx.RequestHeader = NewRequestHeaderClient(tx.config)
 	tx.RequestQueryParam = NewRequestQueryParamClient(tx.config)
-	tx.Workspace = NewWorkspaceClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.
@@ -179,7 +176,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Collection.QueryXXX(), the query will be executed
+// applies a query, for example: Environment.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

@@ -16,7 +16,7 @@ type History struct {
 func (History) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).Default(uuid.New),
-		field.UUID("workspace_id", uuid.UUID{}).Optional().Nillable(),
+		field.UUID("root_folder_id", uuid.UUID{}).Optional().Nillable(),
 		field.UUID("request_id", uuid.UUID{}).Optional().Nillable(),
 		field.String("method").NotEmpty(),
 		field.Text("url").NotEmpty(),
@@ -33,9 +33,9 @@ func (History) Fields() []ent.Field {
 
 func (History) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("workspace", Workspace.Type).
+		edge.From("root_folder", Folder.Type).
 			Ref("histories").
-			Field("workspace_id").
+			Field("root_folder_id").
 			Unique(),
 		edge.From("request", Request.Type).
 			Ref("histories").

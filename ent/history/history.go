@@ -15,8 +15,8 @@ const (
 	Label = "history"
 	// FieldID holds the string denoting the id field in the database.
 	FieldID = "id"
-	// FieldWorkspaceID holds the string denoting the workspace_id field in the database.
-	FieldWorkspaceID = "workspace_id"
+	// FieldRootFolderID holds the string denoting the root_folder_id field in the database.
+	FieldRootFolderID = "root_folder_id"
 	// FieldRequestID holds the string denoting the request_id field in the database.
 	FieldRequestID = "request_id"
 	// FieldMethod holds the string denoting the method field in the database.
@@ -39,19 +39,19 @@ const (
 	FieldResponseBody = "response_body"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
-	// EdgeWorkspace holds the string denoting the workspace edge name in mutations.
-	EdgeWorkspace = "workspace"
+	// EdgeRootFolder holds the string denoting the root_folder edge name in mutations.
+	EdgeRootFolder = "root_folder"
 	// EdgeRequest holds the string denoting the request edge name in mutations.
 	EdgeRequest = "request"
 	// Table holds the table name of the history in the database.
 	Table = "histories"
-	// WorkspaceTable is the table that holds the workspace relation/edge.
-	WorkspaceTable = "histories"
-	// WorkspaceInverseTable is the table name for the Workspace entity.
-	// It exists in this package in order to avoid circular dependency with the "workspace" package.
-	WorkspaceInverseTable = "workspaces"
-	// WorkspaceColumn is the table column denoting the workspace relation/edge.
-	WorkspaceColumn = "workspace_id"
+	// RootFolderTable is the table that holds the root_folder relation/edge.
+	RootFolderTable = "histories"
+	// RootFolderInverseTable is the table name for the Folder entity.
+	// It exists in this package in order to avoid circular dependency with the "folder" package.
+	RootFolderInverseTable = "folders"
+	// RootFolderColumn is the table column denoting the root_folder relation/edge.
+	RootFolderColumn = "root_folder_id"
 	// RequestTable is the table that holds the request relation/edge.
 	RequestTable = "histories"
 	// RequestInverseTable is the table name for the Request entity.
@@ -64,7 +64,7 @@ const (
 // Columns holds all SQL columns for history fields.
 var Columns = []string{
 	FieldID,
-	FieldWorkspaceID,
+	FieldRootFolderID,
 	FieldRequestID,
 	FieldMethod,
 	FieldURL,
@@ -107,9 +107,9 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldID, opts...).ToFunc()
 }
 
-// ByWorkspaceID orders the results by the workspace_id field.
-func ByWorkspaceID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldWorkspaceID, opts...).ToFunc()
+// ByRootFolderID orders the results by the root_folder_id field.
+func ByRootFolderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRootFolderID, opts...).ToFunc()
 }
 
 // ByRequestID orders the results by the request_id field.
@@ -167,10 +167,10 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
 }
 
-// ByWorkspaceField orders the results by workspace field.
-func ByWorkspaceField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByRootFolderField orders the results by root_folder field.
+func ByRootFolderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newWorkspaceStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newRootFolderStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -180,11 +180,11 @@ func ByRequestField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newRequestStep(), sql.OrderByField(field, opts...))
 	}
 }
-func newWorkspaceStep() *sqlgraph.Step {
+func newRootFolderStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(WorkspaceInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, true, WorkspaceTable, WorkspaceColumn),
+		sqlgraph.To(RootFolderInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, RootFolderTable, RootFolderColumn),
 	)
 }
 func newRequestStep() *sqlgraph.Step {
