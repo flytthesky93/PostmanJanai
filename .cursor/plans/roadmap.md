@@ -19,8 +19,9 @@ Build a desktop API client (Postman-like) focused on:
 | Phase | Status     | Notes (closing snapshot) |
 |-------|------------|---------------------------|
 | **0** | **Done**   | Closed **2026-04**: foundation stable for local-only app; see Phase 0 section below. |
-| **1** | **In progress** | Core HTTP runner, response UI, history persist/list, workspace, import cURL — chi tiết checklist trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md) (*Tiến độ đã triển khai* / *Todos*). |
-| **2–5** | Not started | — |
+| **1** | **Done**   | Closed **2026-04-17**: runner thật (`HTTPExecutor` + `HTTPHandler`), editor request/response/console, history persist + list, workspace CRUD + gắn `workspace_id` khi gửi, import request từ cURL. Chi tiết kỹ thuật: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
+| **2** | **Not started** | Collection / Request CRUD + cây sidebar — schema Ent đã có, chưa có usecase/repo/UI. |
+| **3–5** | Not started | — |
 
 ---
 
@@ -76,8 +77,8 @@ Done when:
 
 Scope:
 
-- Persist request history with request/response snapshot.
-- Environment variables (`{{base_url}}`) by workspace scope.
+- Persist request history with request/response snapshot *(phần persist + list đã có ở Phase 1; còn UI xem chi tiết từng dòng — xem backlog).*
+- Environment variables (`{{var}}`) — **spec DB hiện tại:** bảng `environments` / `environment_variables` **global app** (xem [data-model-and-delivery-status.md](data-model-and-delivery-status.md)); có thể mở rộng gắn workspace sau nếu cần.
 - Auth support: Bearer, Basic, API Key (header/query).
 - Variable resolution before executing requests.
 
@@ -129,3 +130,20 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 4. ~~Persist history after each request.~~ **Done** (`histories` + sidebar History tab)
 5. Collection + Request **CRUD + UI cây** (schema Ent đã có; cần usecase/repo/UI).
 6. Environments + resolve `{{var}}` + auth (Bearer / API Key) theo Phase 3.
+
+---
+
+## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-17)
+
+Dựa trên backlog trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md) và kiến trúc hiện tại (`delivery` → `usecase`/`service`/`repository`):
+
+| Thứ tự | Hạng mục | Lý do ngắn |
+|--------|----------|------------|
+| **1** | **Collection + Request:** repository, usecase, Wails handler, UI cây (workspace → collection → request), load/save cấu hình request | Mở **Phase 2**; cho phép gắn `request_id` vào `histories` khi gửi từ request đã lưu; là nền cho import collection sau. |
+| **2** | **History chi tiết (UI):** click một dòng history → xem snapshot request/response đã lưu | Giá trị UX cao, ít phụ thuộc; bổ sung phần “xem lại” trong Phase 3 roadmap. |
+| **3** | **Environments:** CRUD + một env active + resolve `{{var}}` trong pipeline trước `HTTPExecutor` | Theo spec DB global; cần trước auth phức tạp nếu token lấy từ biến. |
+| **4** | **Auth:** Bearer / API Key (Basic sau) trên payload gửi đi | Sau khi có biến môi trường ổn định. |
+| **5** | **Import collection** (Postman/OpenAPI) | Sau khi CRUD collection/request ổn định. |
+| **6** | **Migrate int→UUID giữ dữ liệu** (nếu vẫn cần hỗ trợ user DB cũ) | Ưu tiên thấp hơn trừ khi có yêu cầu hỗ trợ; hiện path migrate là drop legacy. |
+
+**Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL.

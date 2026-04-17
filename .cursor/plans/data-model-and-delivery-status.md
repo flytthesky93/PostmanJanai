@@ -235,9 +235,11 @@ erDiagram
 
 ---
 
-## Tiến độ đã triển khai (cập nhật 2026-04-16)
+## Tiến độ đã triển khai (cập nhật 2026-04-17)
 
-### Đã xong (gần đúng Phase 1 “chạy app + lịch sử + import”)
+- **Roadmap phase:** Phase **0** và **1** (core runner) được coi là **đã đóng** — xem [roadmap.md](roadmap.md) (*Phase completion log*). Việc còn lại nằm ở Phase 2+ và mục backlog bên dưới.
+
+### Đã xong (Phase 1 “chạy app + lịch sử + import” — đã đóng)
 
 - [x] Ent schema + generate (workspaces, collections, requests, …, **histories**, environments, …)
 - [x] Migrate / backup theo `DBSchemaUserVersion` (path hiện tại: legacy → drop → recreate tại bước 1→2)
@@ -272,3 +274,9 @@ erDiagram
 - [ ] Quy tắc active env duy nhất + resolve `{{var}}` trước khi gửi request
 - [ ] Repository & usecase cho **collections / requests** đã lưu + UI cây
 - [ ] Import **collection** (file / clipboard)
+
+---
+
+## Đề xuất bước tiếp theo
+
+Bảng ưu tiên và lý do đã được cập nhật trong [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**). Tóm tắt: (1) Collection/Request CRUD + repo + UI cây, (2) History chi tiết UI, (3) Environments + `{{var}}`, (4) Auth, (5) Import collection, (6) migrate giữ dữ liệu nếu cần.
