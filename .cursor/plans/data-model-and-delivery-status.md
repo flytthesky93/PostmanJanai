@@ -1,4 +1,13 @@
-# Data model — chốt DB trước khi code (PostmanJanai)
+# Data model & trạng thái triển khai (PostmanJanai)
+
+## Mục đích file này
+
+- **Cấu trúc DB** (bảng, cột, FK, ERD) và **migration** / `PRAGMA user_version`.
+- **Checklist kỹ thuật** đã / chưa làm — *Tiến độ đã triển khai* và *Todos* ở cuối file.
+
+**Roadmap** (mục tiêu, phase 0–5, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
+
+---
 
 ## Nguyên tắc
 

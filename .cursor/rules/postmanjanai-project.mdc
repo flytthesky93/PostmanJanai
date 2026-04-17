@@ -1,0 +1,16 @@
+---
+description: PostmanJanai — ngữ cảnh chung & file sinh tự động (áp dụng mọi phiên)
+alwaysApply: true
+---
+
+# PostmanJanai — dự án
+
+- Module Go: `PostmanJanai`. Desktop **Wails v2**; DB **Ent** + SQLite; UI **Vue 3** + Vite + Tailwind.
+- **Không sửa tay** code sinh tự động: `ent/*` (ngoại trừ `ent/schema/`, `ent/generate.go` theo quy trình Ent), `frontend/wailsjs/**`, `ent/migrate/schema.go` sau generate — schema qua Ent rồi `go generate ./ent`.
+- Đổi method/export Go cho UI: đồng bộ binding Wails (`wails dev` / generate theo workflow) trước khi coi là xong.
+- UUID / string ID: giữ **một kiểu** thống nhất giữa Ent và UI; không đổi tên API công khai nếu không refactor có chủ đích + cập nhật mọi call site.
+- **Roadmap:** `.cursor/plans/roadmap.md`. **Spec DB + checklist triển khai:** `.cursor/plans/data-model-and-delivery-status.md` (hai file trong `.cursor/plans/`; có thể `@` một hoặc cả hai tùy việc).
+- **Cấu trúc thư mục & đặt file**: `postmanjanai-project-structure.mdc`.
+- **Cách AI làm việc** (làm rõ, không giả định thừa): `postmanjanai-ai-instruction.mdc`. **Việc không được làm**: `postmanjanai-prohibited.mdc`.
+- **Luồng layer & Wails/Ent**: rule **Architecture** (`postmanjanai-architecture.mdc`). **Bảo mật**: `postmanjanai-security.mdc`. **Hiệu năng**: `postmanjanai-performance.mdc`. **Kiểm thử**: `postmanjanai-testing.mdc`.
+- Chi tiết Go: rule **Backend** (`**/*.go`). Chi tiết UI: rule **Frontend** (`frontend/src/...`).

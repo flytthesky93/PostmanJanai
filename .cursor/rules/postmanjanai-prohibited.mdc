@@ -1,0 +1,29 @@
+---
+description: PostmanJanai — những việc không được làm (cấm)
+alwaysApply: true
+---
+
+# Không được làm
+
+## Kiến trúc & cấu trúc
+
+- **Không** phá vỡ **layer** đã thống nhất: handler Wails không query **Ent** trực tiếp; không đưa logic DB vào `internal/entity`; không gọi ngược `delivery` từ repository — xem `postmanjanai-architecture.mdc`.
+- **Không** nhét mọi thứ vào **một file** (component Vue khổng lồ, service Go “god file”) khi đã có chỗ đặt đúng theo `postmanjanai-project-structure.mdc`; tách hợp lý theo package/component.
+
+## Lỗi & hành vi
+
+- **Không** bỏ qua **xử lý lỗi**: không nhánh `if err != nil { }` rỗng; không nuốt lỗi im lặng; không `_ = err` trừ khi có lý do rõ và an toàn (ví dụ best-effort đã log).
+- **Không** bỏ qua **edge case** cố ý khi user đã yêu cầu hành vi đầy đủ (nil, mảng rỗng, backend trả `null`).
+
+## Hằng & cấu hình
+
+- **Không** dùng **magic value** (số, chuỗi, timeout, kích thước) lặp lại rải rác — đưa vào `internal/constant`, `config`, hoặc hằng có tên ở đầu file/module; phía UI: hằng hoặc `const` rõ nghĩa.
+
+## Thiết kế code
+
+- **Không** tạo **abstraction quá phức tạp** (interface lồng interface, factory không cần thiết, pattern “cho đẹp”) khi một hàm/package đơn giản đủ dùng.
+- **Không** “hack nhanh” trái với rule **Security** / **Performance** (ví dụ tắt xác minh TLS mặc định, tăng giới hạn body vô cớ).
+
+## Dự án (nhắc lại)
+
+- **Không** sửa tay file **sinh tự động** (`ent` generated, `frontend/wailsjs`, …) — đã nêu trong `postmanjanai-project.mdc`.

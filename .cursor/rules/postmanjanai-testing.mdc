@@ -1,0 +1,34 @@
+---
+description: PostmanJanai — kiểm thử (Go test, dữ liệu mẫu, phạm vi FE)
+alwaysApply: true
+---
+
+# Kiểm thử (testing)
+
+## Go — chuẩn dự án
+
+- Test nằm **cùng package** với code: `internal/.../*_test.go` (ví dụ `internal/service/http_executor_test.go`, `curl_parser_test.go`).
+- Chạy: `go test ./internal/service/...` hoặc `go test ./...` trước khi coi task xong; có thể thêm `go test -race ./...` khi đổi đồng thời / shared state.
+- **HTTP / executor**: dùng `net/http/httptest` (`httptest.NewServer`) — không phụ thuộc mạng thật cho case có thể mock được.
+- **File tạm**: `t.TempDir()` + `os.WriteFile`; trên Windows chú ý path trong chuỗi curl (ví dụ `filepath.ToSlash` khi cần).
+- **Context**: `context.Background()` cho unit test trừ khi test timeout/hủy.
+- **Assertion**: `t.Fatal` / `t.Fatalf` khi không thể tiếp tục; `t.Errorf` trong goroutine handler HTTP khi dùng `httptest`.
+
+## Khi nào thêm / sửa test
+
+- Đổi **parser**, **HTTPExecutor**, **curl**, validation URL/body → **bắt buộc** cập nhật hoặc thêm case trong `*_test.go` tương ứng.
+- Đổi **usecase** (workspace, …): thêm test table-driven hoặc mock repository nếu logic đủ phức tạp; không để regression im lặng.
+- **Repository / Ent**: test tích hợp tùy chọn với `ent/enttest` + SQLite in-memory hoặc file tạm — tránh test nặng không cần thiết cho mọi CRUD nhỏ.
+
+## Dữ liệu mẫu
+
+- `testdata/curl/*.curl` — mẫu curl cho tài liệu / tham chiếu; khi thêm định dạng curl mới, cân nhắc thêm file mẫu và test parser nếu liên quan.
+
+## Frontend (Vue)
+
+- Hiện **chưa** có Vitest/Jest trong `package.json` — ưu tiên **build** (`npm run build`) và kiểm thử tay luồng chính. Nếu sau này thêm unit test Vue, đặt cạnh component hoặc `frontend/src/__tests__/` và cập nhật script trong `package.json` cho đồng bộ.
+
+## Không nên
+
+- Test phụ thuộc thứ tự ngẫu nhiên hoặc server ngoài không ổn định (trừ test tích hợp có cờ riêng).
+- Commit DB thật của user hoặc secret vào `testdata/`.

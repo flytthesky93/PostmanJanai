@@ -1,0 +1,21 @@
+---
+description: PostmanJanai — Frontend (Vue, Vite, Tailwind, entry HTML)
+globs: "frontend/src/**/*.{vue,js,css},frontend/vite.config.js,frontend/tailwind.config.js,frontend/postcss.config.js,frontend/index.html"
+alwaysApply: false
+---
+
+# Frontend (Vue)
+
+- **`<script setup>`**, Composition API; import binding Wails từ `../../wailsjs/wailsjs/go/...` (đúng path module hiện có).
+- Binding có thể trả `null` / không phải mảng: dùng `computed` + guard (`Array.isArray`, optional chaining) để **không** làm `v-for` / `.length` crash cả panel.
+- UI: Tailwind + pattern component hiện tại; nhất quán spacing/typography với màn hình lân cận; tránh inline style dài không cần thiết.
+- **Không** sửa tay `frontend/wailsjs/**` — chỉ dùng import; đồng bộ API từ phía Go/Wails.
+- Vite/Tailwind/PostCSS/`index.html`: giữ `vite build` chạy được, không phá path alias hay entry Wails.
+
+```js
+// ❌ BAD — giả định luôn là mảng
+workspaces.value.map(...)
+
+// ✅ GOOD
+;(Array.isArray(workspaces.value) ? workspaces.value : []).map(...)
+```

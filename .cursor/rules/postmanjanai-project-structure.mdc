@@ -1,0 +1,65 @@
+---
+description: PostmanJanai — cấu trúc thư mục & đặt file đúng chỗ
+alwaysApply: true
+---
+
+# Cấu trúc dự án
+
+## Gốc repo
+
+| Đường dẫn | Vai trò |
+|-----------|---------|
+| `main.go` | Entry Wails: config, SQLite/Ent, wire handler, `embed` `frontend/dist` |
+| `go.mod` / `go.sum` | Module **`PostmanJanai`** |
+| `wails.json` | Cấu hình Wails (assetdir, wailsjsdir, frontend build) |
+| `Makefile` | `dev`, `build*`, `ent-add` |
+| `README.md` | Tài liệu người đọc |
+| `.cursor/plans/roadmap.md` | Roadmap sản phẩm (phase, backlog) |
+| `.cursor/plans/data-model-and-delivery-status.md` | Spec DB + checklist triển khai |
+
+## `internal/` — ứng dụng (sửa tay)
+
+| Đường dẫn | Vai trò |
+|-----------|---------|
+| `internal/delivery/` | Handler Wails (method gọi từ Vue); tên file `*_handler.go` |
+| `internal/usecase/` | Luật nghiệp vụ (workspace, …) |
+| `internal/service/` | Dịch vụ kỹ thuật: HTTP executor, curl parser, test kèm |
+| `internal/repository/` | Truy cập Ent; interface + impl; map `ent` ↔ `internal/entity` |
+| `internal/entity/` | DTO / model cho handler & UI (không chứa query Ent) |
+| `internal/config/` | `LoadConfig`, `AppDir`, `DbPath` |
+| `internal/constant/` | Hằng app, mã lỗi, version schema DB |
+| `internal/dbmanage/` | Backup, migrate dữ liệu, `user_version` |
+| `internal/pkg/logger/` | `slog` + lumberjack |
+| `internal/pkg/apperror/` | Lỗi domain/app |
+
+**Quy tắc**: code nghiệp vụ mới — đặt đúng layer; không nhét logic DB vào `entity/`; không tạo package lẻ tẻ trùng vai trò.
+
+## `ent/` — ORM (schema tay, còn lại generate)
+
+- `ent/schema/*.go` — định nghĩa entity; `ent/generate.go` — hook generate.
+- Các file `ent/*.go` (client, query, …) và `ent/migrate/schema.go` — **generate**, không sửa tay.
+- Thêm entity: `make ent-add ENTITY=<tên>` rồi chỉnh schema + `go generate ./ent`.
+
+## `frontend/` — UI
+
+| Đường dẫn | Vai trò |
+|-----------|---------|
+| `frontend/src/` | Vue: `App.vue`, `main.js`, `components/`, `style.css`, `assets/` |
+| `frontend/dist/` | Build production (embed); do `npm run build` / Wails |
+| `frontend/wailsjs/` | **Sinh tự động** — binding Go → JS/TS |
+| `frontend/vite.config.js`, `tailwind.config.js`, `postcss.config.js`, `index.html` | Tooling & entry HTML |
+
+Component UI mới → `frontend/src/components/` (hoặc cấu trúc con thống nhất nếu sau này tách `views/`).
+
+## Khác
+
+| Đường dẫn | Vai trò |
+|-----------|---------|
+| `build/` | Windows installer (`build/windows/`), plist Darwin, script `win-safe.ps1` |
+| `testdata/` | File mẫu (curl, …) phục vụ test / tài liệu |
+| `.cursor/rules/` | Rule Cursor (project, BE, FE, architecture, …) |
+
+## Đặt tên & module
+
+- Import Go: `PostmanJanai/internal/...`, `PostmanJanai/ent`.
+- File test: cạnh package, `*_test.go` trong `internal/...` — quy ước đầy đủ: `postmanjanai-testing.mdc`.

@@ -1,4 +1,8 @@
-# PostmanJanai Roadmap
+# PostmanJanai — Roadmap
+
+**Spec DB + checklist triển khai kỹ thuật:** [data-model-and-delivery-status.md](data-model-and-delivery-status.md)
+
+---
 
 ## Product Goal
 
@@ -10,14 +14,13 @@ Build a desktop API client (Postman-like) focused on:
 - Auth and environment variables.
 - Smooth developer workflow for daily use.
 
-## Phase Plan
-
-### Phase completion log
+## Phase completion log
 
 | Phase | Status     | Notes (closing snapshot) |
 |-------|------------|---------------------------|
 | **0** | **Done**   | Closed **2026-04**: foundation stable for local-only app; see Phase 0 section below. |
-| 1–5   | Not started | — |
+| **1** | **In progress** | Core HTTP runner, response UI, history persist/list, workspace, import cURL — chi tiết checklist trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md) (*Tiến độ đã triển khai* / *Todos*). |
+| **2–5** | Not started | — |
 
 ---
 
@@ -118,11 +121,11 @@ Done when:
 
 ## Immediate Backlog (Next Sprint)
 
-Priority order:
+Priority order (đồng bộ với checklist trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md)):
 
 1. ~~Complete Workspace UI CRUD UX (replace prompt/alert with proper modal + toast).~~ **Done (Phase 0).**
-2. Implement backend RequestExecutor service and response model.
-3. Connect `RequestPanel` to real backend execution.
-4. Persist history after each request.
-5. Add Collection + Request schema and basic CRUD.
-6. Add basic auth modes (Bearer and API Key first).
+2. ~~Implement backend RequestExecutor service and response model.~~ **Done** (`internal/service/http_executor`, Wails `HTTPHandler`).
+3. ~~Connect `RequestPanel` to real backend execution.~~ **Done**
+4. ~~Persist history after each request.~~ **Done** (`histories` + sidebar History tab)
+5. Collection + Request **CRUD + UI cây** (schema Ent đã có; cần usecase/repo/UI).
+6. Environments + resolve `{{var}}` + auth (Bearer / API Key) theo Phase 3.

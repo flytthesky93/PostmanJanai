@@ -1,0 +1,34 @@
+---
+description: PostmanJanai — hiệu năng (Go, SQLite/Ent, HTTP, Vue/Wails)
+alwaysApply: true
+---
+
+# Hiệu năng
+
+## Go & runtime
+
+- **Context**: truyền `ctx` xuống I/O (HTTP, DB); hủy khi UI đóng / hủy thao tác để không giữ goroutine và kết nối lãng phí.
+- **HTTP** (`internal/service`): giữ **timeout** (`HTTPClientTimeoutSeconds`) và **giới hạn body** (`HTTPMaxResponseBodyBytes`) — không đọc response vô hạn; không tăng hạn mức mà không đo bộ nhớ.
+- **Tải file / multipart**: stream hoặc giới hạn kích thước khi mở rộng; tránh đọc toàn bộ file lớn vào RAM một lần nếu không cần.
+- **Log**: `logger.D()` chỉ dùng khi thật sự cần trace; tránh log chuỗi cực lớn (body HTTP đầy đủ) trong vòng lặp nóng.
+
+## SQLite & Ent
+
+- Truy vấn có thể trả **nhiều dòng** (ví dụ history): khi mở rộng UI, ưu tiên **phân trang / limit / cursor** thay vì `GetAll` không giới hạn nếu bảng lớn.
+- Ghi nhiều bản ghi: dùng **transaction** (batch) thay vì từng `Save` riêng lẻ nếu có luồng import/sync.
+- Thêm **index** trong Ent schema khi filter/order theo cột thường xuyên; tránh N+1 bằng query có `With*` / select đủ khi Ent hỗ trợ.
+
+## Frontend (Vue + Wails)
+
+- Danh sách dài (history, request): nếu DOM chậm, cân nhắc **virtual list** hoặc giới hạn hiển thị; tránh `v-for` khổng lồ không tối ưu.
+- **CodeMirror**: tái sử dụng một instance (`shallowRef`); cập nhật doc chỉ khi nội dung đổi (tránh dispatch full replace không cần thiết mỗi tick).
+- **watch**: giới hạn phạ vi / dùng `watchEffect` có điều kiện; debounce input gọi Go (search, parse) để không spam binding Wails.
+- Không chạy tính toán nặng đồng bộ trên mỗi `mousemove`/`input` mà không throttle.
+
+## Wails / UI thread
+
+- Gọi Go từ Vue: tác vụ **rất nặng** (migrate lớn, parse file MB) nên tách hoặc báo tiến độ — tránh khóa UI lâu; nếu sau này có worker goroutine, vẫn marshal kết quả gọn.
+
+## Kiểm tra nhanh
+
+- Sau thay đổi liên quan vòng lặp, query, hoặc render list lớn: `go test ./...` và smoke test UI (mở sidebar, history, response body lớn).

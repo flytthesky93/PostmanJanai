@@ -1,0 +1,54 @@
+---
+description: Kiến trúc PostmanJanai — luồng layer, Wails, Ent (tránh lệch kiến trúc)
+alwaysApply: true
+---
+
+# Kiến trúc hệ thống
+
+## Tổng quan
+
+- **Desktop**: Wails v2 — UI **Vue 3** (build vào `frontend/dist`, embed trong binary qua `main.go`). Binding JS sinh ở `frontend/wailsjs` (theo `wails.json`), **không** gọi Go trực tiếp từ UI ngoài các method đã bind.
+- **Dữ liệu**: SQLite + **Ent** (`ent.Client`). Schema nguồn: `ent/schema/` → `go generate ./ent`. Migration dữ liệu tùy phiên bản: `internal/dbmanage` + `constant.DBSchemaUserVersion` trong `main.go`.
+
+## Luồng phụ thuộc (backend)
+
+```mermaid
+flowchart TB
+  Vue[Vue + wailsjs]
+  Del[internal/delivery Wails handlers]
+  UC[internal/usecase]
+  Svc[internal/service]
+  Repo[internal/repository]
+  Ent[ent + SQLite]
+  Vue --> Del
+  Del --> UC
+  Del --> Svc
+  Del --> Repo
+  UC --> Repo
+  Svc --> Repo
+  Repo --> Ent
+```
+
+- **`internal/delivery`**: Chỗ **duy nhất** expose method cho Wails (`Bind` trong `main.go`). Mỗi handler có `SetContext` / `getContext()` như hiện tại. **Không** import `ent` trực tiếp trong handler để query — dùng repository/usecase/service.
+- **`internal/usecase`**: Luật nghiệp vụ có orchestration (hiện tại **workspace**: tạo/sửa/xóa/list qua `WorkspaceUsecase` → `WorkspaceRepository`).
+- **`internal/service`**: Nghiệp vụ kỹ thuật không gắn CRUD Ent thuần — ví dụ **`HTTPExecutor`**, **`curl` parser**; có thể gọi repo nếu luồng cần (HTTP handler gắn executor + history repo).
+- **`internal/repository`**: Truy cập Ent, map giữa `ent.*` và **`internal/entity`** (DTO/domain cho UI và handler). **History** được list/save qua `HistoryRepository` — handler history có thể gọi repo **trực tiếp** (chưa có usecase); không coi là “vi phạm” nếu chỉ CRUD mỏng; nếu sau này có quy tắc phức tạp, cân nhắc tách usecase.
+- **`internal/entity`**: Struct payload/response cho handler và UI (không nhét logic DB).
+- **`internal/config`**, **`internal/constant`**, **`internal/pkg`**, **`internal/dbmanage`**: Cấu hình, hằng, logger/apperror, backup/migrate — không phải “domain layer” nhưng là hạ tầng dùng chung.
+
+## Đăng ký Wails (`main.go`)
+
+- Thứ tự khởi tạo: config + logger → SQLite → migrate (nếu cần) → `ent.NewClient` → `Schema.Create` → tạo repo → usecase → service → handler → `wails.Run` với `Bind: []interface{}{ appHandler, workspaceHandler, historyHandler, httpHandler }`.
+- Thêm API cho UI: **handler mới hoặc method mới** trong `delivery` → wire dependency trong `main.go` → `OnStartup` gọi `SetContext` cho handler đó → chạy Wails generate để cập nhật `wailsjs`.
+
+## Ranh giới cần giữ
+
+- **UI** không truy cập DB/Ent; chỉ gọi binding đã generate.
+- **Ent generated** (`ent/*` ngoài schema): không sửa tay — chỉ schema + generate.
+- **Tính năng workspace**: ưu tiên **handler → usecase → repository**; không nhét logic nghiệp vụ workspace dày vào repository thay vì usecase.
+- **HTTP execute**: gọi `service.HTTPExecutor`; lưu history qua `entity.HistoryItem` + `HistoryRepository` như `HTTPHandler` hiện tại.
+
+## Gợi ý khi mở rộng
+
+- Tính năng CRUD đơn giản có thể **handler → repository** (giống history); khi có validation/transaction/quy tắc chéo entity → thêm **usecase** và inject từ `main.go`.
+- Giữ **một hướng phụ thuộc**: `delivery` → `usecase`/`service`/`repository` → `ent`; tránh `repository` gọi ngược `delivery` hoặc `usecase` import UI.

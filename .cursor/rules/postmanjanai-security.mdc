@@ -1,0 +1,41 @@
+---
+description: PostmanJanai — bảo mật (HTTP, dữ liệu local, log, ranh giới tin cậy)
+alwaysApply: true
+---
+
+# Bảo mật
+
+## Ranh giới tin cậy
+
+- Ứng dụng **desktop Wails**: UI và Go chạy cùng process — **không** coi là “API public”: không cần auth giữa Vue và binding, nhưng **không** thêm endpoint HTTP mở ra LAN/WAN trừ khi có thiết kế bảo mật riêng (TLS, auth, firewall).
+- Không nhúng **secret cố định** (API key cá nhân, token) vào repo hoặc `frontend/dist`; dùng biến môi trường / cấu hình user ngoài VCS nếu sau này có tích hợp.
+
+## HTTP client (`internal/service` / executor)
+
+- Chỉ cho phép **`http` / `https`** (đã validate URL) — không mở `file://`, `gopher://`, v.v. khi mở rộng.
+- Giữ **timeout** và **giới hạn kích thước body** (`HTTPClientTimeoutSeconds`, `HTTPMaxResponseBodyBytes`) — không tăng vô hạn trừ khi có lý do và đánh giá bộ nhớ.
+- **TLS**: không tắt xác minh chứng chỉ (`InsecureSkipVerify`) trừ khi có tùy chọn rõ ràng cho môi trường dev và cảnh báo người dùng.
+- **SSRF / mạng nội bộ**: người dùng có thể gõ URL tới `localhost`, metadata cloud, v.v. Khi thêm tính năng (redirect, proxy, resolve DNS đặc biệt), cân nhắc cảnh báo hoặc chính sách chặn/cho phép — không giả định “chỉ internet an toàn”.
+
+## Multipart & đường dẫn file
+
+- Upload file multipart dùng **`os.Open` theo đường dẫn do UI gửi** — đúng bản chất client Postman-like; nếu mở rộng (đồng bộ cloud, import tự động), validate path, tránh path traversal và quyền đọc ngoài ý muốn.
+
+## Dữ liệu local (SQLite, backup)
+
+- DB và backup nằm dưới **`AppDir`** (`config`: mặc định user config dir, tùy chỉnh qua `POSTMANJANAI_APP_DIR` / `POSTMANJANAI_DB_PATH`). Không ghi DB/log vào thư mục world-readable không cần thiết; khi thêm export/backup, nhắc người dùng bảo vệ file.
+- Migration có backup DB trong `AppDir/backups/` — không xóa backup trong code trừ khi có yêu cầu rõ ràng và an toàn.
+
+## Log (`internal/pkg/logger`)
+
+- Log có thể ghi **URL, header, body** liên quan request — tránh **log thừa** mật khẩu, token dài, cookie session; khi thêm log mới, ưu tiên metadata (method, status, duration) hoặc **redact** trường nhạy cảm (`Authorization`, `Cookie`, …).
+
+## Phụ thuộc & build
+
+- Cập nhật **`go.mod` / `npm`** cho bản vá bảo mật khi phát hiện CVE liên quan chuỗi build (Wails, Ent, driver SQLite, Vite/Vue).
+- Không commit **file nhạy cảm** (`.env` chứa secret, bản sao DB thật) — dùng `.gitignore` hiện có.
+
+## Gợi ý khi mở rộng
+
+- Thêm **proxy HTTP**, **cookie jar**, **lưu credential**: thiết kế mã hóa-at-rest hoặc OS keychain trước khi lưu plaintext vào SQLite.
+- Nếu sau này có **plugin/script**: sandbox hoặc giới hạn API — tránh `eval` tùy ý trên dữ liệu workspace.

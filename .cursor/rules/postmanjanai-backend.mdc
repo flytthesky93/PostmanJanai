@@ -1,0 +1,25 @@
+---
+description: PostmanJanai — Backend (Go, Ent, Wails handlers, test)
+globs: "**/*.go"
+alwaysApply: false
+---
+
+# Backend (Go)
+
+- `gofmt` / `goimports`; không import thừa, không lệch style chuẩn.
+- Trả `error` rõ; **không** nhánh xử lý lỗi rỗng. Log qua `logger.L()` / `logger.D()` (`internal/pkg/logger`), `log/slog`; ưu tiên `ErrorContext` / `InfoContext` / `DebugContext` kèm `context`.
+- Nil/pointer: kiểm tra trước khi dùng. Handler Wails: giữ `SetContext` + `getContext()` (fallback `context.Background()`).
+- Truyền `ctx` xuống service/repo/HTTP khi có I/O, timeout, hoặc hủy.
+- Ent: thêm entity `make ent-add ENTITY=<tên>`, chỉnh `ent/schema/`, rồi generate — **không** sửa file Ent generated.
+- Logic parser/service/executor: thêm/cập nhật `*_test.go`; chạy `go test` cho package đã đổi — chi tiết rule **Testing** (`postmanjanai-testing.mdc`).
+
+```go
+// ❌ BAD — nuốt lỗi
+if err := do(); err != nil { }
+
+// ✅ GOOD
+if err := do(); err != nil {
+    logger.L().ErrorContext(ctx, "do failed", "error", err)
+    return nil, err
+}
+```

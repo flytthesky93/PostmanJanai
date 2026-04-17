@@ -1,0 +1,23 @@
+---
+description: PostmanJanai — cách AI làm việc với repo (làm rõ, an toàn, bền vững)
+alwaysApply: true
+---
+
+# Hướng dẫn cho AI (AI instruction)
+
+## Trước khi code
+
+- Khi người dùng **yêu cầu sửa hoặc thêm tính năng**, trước hết **giải thích ngắn gọn hướng tiếp cận** (file/package sẽ đụng, rủi ro, bước chính) **rồi mới** triển khai — trừ khi họ chỉ nhờ thao tác rất nhỏ (một dòng, đổi tên rõ ràng).
+- **Không giả định** phần yêu cầu còn thiếu (hành vi edge case, môi trường chạy, giới hạn dữ liệu, backward compatibility). Nếu thiếu thông tin có thể dẫn tới sai hướng → **hỏi làm rõ** thay vì tự bịa.
+- Nếu câu hỏi **mơ hồ** hoặc có **nhiều cách hiểu**, nêu các khả năng và hỏi người dùng chọn trước khi sửa nhiều file.
+
+## Chất lượng giải pháp
+
+- Ưu tiên giải pháp **an toàn, dễ bảo trì**, khớp **kiến trúc & cấu trúc** dự án (`postmanjanai-architecture.mdc`, `postmanjanai-project-structure.mdc`) — **không** ưu tiên “hack nhanh” rồi để nợ kỹ thuật.
+- Giữ **phạm vi đúng yêu cầu**: không refactor lan rộng hoặc thêm file tài liệu không được nhờ.
+- Khi có trade-off (tốc độ vs đơn giản vs bảo mật), **nêu ngắn** rồi chọn phương án phù hợp rule **Security** (`postmanjanai-security.mdc`) và **Performance** (`postmanjanai-performance.mdc`).
+
+## Sau khi đổi logic
+
+- Cập nhật hoặc thêm **test** khi đụng parser/service/executor hoặc luật nghiệp vụ quan trọng — theo `postmanjanai-testing.mdc`.
+- Tuân thủ rule **Backend** / **Frontend** tùy file đang sửa.
