@@ -21,7 +21,8 @@ Build a desktop API client (Postman-like) focused on:
 | **0** | **Done**   | Closed **2026-04**: foundation stable for local-only app; see Phase 0 section below. |
 | **1** | **Done**   | Closed **2026-04-17**: runner thật (`HTTPExecutor` + `HTTPHandler`), editor request/response/console, history persist + list; gắn **root folder context** khi gửi (`root_folder_id`); import request từ cURL. Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **2** | **Done**   | Closed **2026-04**: CRUD **folder** (cây lồng) + **saved request** (`folder_id`), UI sidebar **Folders** + cây đệ quy (`FolderCatalog` / `FolderTreeNode`), Wails `FolderHandler` + `SavedRequestHandler`, bump **DB v3** (workspace/collection → folder). |
-| **3–5** | Not started | — |
+| **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
+| **4–5** | Not started | — |
 
 ---
 
@@ -78,14 +79,16 @@ Done when:
 
 Scope:
 
-- Persist request history with request/response snapshot *(phần persist + list đã có ở Phase 1; còn UI xem chi tiết từng dòng — xem backlog).*
-- Environment variables (`{{var}}`) — **spec DB hiện tại:** bảng `environments` / `environment_variables` **global app** (xem [data-model-and-delivery-status.md](data-model-and-delivery-status.md)); có thể mở rộng gắn **root folder** sau nếu cần.
-- Auth support: Bearer, Basic, API Key (header/query).
-- Variable resolution before executing requests.
+- Persist request history with request/response snapshot; **UI xem chi tiết** từng dòng (snapshot đã lưu).
+- Environment variables (`{{var}}`) — bảng `environments` / `environment_variables` **global app** (xem [data-model-and-delivery-status.md](data-model-and-delivery-status.md)).
+- Auth support: Bearer, Basic, API Key (header/query); cấu hình lưu trên saved request (`auth_json`).
+- Variable resolution **trước** khi build HTTP request (sau đó merge auth).
 
 Done when:
 
 - Users can switch environments and authenticate requests efficiently.
+
+**Delivered (close 2026-04-19):** đúng các mục trên trong code (Wails `EnvironmentHandler`, `internal/service/env_substitute.go`, `MergeAuthIntoHeadersAndQuery`, `RequestPanel` + modals, lịch sử resolved).
 
 ### Phase 4 - Productivity Features
 
@@ -130,21 +133,22 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 3. ~~Connect `RequestPanel` to real backend execution.~~ **Done**
 4. ~~Persist history after each request.~~ **Done** (`histories` + sidebar History tab)
 5. ~~**Folder + saved Request** CRUD + UI cây (nested folders + `folder_id`).~~ **Done (Phase 2, DB v3).**
-6. Environments + resolve `{{var}}` + auth (Bearer / API Key) theo Phase 3.
+6. ~~Environments + resolve `{{var}}` + auth (Bearer / Basic / API Key) theo Phase 3.~~ **Done (Phase 3).**
 
 ---
 
-## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04)
+## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-19)
 
-Dựa trên backlog trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md) và kiến trúc hiện tại (`delivery` → `usecase`/`service`/`repository`):
+Phase **3** đã đóng. Ưu tiên tiếp theo gắn **Phase 4** (productivity) và backlog kỹ thuật trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md):
 
 | Thứ tự | Hạng mục | Lý do ngắn |
 |--------|----------|------------|
-| **1** | **History chi tiết (UI):** click một dòng history → xem snapshot request/response đã lưu | Giá trị UX cao; bổ sung Phase 3 roadmap. |
-| **2** | **Environments:** CRUD + một env active + resolve `{{var}}` trong pipeline trước `HTTPExecutor` | Theo spec DB global; cần trước auth phức tạp nếu token lấy từ biến. |
-| **3** | **Auth:** Bearer / API Key (Basic sau) trên payload gửi đi | Sau khi có biến môi trường ổn định. |
-| **4** | **Import collection** (Postman/OpenAPI) — map vào **folder tree** | Sau khi ổn định CRUD folder/request. |
-| **5** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import workspace+collection → folder) | Hiện bump v3 **drop** bảng domain — user mất dữ liệu trừ backup file; làm nếu cần hỗ trợ upgrade không mất data. |
-| **6** | **Polish UI folder tree:** expand/collapse, kéo-thả, đổi tên inline | UX nâng cao. |
+| ~~**1**~~ | ~~History chi tiết (UI)~~ | **Done (Phase 3).** |
+| ~~**2**~~ | ~~Environments + resolve `{{var}}`~~ | **Done (Phase 3).** |
+| ~~**3**~~ | ~~Auth Bearer / Basic / API Key~~ | **Done (Phase 3).** |
+| **1** | **Import collection** (Postman/OpenAPI) — map vào **folder tree** | Phase 4; sau khi CRUD folder/request đã ổn định. |
+| **2** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Hiện bump v3 **drop** domain — chỉ làm khi có yêu cầu upgrade không mất data. |
+| **3** | **Polish UI folder tree:** expand/collapse, kéo-thả, đổi tên inline | UX nâng cao (Phase 4 / polish). |
+| **4** | **Phase 4 khác:** multi-tab, search/filter, export project JSON, snippet curl/fetch | Theo mục Phase 4 trong roadmap. |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL.

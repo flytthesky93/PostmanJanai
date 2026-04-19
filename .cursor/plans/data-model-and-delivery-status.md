@@ -19,8 +19,7 @@
 - **Thời gian:** `created_at` / `updated_at` — `datetime` (Ent `time.Time`).
 - **Folder — tên không trùng trong cùng scope cha:** `UNIQUE (parent_id, name)`; **folder gốc** (`parent_id IS NULL`): không trùng tên giữa các root (enforce thêm ở usecase vì SQLite xử lý NULL trong UNIQUE).
 - **Xóa folder:** đệ quy ở repository — xóa folder con trước, request trong từng folder, rồi folder; không còn bảng `workspaces` / `collections` tách biệt.
-- **Environment sets:** scope **global app** (không gắn folder ở giai đoạn này; có thể mở rộng sau).
-- **Secret storage (giai đoạn hiện tại):** lưu giá trị env **plain text** trong SQLite local.
+- **Environment sets:** scope **global app** (toàn bộ app dùng chung một bộ env; app desktop local-only).
 
 ### Thay đổi mô hình (2026-04 — **DB v3**)
 
@@ -60,6 +59,7 @@ Mỗi request đã lưu thuộc **đúng một** folder.
 | `url` | TEXT | NOT NULL |
 | `body_mode` | TEXT | NOT NULL — enum logic app: `none`, `raw`, `xml`, `form_urlencoded`, `multipart`, … |
 | `raw_body` | TEXT | NULL |
+| `auth_json` | TEXT | NULL — JSON cấu hình auth (`none` / `bearer` / `basic` / `apikey`), optional |
 | `created_at` | DATETIME | NOT NULL |
 | `updated_at` | DATETIME | NOT NULL |
 
@@ -189,8 +189,8 @@ erDiagram
 
 ## Trạng thái (schema)
 
-- **Schema Ent** khớp các bảng trên (folder, request, history, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
-- **Wails:** `FolderHandler`, `SavedRequestHandler`, `HTTPHandler`, `HistoryHandler` — binding đã generate trong `frontend/wailsjs/`.
+- **Schema Ent** khớp các bảng trên (folder, request, history, environment, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
+- **Wails:** `FolderHandler`, `SavedRequestHandler`, `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`** — binding đã generate trong `frontend/wailsjs/`.
 
 ---
 
@@ -202,9 +202,9 @@ erDiagram
 
 ---
 
-## Tiến độ đã triển khai (cập nhật 2026-04)
+## Tiến độ đã triển khai (cập nhật 2026-04-19)
 
-- **Roadmap:** Phase **0**, **1**, **2** được coi là **đã đóng** — xem [roadmap.md](roadmap.md).
+- **Roadmap:** Phase **0–3** **đã đóng** — xem [roadmap.md](roadmap.md).
 
 ### Đã xong (Phase 1 + Phase 2)
 
@@ -216,11 +216,17 @@ erDiagram
 - [x] **SavedRequestHandler:** CRUD + `ListByFolder` + `Get`; RequestPanel load/save + `root_folder_id` / `request_id` khi Send
 - [x] **Test data / repo hygiene** như trước
 
-### Chưa làm / backlog
+### Đã xong (Phase 3)
 
-- [ ] **Environments + biến:** CRUD, một env active, resolve `{{var}}` trước khi gửi
+- [x] **`environments` / `environment_variables`:** Ent + repository + usecase + Wails **`EnvironmentHandler`** (CRUD env, CRUD biến, **một env active**)
+- [x] **Substitute `{{var}}`:** `CloneSubstituteHTTPExecuteInput` + gọi từ `HTTPHandler.Execute` **trước** executor (URL, body, headers, query, form, multipart, trường auth)
+- [x] **Auth:** `MergeAuthIntoHeadersAndQuery` — bearer / basic / apikey (header hoặc query); lưu **`auth_json`** trên `requests`
+- [x] **History:** persist snapshot **đã resolve** (URL/body/headers như gửi thật)
+- [x] **UI:** modal / flow **history chi tiết** (xem request/response đã lưu); editor **`{{var}}`** (chip, popover, caret nhảy khối trên CodeMirror + `EnvVarMirrorField`)
+
+### Chưa làm / backlog (chủ yếu Phase 4+)
+
 - [ ] **Import collection** (Postman/OpenAPI) — map vào folder tree
-- [ ] **History chi tiết:** UI snapshot từ một dòng history
 - [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path là **drop**
 - [ ] **Polish** cây folder (expand/collapse, DnD, …)
 
@@ -235,8 +241,8 @@ erDiagram
 - [x] History: persist + list + `root_folder_id` từ UI
 - [x] Import request từ cURL
 - [x] **Folder + saved request:** repository, usecase, Wails, UI cây
-- [ ] Thêm / hoàn thiện **environments** + **environment_variables** (usecase + UI)
-- [ ] Quy tắc active env duy nhất + resolve `{{var}}`
+- [x] **Environments** + **environment_variables** (usecase + UI + `EnvironmentHandler`)
+- [x] **Active env duy nhất** + **resolve `{{var}}`** trước gửi request
 - [ ] Import **collection** (file / clipboard) vào folder tree
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
@@ -244,4 +250,4 @@ erDiagram
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên chi tiết: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**). Tóm tắt: History chi tiết UI → Environments + `{{var}}` → Auth → Import collection → (optional) migrate giữ dữ liệu v2→v3.
+Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-19). **Phase 3 đã xong:** env + `{{var}}` + auth + history chi tiết. Tiếp theo: **Phase 4** (import collection, multi-tab, search, export JSON, snippet, …) và polish cây folder; tùy chọn migrate v2→v3 giữ dữ liệu.
