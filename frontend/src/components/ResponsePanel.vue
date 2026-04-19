@@ -49,13 +49,7 @@ const summaryParts = computed(() => {
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#181818]">
     <div v-if="loading" class="shrink-0 px-3 pt-3 text-sm text-orange-400">Sending…</div>
 
-    <div
-      v-if="result?.error_message"
-      class="shrink-0 break-all px-3 pt-2 font-mono text-sm"
-      :class="result.status_code ? 'text-amber-400' : 'text-red-400'"
-    >
-      {{ result.error_message }}
-    </div>
+    <!-- Errors are logged to the console panel instead of this header. -->
 
     <!-- Meta row + tabs (Postman-style) -->
     <div class="shrink-0 border-b border-gray-800 px-3 pt-2">

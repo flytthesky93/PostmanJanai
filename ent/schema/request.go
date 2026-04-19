@@ -24,6 +24,8 @@ func (Request) Fields() []ent.Field {
 		field.Text("url").NotEmpty(),
 		field.String("body_mode").NotEmpty(),
 		field.Text("raw_body").Optional().Nillable(),
+		// JSON entity.RequestAuth — optional Bearer / Basic / API Key config.
+		field.Text("auth_json").Optional().Nillable(),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}

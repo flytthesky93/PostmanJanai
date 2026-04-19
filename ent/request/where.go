@@ -86,6 +86,11 @@ func RawBody(v string) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldRawBody, v))
 }
 
+// AuthJSON applies equality check predicate on the "auth_json" field. It's identical to AuthJSONEQ.
+func AuthJSON(v string) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldAuthJSON, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldCreatedAt, v))
@@ -449,6 +454,81 @@ func RawBodyEqualFold(v string) predicate.Request {
 // RawBodyContainsFold applies the ContainsFold predicate on the "raw_body" field.
 func RawBodyContainsFold(v string) predicate.Request {
 	return predicate.Request(sql.FieldContainsFold(FieldRawBody, v))
+}
+
+// AuthJSONEQ applies the EQ predicate on the "auth_json" field.
+func AuthJSONEQ(v string) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldAuthJSON, v))
+}
+
+// AuthJSONNEQ applies the NEQ predicate on the "auth_json" field.
+func AuthJSONNEQ(v string) predicate.Request {
+	return predicate.Request(sql.FieldNEQ(FieldAuthJSON, v))
+}
+
+// AuthJSONIn applies the In predicate on the "auth_json" field.
+func AuthJSONIn(vs ...string) predicate.Request {
+	return predicate.Request(sql.FieldIn(FieldAuthJSON, vs...))
+}
+
+// AuthJSONNotIn applies the NotIn predicate on the "auth_json" field.
+func AuthJSONNotIn(vs ...string) predicate.Request {
+	return predicate.Request(sql.FieldNotIn(FieldAuthJSON, vs...))
+}
+
+// AuthJSONGT applies the GT predicate on the "auth_json" field.
+func AuthJSONGT(v string) predicate.Request {
+	return predicate.Request(sql.FieldGT(FieldAuthJSON, v))
+}
+
+// AuthJSONGTE applies the GTE predicate on the "auth_json" field.
+func AuthJSONGTE(v string) predicate.Request {
+	return predicate.Request(sql.FieldGTE(FieldAuthJSON, v))
+}
+
+// AuthJSONLT applies the LT predicate on the "auth_json" field.
+func AuthJSONLT(v string) predicate.Request {
+	return predicate.Request(sql.FieldLT(FieldAuthJSON, v))
+}
+
+// AuthJSONLTE applies the LTE predicate on the "auth_json" field.
+func AuthJSONLTE(v string) predicate.Request {
+	return predicate.Request(sql.FieldLTE(FieldAuthJSON, v))
+}
+
+// AuthJSONContains applies the Contains predicate on the "auth_json" field.
+func AuthJSONContains(v string) predicate.Request {
+	return predicate.Request(sql.FieldContains(FieldAuthJSON, v))
+}
+
+// AuthJSONHasPrefix applies the HasPrefix predicate on the "auth_json" field.
+func AuthJSONHasPrefix(v string) predicate.Request {
+	return predicate.Request(sql.FieldHasPrefix(FieldAuthJSON, v))
+}
+
+// AuthJSONHasSuffix applies the HasSuffix predicate on the "auth_json" field.
+func AuthJSONHasSuffix(v string) predicate.Request {
+	return predicate.Request(sql.FieldHasSuffix(FieldAuthJSON, v))
+}
+
+// AuthJSONIsNil applies the IsNil predicate on the "auth_json" field.
+func AuthJSONIsNil() predicate.Request {
+	return predicate.Request(sql.FieldIsNull(FieldAuthJSON))
+}
+
+// AuthJSONNotNil applies the NotNil predicate on the "auth_json" field.
+func AuthJSONNotNil() predicate.Request {
+	return predicate.Request(sql.FieldNotNull(FieldAuthJSON))
+}
+
+// AuthJSONEqualFold applies the EqualFold predicate on the "auth_json" field.
+func AuthJSONEqualFold(v string) predicate.Request {
+	return predicate.Request(sql.FieldEqualFold(FieldAuthJSON, v))
+}
+
+// AuthJSONContainsFold applies the ContainsFold predicate on the "auth_json" field.
+func AuthJSONContainsFold(v string) predicate.Request {
+	return predicate.Request(sql.FieldContainsFold(FieldAuthJSON, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

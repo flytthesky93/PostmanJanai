@@ -180,6 +180,30 @@ export namespace entity {
 		    return a;
 		}
 	}
+	export class RequestAuth {
+	    type?: string;
+	    bearer_token?: string;
+	    username?: string;
+	    password?: string;
+	    api_key?: string;
+	    api_key_name?: string;
+	    api_key_in?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RequestAuth(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.bearer_token = source["bearer_token"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.api_key = source["api_key"];
+	        this.api_key_name = source["api_key_name"];
+	        this.api_key_in = source["api_key_in"];
+	    }
+	}
 	export class MultipartPart {
 	    key: string;
 	    kind: string;
@@ -223,6 +247,7 @@ export namespace entity {
 	    body?: string;
 	    form_fields?: KeyValue[];
 	    multipart_parts?: MultipartPart[];
+	    auth?: RequestAuth;
 	
 	    static createFrom(source: any = {}) {
 	        return new HTTPExecuteInput(source);
@@ -240,6 +265,7 @@ export namespace entity {
 	        this.body = source["body"];
 	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
+	        this.auth = this.convertValues(source["auth"], RequestAuth);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -408,6 +434,7 @@ export namespace entity {
 	}
 	
 	
+	
 	export class SavedRequestFull {
 	    id: string;
 	    folder_id: string;
@@ -420,6 +447,7 @@ export namespace entity {
 	    query_params?: KeyValue[];
 	    form_fields?: KeyValue[];
 	    multipart_parts?: MultipartPart[];
+	    auth?: RequestAuth;
 	    // Go type: time
 	    created_at: any;
 	    // Go type: time
@@ -442,6 +470,7 @@ export namespace entity {
 	        this.query_params = this.convertValues(source["query_params"], KeyValue);
 	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
+	        this.auth = this.convertValues(source["auth"], RequestAuth);
 	        this.created_at = this.convertValues(source["created_at"], null);
 	        this.updated_at = this.convertValues(source["updated_at"], null);
 	    }

@@ -1,17 +1,22 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
+import EnvVarMirrorField from './EnvVarMirrorField.vue'
 import { PickFileForBody } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
 
 const props = defineProps({
   /** Selected root folder UUID for history (optional). */
-  activeRootFolderId: { type: String, default: null }
+  activeRootFolderId: { type: String, default: null },
+  /** Keys from active environment (enabled) — {{var}} UI + CodeMirror highlights. */
+  declaredEnvKeys: { type: Array, default: () => [] },
+  /** key → current value in active env (hover popover). */
+  activeEnvValues: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['send', 'console', 'saved-request'])
+const emit = defineEmits(['send', 'console', 'saved-request', 'patch-active-env-value'])
 
 const url = ref('')
 const method = ref('GET')
@@ -19,6 +24,37 @@ const body = ref('')
 
 /** none | raw | xml | form_urlencoded | multipart */
 const bodyMode = ref('raw')
+
+/** When true, body is edited with EnvVarMirrorField (e.g. after double-click {{var}} in CodeMirror). */
+const bodyRawEditor = ref(false)
+
+/** Ref to JsonCodeMirror — read live doc on Send so {{env}} in body is not lost if v-model lags. */
+const bodyCodeMirrorRef = ref(null)
+
+function liveRawOrXmlBodyText() {
+  const bm = bodyMode.value
+  if (bm !== 'raw' && bm !== 'xml') return ''
+  if (bodyRawEditor.value) return body.value ?? ''
+  const fromCm = bodyCodeMirrorRef.value?.getDocText?.()
+  if (typeof fromCm === 'string') return fromCm
+  return body.value ?? ''
+}
+
+watch(bodyMode, () => {
+  bodyRawEditor.value = false
+})
+
+const envKeysForFields = computed(() =>
+  Array.isArray(props.declaredEnvKeys) ? props.declaredEnvKeys : []
+)
+
+const envValuesForFields = computed(() =>
+  props.activeEnvValues && typeof props.activeEnvValues === 'object' ? props.activeEnvValues : {}
+)
+
+function forwardPatchEnvValue(p) {
+  emit('patch-active-env-value', p)
+}
 
 /** @type {import('vue').Ref<Array<{ key: string, value: string }>>} */
 const queryParams = ref([{ key: '', value: '' }])
@@ -51,6 +87,49 @@ const formFields = ref([{ key: '', value: '' }])
 const multipartParts = ref([{ key: '', kind: 'text', value: '', file_path: '' }])
 
 const activeTab = ref('params')
+
+/** none | bearer | basic | apikey — merged after env substitution on Send. */
+const authType = ref('none')
+const authBearerToken = ref('')
+const authUsername = ref('')
+const authPassword = ref('')
+const authApiKey = ref('')
+const authApiKeyName = ref('')
+const authApiKeyIn = ref('header')
+
+function buildAuthPayload() {
+  const t = (authType.value || 'none').toLowerCase().trim()
+  if (!t || t === 'none') return undefined
+  return {
+    type: t,
+    bearer_token: authBearerToken.value ?? '',
+    username: authUsername.value ?? '',
+    password: authPassword.value ?? '',
+    api_key: authApiKey.value ?? '',
+    api_key_name: authApiKeyName.value ?? '',
+    api_key_in: authApiKeyIn.value === 'query' ? 'query' : 'header'
+  }
+}
+
+function syncAuthFromPayload(a) {
+  if (!a || typeof a !== 'object') {
+    authType.value = 'none'
+    authBearerToken.value = ''
+    authUsername.value = ''
+    authPassword.value = ''
+    authApiKey.value = ''
+    authApiKeyName.value = ''
+    authApiKeyIn.value = 'header'
+    return
+  }
+  authType.value = String(a.type || 'none').toLowerCase().trim() || 'none'
+  authBearerToken.value = a.bearer_token != null ? String(a.bearer_token) : ''
+  authUsername.value = a.username != null ? String(a.username) : ''
+  authPassword.value = a.password != null ? String(a.password) : ''
+  authApiKey.value = a.api_key != null ? String(a.api_key) : ''
+  authApiKeyName.value = a.api_key_name != null ? String(a.api_key_name) : ''
+  authApiKeyIn.value = String(a.api_key_in || 'header').toLowerCase() === 'query' ? 'query' : 'header'
+}
 
 /** When set, Send includes request_id; Save updates DB. */
 const savedRequestId = ref(null)
@@ -122,6 +201,8 @@ function applyInputToForm(payload) {
   } else {
     multipartParts.value = [{ key: '', kind: 'text', value: '', file_path: '' }]
   }
+
+  syncAuthFromPayload(payload.auth)
 
   activeTab.value = bm === 'none' || bm === '' ? 'params' : 'body'
 }
@@ -220,8 +301,10 @@ function buildNewSavedRequestDto() {
         : []
   }
   if (bodyMode.value === 'raw' || bodyMode.value === 'xml') {
-    dto.raw_body = body.value
+    dto.raw_body = liveRawOrXmlBodyText()
   }
+  const ap = buildAuthPayload()
+  if (ap) dto.auth = ap
   return dto
 }
 
@@ -298,7 +381,28 @@ const pickMultipartFile = async (i) => {
   }
 }
 
+function validateUrlBeforeSend() {
+  const raw = (url.value || '').trim()
+  if (!raw) {
+    emit('console', '[Request] URL is required before sending.')
+    return false
+  }
+  const toParse = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    const u = new URL(toParse)
+    if (!u.hostname) {
+      emit('console', '[Request] URL must include a host.')
+      return false
+    }
+  } catch {
+    emit('console', '[Request] Invalid URL. Check the address and try again.')
+    return false
+  }
+  return true
+}
+
 const handleSend = () => {
+  if (!validateUrlBeforeSend()) return
   const q = queryParams.value.filter((p) => (p.key || '').trim() !== '')
   const h = headers.value.filter((p) => (p.key || '').trim() !== '')
 
@@ -308,7 +412,7 @@ const handleSend = () => {
     query_params: q,
     headers: h,
     body_mode: bodyMode.value,
-    body: bodyMode.value === 'raw' || bodyMode.value === 'xml' ? body.value : '',
+    body: bodyMode.value === 'raw' || bodyMode.value === 'xml' ? liveRawOrXmlBodyText() : '',
     form_fields:
       bodyMode.value === 'form_urlencoded'
         ? formFields.value.filter((p) => (p.key || '').trim() !== '')
@@ -332,6 +436,8 @@ const handleSend = () => {
   if (savedRequestId.value) {
     payload.request_id = savedRequestId.value
   }
+  const ap = buildAuthPayload()
+  if (ap) payload.auth = ap
   emit('send', payload)
 }
 
@@ -382,6 +488,7 @@ function applySavedRequestDto(dto) {
   }
 
   bodyMode.value = bm
+  syncAuthFromPayload(dto.auth)
   activeTab.value = bm === 'none' || bm === '' ? 'params' : 'body'
 }
 
@@ -422,8 +529,10 @@ function buildSavedRequestFull() {
         : []
   }
   if (bodyMode.value === 'raw' || bodyMode.value === 'xml') {
-    full.raw_body = body.value
+    full.raw_body = liveRawOrXmlBodyText()
   }
+  const ap = buildAuthPayload()
+  if (ap) full.auth = ap
   return full
 }
 
@@ -461,7 +570,7 @@ onUnmounted(() => {
 defineExpose({ loadFromSavedRequest, applySavedRequestDto, saveSavedRequest, applyImportPayload })
 
 const formatJsonBody = () => {
-  const raw = (body.value ?? '').trim()
+  const raw = (liveRawOrXmlBodyText() ?? '').trim()
   if (!raw) {
     return
   }
@@ -475,7 +584,7 @@ const formatJsonBody = () => {
 }
 
 const formatXmlBody = () => {
-  const raw = (body.value ?? '').trim()
+  const raw = (liveRawOrXmlBodyText() ?? '').trim()
   if (!raw) {
     return
   }
@@ -503,11 +612,13 @@ const formatXmlBody = () => {
         <option>HEAD</option>
         <option>OPTIONS</option>
       </select>
-      <input
+      <EnvVarMirrorField
         v-model="url"
-        type="text"
-        class="min-w-0 flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
+        wrapper-class="min-w-0 flex-1"
         placeholder="https://api.example.com/v1/resource"
+        :declared-keys="envKeysForFields"
+        :env-values="envValuesForFields"
+        @patch-env-value="forwardPatchEnvValue"
         @keydown.enter.prevent="handleSend"
       />
       <button
@@ -552,6 +663,14 @@ const formatXmlBody = () => {
             <button
               type="button"
               class="rounded-t px-3 py-2"
+              :class="activeTab === 'auth' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
+              @click="activeTab = 'auth'"
+            >
+              Auth
+            </button>
+            <button
+              type="button"
+              class="rounded-t px-3 py-2"
               :class="activeTab === 'body' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
               @click="activeTab = 'body'"
             >
@@ -575,10 +694,22 @@ const formatXmlBody = () => {
           <tbody>
             <tr v-for="(row, i) in queryParams" :key="'q-' + i">
               <td class="pr-2 pb-1 align-top">
-                <input v-model="row.key" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                <EnvVarMirrorField
+                  v-model="row.key"
+                  wrapper-class="w-full"
+                  :declared-keys="envKeysForFields"
+                  :env-values="envValuesForFields"
+                  @patch-env-value="forwardPatchEnvValue"
+                />
               </td>
               <td class="pr-2 pb-1 align-top">
-                <input v-model="row.value" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                <EnvVarMirrorField
+                  v-model="row.value"
+                  wrapper-class="w-full"
+                  :declared-keys="envKeysForFields"
+                  :env-values="envValuesForFields"
+                  @patch-env-value="forwardPatchEnvValue"
+                />
               </td>
               <td class="pb-1 align-middle">
                 <button
@@ -626,10 +757,13 @@ const formatXmlBody = () => {
           <tbody>
             <tr v-for="(row, i) in headers" :key="'h-' + i">
               <td class="pr-2 pb-1 align-top">
-                <input
+                <EnvVarMirrorField
                   v-if="!row.locked"
                   v-model="row.key"
-                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
+                  wrapper-class="w-full"
+                  :declared-keys="envKeysForFields"
+                  :env-values="envValuesForFields"
+                  @patch-env-value="forwardPatchEnvValue"
                 />
                 <input
                   v-else
@@ -641,10 +775,13 @@ const formatXmlBody = () => {
                 />
               </td>
               <td class="pr-2 pb-1 align-top">
-                <input
+                <EnvVarMirrorField
                   v-if="!row.locked"
                   v-model="row.value"
-                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
+                  wrapper-class="w-full"
+                  :declared-keys="envKeysForFields"
+                  :env-values="envValuesForFields"
+                  @patch-env-value="forwardPatchEnvValue"
                 />
                 <input
                   v-else
@@ -695,6 +832,91 @@ const formatXmlBody = () => {
         </table>
       </div>
 
+      <div v-show="activeTab === 'auth'" class="app-scrollbar min-h-0 flex-1 overflow-auto p-3 text-sm">
+        <p class="mb-3 text-xs text-gray-500">
+          Applied after env placeholders (double-brace variables) are resolved. Bearer/Basic replace any existing
+          <span class="font-mono text-gray-400">Authorization</span> header. API Key adds or replaces the named header or query key.
+        </p>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <label class="text-xs text-gray-500">Type</label>
+          <select
+            v-model="authType"
+            class="rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+          >
+            <option value="none">No auth</option>
+            <option value="bearer">Bearer token</option>
+            <option value="basic">Basic</option>
+            <option value="apikey">API Key</option>
+          </select>
+        </div>
+        <div v-if="authType === 'bearer'" class="space-y-2">
+          <label class="block text-xs font-medium text-gray-500">Token</label>
+          <EnvVarMirrorField
+            v-model="authBearerToken"
+            wrapper-class="w-full max-w-xl"
+            placeholder="token or {{var}}"
+            :declared-keys="envKeysForFields"
+            :env-values="envValuesForFields"
+            @patch-env-value="forwardPatchEnvValue"
+          />
+        </div>
+        <div v-else-if="authType === 'basic'" class="max-w-xl space-y-2">
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Username</label>
+            <EnvVarMirrorField
+              v-model="authUsername"
+              wrapper-class="w-full"
+              :declared-keys="envKeysForFields"
+              :env-values="envValuesForFields"
+              @patch-env-value="forwardPatchEnvValue"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Password</label>
+            <EnvVarMirrorField
+              v-model="authPassword"
+              wrapper-class="w-full"
+              :declared-keys="envKeysForFields"
+              :env-values="envValuesForFields"
+              @patch-env-value="forwardPatchEnvValue"
+            />
+          </div>
+        </div>
+        <div v-else-if="authType === 'apikey'" class="max-w-xl space-y-2">
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Key name</label>
+            <EnvVarMirrorField
+              v-model="authApiKeyName"
+              wrapper-class="w-full"
+              placeholder="e.g. X-API-Key"
+              :declared-keys="envKeysForFields"
+              :env-values="envValuesForFields"
+              @patch-env-value="forwardPatchEnvValue"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-gray-500">Key value</label>
+            <EnvVarMirrorField
+              v-model="authApiKey"
+              wrapper-class="w-full"
+              :declared-keys="envKeysForFields"
+              :env-values="envValuesForFields"
+              @patch-env-value="forwardPatchEnvValue"
+            />
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-xs text-gray-500">Add to</label>
+            <select
+              v-model="authApiKeyIn"
+              class="rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+            >
+              <option value="header">Header</option>
+              <option value="query">Query string</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div v-show="activeTab === 'body'" class="flex min-h-0 flex-1 flex-col p-3" style="min-height: 80px">
         <div class="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
           <div class="flex flex-wrap items-center gap-2">
@@ -734,12 +956,40 @@ const formatXmlBody = () => {
 
         <!-- Raw (JSON) or XML -->
         <template v-if="bodyMode === 'raw' || bodyMode === 'xml'">
-          <JsonCodeMirror
-            v-model="body"
-            class="min-h-0 flex-1"
-            :language="bodyMode === 'xml' ? 'xml' : 'json'"
-            :placeholder="bodyMode === 'xml' ? 'Content (XML)' : 'Content (JSON or raw text)'"
-          />
+          <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden">
+            <div v-if="bodyRawEditor" class="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden">
+              <div class="flex shrink-0 justify-end">
+                <button
+                  type="button"
+                  class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-400 hover:border-orange-500/50"
+                  @click="bodyRawEditor = false"
+                >
+                  Syntax highlight
+                </button>
+              </div>
+              <EnvVarMirrorField
+                v-model="body"
+                multiline
+                :rows="14"
+                wrapper-class="min-h-0 min-w-0 flex-1 overflow-hidden"
+                :declared-keys="envKeysForFields"
+                :env-values="envValuesForFields"
+                @patch-env-value="forwardPatchEnvValue"
+              />
+            </div>
+            <JsonCodeMirror
+              v-else
+              ref="bodyCodeMirrorRef"
+              v-model="body"
+              class="min-h-0 min-w-0 flex-1"
+              :language="bodyMode === 'xml' ? 'xml' : 'json'"
+              :placeholder="bodyMode === 'xml' ? 'Content (XML)' : 'Content (JSON or raw text)'"
+              :declared-env-keys="envKeysForFields"
+              :env-values="envValuesForFields"
+              @request-raw-edit="bodyRawEditor = true"
+              @patch-env-value="forwardPatchEnvValue"
+            />
+          </div>
         </template>
 
         <!-- none -->
@@ -760,10 +1010,22 @@ const formatXmlBody = () => {
             <tbody>
               <tr v-for="(row, i) in formFields" :key="'f-' + i">
                 <td class="pr-2 pb-1 align-top">
-                  <input v-model="row.key" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                  <EnvVarMirrorField
+                    v-model="row.key"
+                    wrapper-class="w-full"
+                    :declared-keys="envKeysForFields"
+                    :env-values="envValuesForFields"
+                    @patch-env-value="forwardPatchEnvValue"
+                  />
                 </td>
                 <td class="pr-2 pb-1 align-top">
-                  <input v-model="row.value" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                  <EnvVarMirrorField
+                    v-model="row.value"
+                    wrapper-class="w-full"
+                    :declared-keys="envKeysForFields"
+                    :env-values="envValuesForFields"
+                    @patch-env-value="forwardPatchEnvValue"
+                  />
                 </td>
                 <td class="pb-1 align-middle">
                   <button
@@ -812,7 +1074,13 @@ const formatXmlBody = () => {
             <tbody>
               <tr v-for="(row, i) in multipartParts" :key="'m-' + i">
                 <td class="pr-1 pb-1 align-top">
-                  <input v-model="row.key" class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200" />
+                  <EnvVarMirrorField
+                    v-model="row.key"
+                    wrapper-class="w-full"
+                    :declared-keys="envKeysForFields"
+                    :env-values="envValuesForFields"
+                    @patch-env-value="forwardPatchEnvValue"
+                  />
                 </td>
                 <td class="pr-1 pb-1 align-top">
                   <select v-model="row.kind" class="w-full rounded border border-gray-700 bg-gray-900 px-1 py-1 text-gray-200">
@@ -821,18 +1089,23 @@ const formatXmlBody = () => {
                   </select>
                 </td>
                 <td class="pr-2 pb-1 align-top">
-                  <input
+                  <EnvVarMirrorField
                     v-if="row.kind === 'text'"
                     v-model="row.value"
-                    class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
+                    wrapper-class="w-full"
                     placeholder="Value"
+                    :declared-keys="envKeysForFields"
+                    :env-values="envValuesForFields"
+                    @patch-env-value="forwardPatchEnvValue"
                   />
                   <div v-else class="flex flex-col gap-1">
-                    <input
-                      :value="row.file_path"
-                      readonly
-                      class="w-full rounded border border-gray-700 bg-gray-800/80 px-2 py-1 text-[11px] text-gray-400"
-                      placeholder="No file selected"
+                    <EnvVarMirrorField
+                      v-model="row.file_path"
+                      wrapper-class="w-full"
+                      placeholder="Path or {{var}}"
+                      :declared-keys="envKeysForFields"
+                      :env-values="envValuesForFields"
+                      @patch-env-value="forwardPatchEnvValue"
                     />
                     <button
                       type="button"

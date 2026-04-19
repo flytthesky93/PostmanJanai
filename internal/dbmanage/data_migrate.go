@@ -30,6 +30,9 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 	case 2:
 		// → 3: workspace + collection → nested folders + requests under folder_id; drop UUID schema để Ent tạo lại
 		return dropLegacyTablesForUUIDSchema(db)
+	case 3:
+		// → 4: additive `requests.auth_json` (Ent Schema.Create)
+		return nil
 	default:
 		return nil
 	}

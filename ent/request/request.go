@@ -27,6 +27,8 @@ const (
 	FieldBodyMode = "body_mode"
 	// FieldRawBody holds the string denoting the raw_body field in the database.
 	FieldRawBody = "raw_body"
+	// FieldAuthJSON holds the string denoting the auth_json field in the database.
+	FieldAuthJSON = "auth_json"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -89,6 +91,7 @@ var Columns = []string{
 	FieldURL,
 	FieldBodyMode,
 	FieldRawBody,
+	FieldAuthJSON,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -158,6 +161,11 @@ func ByBodyMode(opts ...sql.OrderTermOption) OrderOption {
 // ByRawBody orders the results by the raw_body field.
 func ByRawBody(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRawBody, opts...).ToFunc()
+}
+
+// ByAuthJSON orders the results by the auth_json field.
+func ByAuthJSON(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAuthJSON, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

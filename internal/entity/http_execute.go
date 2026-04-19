@@ -46,6 +46,9 @@ type HTTPExecuteInput struct {
 
 	// multipart/form-data — order preserved.
 	MultipartParts []MultipartPart `json:"multipart_parts,omitempty"`
+
+	// Optional auth (Bearer / Basic / API Key); merged after {{var}} resolution.
+	Auth *RequestAuth `json:"auth,omitempty"`
 }
 
 // HTTPExecuteResult is the outcome of HTTP execution (HTTP response or network/timeout error).

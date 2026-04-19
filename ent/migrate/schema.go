@@ -140,6 +140,7 @@ var (
 		{Name: "url", Type: field.TypeString, Size: 2147483647},
 		{Name: "body_mode", Type: field.TypeString},
 		{Name: "raw_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "auth_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "folder_id", Type: field.TypeUUID},
@@ -152,7 +153,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "requests_folders_requests",
-				Columns:    []*schema.Column{RequestsColumns[8]},
+				Columns:    []*schema.Column{RequestsColumns[9]},
 				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -161,7 +162,7 @@ var (
 			{
 				Name:    "request_folder_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{RequestsColumns[8], RequestsColumns[1]},
+				Columns: []*schema.Column{RequestsColumns[9], RequestsColumns[1]},
 			},
 		},
 	}

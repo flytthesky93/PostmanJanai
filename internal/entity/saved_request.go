@@ -25,6 +25,7 @@ type SavedRequestFull struct {
 	QueryParams    []KeyValue      `json:"query_params,omitempty"`
 	FormFields     []KeyValue      `json:"form_fields,omitempty"`
 	MultipartParts []MultipartPart `json:"multipart_parts,omitempty"`
+	Auth           *RequestAuth    `json:"auth,omitempty"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 }

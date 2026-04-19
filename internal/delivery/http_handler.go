@@ -19,10 +19,11 @@ type HTTPHandler struct {
 	ctx      context.Context
 	executor *service.HTTPExecutor
 	history  repository.HistoryRepository
+	env      repository.EnvironmentRepository
 }
 
-func NewHTTPHandler(ex *service.HTTPExecutor, hist repository.HistoryRepository) *HTTPHandler {
-	return &HTTPHandler{executor: ex, history: hist}
+func NewHTTPHandler(ex *service.HTTPExecutor, hist repository.HistoryRepository, env repository.EnvironmentRepository) *HTTPHandler {
+	return &HTTPHandler{executor: ex, history: hist, env: env}
 }
 
 func (h *HTTPHandler) SetContext(ctx context.Context) {
@@ -44,7 +45,19 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 	} else {
 		logger.D().InfoContext(ctx, "HTTPHandler.Execute", "payload", nil)
 	}
-	res, err := h.executor.Execute(ctx, in)
+	vars := map[string]string{}
+	if h.env != nil {
+		m, err := h.env.ActiveVariableMap(ctx)
+		if err != nil {
+			logger.L().InfoContext(ctx, "active environment variables unavailable", "error", err)
+		} else if m != nil {
+			vars = m
+		}
+	}
+	resolved := service.CloneSubstituteHTTPExecuteInput(in, vars)
+	service.MergeAuthIntoHeadersAndQuery(resolved)
+
+	res, err := h.executor.Execute(ctx, resolved)
 	if err != nil {
 		logger.L().ErrorContext(ctx, "HTTP execute validation failed", "error", err)
 		return nil, err
@@ -54,7 +67,8 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 	} else {
 		logger.L().InfoContext(ctx, "HTTP execute success", "status", res.StatusCode, "duration_ms", res.DurationMs)
 	}
-	h.persistHistory(ctx, in, res)
+	// History stores the request as actually sent (resolved), not template placeholders.
+	h.persistHistory(ctx, resolved, res)
 	return res, nil
 }
 

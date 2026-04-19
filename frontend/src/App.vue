@@ -24,6 +24,107 @@ const envList = computed(() =>
   Array.isArray(environmentSummaries.value) ? environmentSummaries.value : []
 )
 
+/** Keys (enabled) in the active environment — for {{var}} chips / CodeMirror. */
+const activeEnvDeclaredKeys = ref([])
+
+/**
+ * Active env id + variable rows for SaveVariables / hover values.
+ * @type {import('vue').Ref<{ id: string, variables: Array<{ key: string, value: string, enabled: boolean, sort_order: number }> } | null>}
+ */
+const activeEnvForPatch = ref(null)
+
+const activeEnvValues = computed(() => {
+  const m = /** @type {Record<string, string>} */ ({})
+  const st = activeEnvForPatch.value
+  if (!st?.variables) return m
+  for (const v of st.variables) {
+    if (v.enabled !== false && v.key) m[v.key] = v.value ?? ''
+  }
+  return m
+})
+
+async function refreshActiveEnvContext() {
+  activeEnvForPatch.value = null
+  activeEnvDeclaredKeys.value = []
+  try {
+    const active = await EnvAPI.GetActive()
+    if (!active?.id) return
+    const full = await EnvAPI.Get(String(active.id))
+    const vars = Array.isArray(full.variables) ? full.variables : []
+    activeEnvForPatch.value = {
+      id: String(full.id),
+      variables: vars.map((v, i) => ({
+        key: String(v.key || '').trim(),
+        value: v.value ?? '',
+        enabled: v.enabled !== false,
+        sort_order: typeof v.sort_order === 'number' ? v.sort_order : i
+      }))
+    }
+    activeEnvDeclaredKeys.value = activeEnvForPatch.value.variables
+      .filter((v) => v.enabled && v.key)
+      .map((v) => v.key)
+  } catch {
+    /* ignore */
+  }
+}
+
+async function onPatchActiveEnvValue(payload) {
+  const key = String(payload?.key || '').trim()
+  const value = payload?.value != null ? String(payload.value) : ''
+  const st = activeEnvForPatch.value
+  if (!st?.id) {
+    pushConsole('[Env] No active environment. Select one in the bar above.')
+    return
+  }
+  if (!key) return
+
+  const row = st.variables.find((v) => v.key === key)
+  let added = false
+  if (row) {
+    row.value = value
+    if (row.enabled === false) row.enabled = true
+  } else {
+    let maxSo = -1
+    for (const v of st.variables) {
+      const so = typeof v.sort_order === 'number' ? v.sort_order : 0
+      if (so > maxSo) maxSo = so
+    }
+    st.variables.push({
+      key,
+      value,
+      enabled: true,
+      sort_order: maxSo + 1
+    })
+    added = true
+  }
+
+  const savePayload = st.variables
+    .filter((v) => v.key)
+    .map((v, i) => ({
+      key: v.key,
+      value: v.value ?? '',
+      enabled: v.enabled !== false,
+      sort_order: v.sort_order ?? i
+    }))
+  try {
+    await EnvAPI.SaveVariables(st.id, savePayload)
+    pushConsole(
+      added
+        ? `[Env] Added "${key}" to active environment.`
+        : `[Env] Updated "${key}" in active environment.`
+    )
+    await refreshActiveEnvContext()
+    try {
+      await sidebarRef.value?.refreshEnvironments?.()
+    } catch {
+      /* ignore */
+    }
+  } catch (e) {
+    pushConsole(`[Env] Could not save: ${e?.message || e}`)
+    await refreshActiveEnvContext()
+  }
+}
+
 async function loadEnvironmentSummaries() {
   try {
     const list = await EnvAPI.List()
@@ -35,6 +136,7 @@ async function loadEnvironmentSummaries() {
     const msg = e?.message || String(e)
     pushConsole(`[Env] Could not load environments: ${msg}`)
   }
+  await refreshActiveEnvContext()
 }
 
 async function onActiveEnvDropdownChange() {
@@ -68,8 +170,8 @@ function onMainWorkspaceRequest() {
   selectedEnvironmentId.value = null
 }
 
-function onEnvironmentChanged() {
-  loadEnvironmentSummaries()
+async function onEnvironmentChanged() {
+  await loadEnvironmentSummaries()
   try {
     sidebarRef.value?.refreshEnvironments?.()
   } catch {
@@ -92,7 +194,7 @@ function onEnvironmentDeleted(id) {
 }
 
 onMounted(() => {
-  loadEnvironmentSummaries()
+  void loadEnvironmentSummaries()
 })
 
 /** Selected root folder (sidebar); sent as root_folder_id for HTTP history. */
@@ -155,17 +257,16 @@ const onExecuteRequest = async (payload) => {
   responseResult.value = null
   try {
     const res = await Execute(payload)
+    if (res?.error_message) {
+      pushConsole(`[HTTP] ${res.error_message}`)
+    }
     responseResult.value = res
+      ? { ...res, error_message: '' }
+      : null
   } catch (e) {
     const msg = e?.message || String(e)
-    responseResult.value = {
-      status_code: 0,
-      duration_ms: 0,
-      response_size_bytes: 0,
-      response_body: '',
-      body_truncated: false,
-      error_message: msg
-    }
+    pushConsole(`[HTTP] ${msg}`)
+    responseResult.value = null
   } finally {
     loading.value = false
     try {
@@ -246,9 +347,12 @@ const onExecuteRequest = async (payload) => {
             <RequestPanel
               ref="requestPanelRef"
               :active-root-folder-id="activeRootFolderId"
+              :declared-env-keys="activeEnvDeclaredKeys"
+              :active-env-values="activeEnvValues"
               @send="onExecuteRequest"
               @console="onRequestConsole"
               @saved-request="onSavedRequestUpdated"
+              @patch-active-env-value="onPatchActiveEnvValue"
             />
           </div>
           <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

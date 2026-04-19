@@ -91,7 +91,7 @@ func main() {
 	historyHandler := delivery.NewHistoryHandler(historyRepo)
 	environmentHandler := delivery.NewEnvironmentHandler(envUc)
 	httpExecutor := service.NewHTTPExecutor()
-	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo)
+	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo)
 
 	err = wails.Run(&options.App{
 		Title:            constant.AppName,

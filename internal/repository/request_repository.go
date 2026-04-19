@@ -8,6 +8,7 @@ import (
 	"PostmanJanai/ent/requestqueryparam"
 	"PostmanJanai/internal/entity"
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -154,6 +155,12 @@ func entRequestToFull(row *ent.Request) *entity.SavedRequestFull {
 		t := *row.RawBody
 		out.RawBody = &t
 	}
+	if row.AuthJSON != nil && strings.TrimSpace(*row.AuthJSON) != "" {
+		var a entity.RequestAuth
+		if err := json.Unmarshal([]byte(*row.AuthJSON), &a); err == nil {
+			out.Auth = &a
+		}
+	}
 
 	hh := row.Edges.RequestHeaders
 	sort.Slice(hh, func(i, j int) bool { return hh[i].SortOrder < hh[j].SortOrder })
@@ -220,6 +227,12 @@ func (r *requestRepo) CreateFull(ctx context.Context, in *entity.SavedRequestFul
 	if in.RawBody != nil {
 		b = b.SetRawBody(*in.RawBody)
 	}
+	if in.Auth != nil {
+		if raw, err := json.Marshal(in.Auth); err == nil {
+			s := string(raw)
+			b = b.SetAuthJSON(s)
+		}
+	}
 	row, err := b.Save(ctx)
 	if err != nil {
 		_ = tx.Rollback()
@@ -266,6 +279,14 @@ func (r *requestRepo) UpdateFull(ctx context.Context, in *entity.SavedRequestFul
 		up = up.SetRawBody(*in.RawBody)
 	} else {
 		up = up.ClearRawBody()
+	}
+	if in.Auth != nil {
+		if raw, err := json.Marshal(in.Auth); err == nil {
+			s := string(raw)
+			up = up.SetAuthJSON(s)
+		}
+	} else {
+		up = up.ClearAuthJSON()
 	}
 	if err := up.Exec(ctx); err != nil {
 		_ = tx.Rollback()

@@ -124,6 +124,26 @@ func (_u *RequestUpdate) ClearRawBody() *RequestUpdate {
 	return _u
 }
 
+// SetAuthJSON sets the "auth_json" field.
+func (_u *RequestUpdate) SetAuthJSON(v string) *RequestUpdate {
+	_u.mutation.SetAuthJSON(v)
+	return _u
+}
+
+// SetNillableAuthJSON sets the "auth_json" field if the given value is not nil.
+func (_u *RequestUpdate) SetNillableAuthJSON(v *string) *RequestUpdate {
+	if v != nil {
+		_u.SetAuthJSON(*v)
+	}
+	return _u
+}
+
+// ClearAuthJSON clears the value of the "auth_json" field.
+func (_u *RequestUpdate) ClearAuthJSON() *RequestUpdate {
+	_u.mutation.ClearAuthJSON()
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *RequestUpdate) SetUpdatedAt(v time.Time) *RequestUpdate {
 	_u.mutation.SetUpdatedAt(v)
@@ -378,6 +398,12 @@ func (_u *RequestUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.RawBodyCleared() {
 		_spec.ClearField(request.FieldRawBody, field.TypeString)
+	}
+	if value, ok := _u.mutation.AuthJSON(); ok {
+		_spec.SetField(request.FieldAuthJSON, field.TypeString, value)
+	}
+	if _u.mutation.AuthJSONCleared() {
+		_spec.ClearField(request.FieldAuthJSON, field.TypeString)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)
@@ -701,6 +727,26 @@ func (_u *RequestUpdateOne) ClearRawBody() *RequestUpdateOne {
 	return _u
 }
 
+// SetAuthJSON sets the "auth_json" field.
+func (_u *RequestUpdateOne) SetAuthJSON(v string) *RequestUpdateOne {
+	_u.mutation.SetAuthJSON(v)
+	return _u
+}
+
+// SetNillableAuthJSON sets the "auth_json" field if the given value is not nil.
+func (_u *RequestUpdateOne) SetNillableAuthJSON(v *string) *RequestUpdateOne {
+	if v != nil {
+		_u.SetAuthJSON(*v)
+	}
+	return _u
+}
+
+// ClearAuthJSON clears the value of the "auth_json" field.
+func (_u *RequestUpdateOne) ClearAuthJSON() *RequestUpdateOne {
+	_u.mutation.ClearAuthJSON()
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *RequestUpdateOne) SetUpdatedAt(v time.Time) *RequestUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
@@ -985,6 +1031,12 @@ func (_u *RequestUpdateOne) sqlSave(ctx context.Context) (_node *Request, err er
 	}
 	if _u.mutation.RawBodyCleared() {
 		_spec.ClearField(request.FieldRawBody, field.TypeString)
+	}
+	if value, ok := _u.mutation.AuthJSON(); ok {
+		_spec.SetField(request.FieldAuthJSON, field.TypeString, value)
+	}
+	if _u.mutation.AuthJSONCleared() {
+		_spec.ClearField(request.FieldAuthJSON, field.TypeString)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)

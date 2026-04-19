@@ -3546,6 +3546,7 @@ type RequestMutation struct {
 	url                         *string
 	body_mode                   *string
 	raw_body                    *string
+	auth_json                   *string
 	created_at                  *time.Time
 	updated_at                  *time.Time
 	clearedFields               map[string]struct{}
@@ -3901,6 +3902,55 @@ func (m *RequestMutation) ResetRawBody() {
 	delete(m.clearedFields, request.FieldRawBody)
 }
 
+// SetAuthJSON sets the "auth_json" field.
+func (m *RequestMutation) SetAuthJSON(s string) {
+	m.auth_json = &s
+}
+
+// AuthJSON returns the value of the "auth_json" field in the mutation.
+func (m *RequestMutation) AuthJSON() (r string, exists bool) {
+	v := m.auth_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAuthJSON returns the old "auth_json" field's value of the Request entity.
+// If the Request object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RequestMutation) OldAuthJSON(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAuthJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAuthJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAuthJSON: %w", err)
+	}
+	return oldValue.AuthJSON, nil
+}
+
+// ClearAuthJSON clears the value of the "auth_json" field.
+func (m *RequestMutation) ClearAuthJSON() {
+	m.auth_json = nil
+	m.clearedFields[request.FieldAuthJSON] = struct{}{}
+}
+
+// AuthJSONCleared returns if the "auth_json" field was cleared in this mutation.
+func (m *RequestMutation) AuthJSONCleared() bool {
+	_, ok := m.clearedFields[request.FieldAuthJSON]
+	return ok
+}
+
+// ResetAuthJSON resets all changes to the "auth_json" field.
+func (m *RequestMutation) ResetAuthJSON() {
+	m.auth_json = nil
+	delete(m.clearedFields, request.FieldAuthJSON)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *RequestMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -4250,7 +4300,7 @@ func (m *RequestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RequestMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.folder != nil {
 		fields = append(fields, request.FieldFolderID)
 	}
@@ -4268,6 +4318,9 @@ func (m *RequestMutation) Fields() []string {
 	}
 	if m.raw_body != nil {
 		fields = append(fields, request.FieldRawBody)
+	}
+	if m.auth_json != nil {
+		fields = append(fields, request.FieldAuthJSON)
 	}
 	if m.created_at != nil {
 		fields = append(fields, request.FieldCreatedAt)
@@ -4295,6 +4348,8 @@ func (m *RequestMutation) Field(name string) (ent.Value, bool) {
 		return m.BodyMode()
 	case request.FieldRawBody:
 		return m.RawBody()
+	case request.FieldAuthJSON:
+		return m.AuthJSON()
 	case request.FieldCreatedAt:
 		return m.CreatedAt()
 	case request.FieldUpdatedAt:
@@ -4320,6 +4375,8 @@ func (m *RequestMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldBodyMode(ctx)
 	case request.FieldRawBody:
 		return m.OldRawBody(ctx)
+	case request.FieldAuthJSON:
+		return m.OldAuthJSON(ctx)
 	case request.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case request.FieldUpdatedAt:
@@ -4375,6 +4432,13 @@ func (m *RequestMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRawBody(v)
 		return nil
+	case request.FieldAuthJSON:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAuthJSON(v)
+		return nil
 	case request.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -4422,6 +4486,9 @@ func (m *RequestMutation) ClearedFields() []string {
 	if m.FieldCleared(request.FieldRawBody) {
 		fields = append(fields, request.FieldRawBody)
 	}
+	if m.FieldCleared(request.FieldAuthJSON) {
+		fields = append(fields, request.FieldAuthJSON)
+	}
 	return fields
 }
 
@@ -4438,6 +4505,9 @@ func (m *RequestMutation) ClearField(name string) error {
 	switch name {
 	case request.FieldRawBody:
 		m.ClearRawBody()
+		return nil
+	case request.FieldAuthJSON:
+		m.ClearAuthJSON()
 		return nil
 	}
 	return fmt.Errorf("unknown Request nullable field %s", name)
@@ -4464,6 +4534,9 @@ func (m *RequestMutation) ResetField(name string) error {
 		return nil
 	case request.FieldRawBody:
 		m.ResetRawBody()
+		return nil
+	case request.FieldAuthJSON:
+		m.ResetAuthJSON()
 		return nil
 	case request.FieldCreatedAt:
 		m.ResetCreatedAt()

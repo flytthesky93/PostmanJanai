@@ -31,6 +31,8 @@ type Request struct {
 	BodyMode string `json:"body_mode,omitempty"`
 	// RawBody holds the value of the "raw_body" field.
 	RawBody *string `json:"raw_body,omitempty"`
+	// AuthJSON holds the value of the "auth_json" field.
+	AuthJSON *string `json:"auth_json,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -110,7 +112,7 @@ func (*Request) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case request.FieldName, request.FieldMethod, request.FieldURL, request.FieldBodyMode, request.FieldRawBody:
+		case request.FieldName, request.FieldMethod, request.FieldURL, request.FieldBodyMode, request.FieldRawBody, request.FieldAuthJSON:
 			values[i] = new(sql.NullString)
 		case request.FieldCreatedAt, request.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -173,6 +175,13 @@ func (_m *Request) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RawBody = new(string)
 				*_m.RawBody = value.String
+			}
+		case request.FieldAuthJSON:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field auth_json", values[i])
+			} else if value.Valid {
+				_m.AuthJSON = new(string)
+				*_m.AuthJSON = value.String
 			}
 		case request.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -264,6 +273,11 @@ func (_m *Request) String() string {
 	builder.WriteString(", ")
 	if v := _m.RawBody; v != nil {
 		builder.WriteString("raw_body=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.AuthJSON; v != nil {
+		builder.WriteString("auth_json=")
 		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")

@@ -136,11 +136,11 @@ func init() {
 	// request.BodyModeValidator is a validator for the "body_mode" field. It is called by the builders before save.
 	request.BodyModeValidator = requestDescBodyMode.Validators[0].(func(string) error)
 	// requestDescCreatedAt is the schema descriptor for created_at field.
-	requestDescCreatedAt := requestFields[7].Descriptor()
+	requestDescCreatedAt := requestFields[8].Descriptor()
 	// request.DefaultCreatedAt holds the default value on creation for the created_at field.
 	request.DefaultCreatedAt = requestDescCreatedAt.Default.(func() time.Time)
 	// requestDescUpdatedAt is the schema descriptor for updated_at field.
-	requestDescUpdatedAt := requestFields[8].Descriptor()
+	requestDescUpdatedAt := requestFields[9].Descriptor()
 	// request.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	request.DefaultUpdatedAt = requestDescUpdatedAt.Default.(func() time.Time)
 	// request.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

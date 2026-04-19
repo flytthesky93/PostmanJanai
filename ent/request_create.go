@@ -78,6 +78,20 @@ func (_c *RequestCreate) SetNillableRawBody(v *string) *RequestCreate {
 	return _c
 }
 
+// SetAuthJSON sets the "auth_json" field.
+func (_c *RequestCreate) SetAuthJSON(v string) *RequestCreate {
+	_c.mutation.SetAuthJSON(v)
+	return _c
+}
+
+// SetNillableAuthJSON sets the "auth_json" field if the given value is not nil.
+func (_c *RequestCreate) SetNillableAuthJSON(v *string) *RequestCreate {
+	if v != nil {
+		_c.SetAuthJSON(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *RequestCreate) SetCreatedAt(v time.Time) *RequestCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -333,6 +347,10 @@ func (_c *RequestCreate) createSpec() (*Request, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RawBody(); ok {
 		_spec.SetField(request.FieldRawBody, field.TypeString, value)
 		_node.RawBody = &value
+	}
+	if value, ok := _c.mutation.AuthJSON(); ok {
+		_spec.SetField(request.FieldAuthJSON, field.TypeString, value)
+		_node.AuthJSON = &value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(request.FieldCreatedAt, field.TypeTime, value)

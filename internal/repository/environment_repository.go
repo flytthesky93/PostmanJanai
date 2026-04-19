@@ -23,6 +23,8 @@ type EnvironmentRepository interface {
 	SetActive(ctx context.Context, id string) error
 	ClearActive(ctx context.Context) error
 	GetActiveSummary(ctx context.Context) (*entity.EnvironmentSummary, error)
+	// ActiveVariableMap returns enabled key → value for the currently active environment (empty map if none).
+	ActiveVariableMap(ctx context.Context) (map[string]string, error)
 }
 
 type environmentRepo struct {
@@ -231,4 +233,36 @@ func (r *environmentRepo) GetActiveSummary(ctx context.Context) (*entity.Environ
 	}
 	s := entEnvToSummary(e)
 	return &s, nil
+}
+
+func (r *environmentRepo) ActiveVariableMap(ctx context.Context) (map[string]string, error) {
+	sum, err := r.GetActiveSummary(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if sum == nil {
+		return map[string]string{}, nil
+	}
+	uid, err := uuid.Parse(strings.TrimSpace(sum.ID))
+	if err != nil {
+		return map[string]string{}, nil
+	}
+	list, err := r.client.EnvironmentVariable.Query().
+		Where(
+			environmentvariable.EnvironmentIDEQ(uid),
+			environmentvariable.Enabled(true),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string, len(list))
+	for _, v := range list {
+		k := strings.TrimSpace(v.Key)
+		if k == "" {
+			continue
+		}
+		m[k] = v.Value
+	}
+	return m, nil
 }
