@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick, provide } from 'vue'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
 import { List as ListHistory } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
 import HistoryDetailModal from './HistoryDetailModal.vue'
-import FolderCatalog from './FolderCatalog.vue'
+import FolderTreeNode from './FolderTreeNode.vue'
 
 const props = defineProps({
   /** Selected root folder id (UUID) — history + tree scope */
@@ -11,6 +11,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:activeRootFolderId', 'open-saved-request', 'console'])
+
+/** Đồng bộ UI sau khi tạo folder/request trong folder con: instance đúng `folderId` sẽ gọi load() */
+const folderTreeReload = ref({ targetId: null, tick: 0 })
+provide('folderTreeReload', folderTreeReload)
 
 /** @type {import('vue').Ref<'folders' | 'history'>} */
 const sidebarTab = ref('folders')
@@ -125,6 +129,37 @@ const menuStyle = ref({
 
 const folderCatalogRef = ref(null)
 
+function setFolderTreeRef(el) {
+  folderCatalogRef.value = el
+}
+
+/** Thu gọn/mở cây dưới từng workspace (folder gốc) */
+const rootTreeCollapsed = ref(/** @type {Record<string, boolean>} */ ({}))
+
+function isRootTreeCollapsed(wsId) {
+  return !!rootTreeCollapsed.value[wsId]
+}
+
+function toggleRootTree(wsId) {
+  const next = { ...rootTreeCollapsed.value }
+  if (next[wsId]) delete next[wsId]
+  else next[wsId] = true
+  rootTreeCollapsed.value = next
+}
+
+/** Click folder: lần đầu chọn + mở cây; cùng folder click lại thì thu/mở */
+function onRootFolderRowClick(ws) {
+  if (!ws?.id) return
+  if (props.activeRootFolderId !== ws.id) {
+    emit('update:activeRootFolderId', ws.id)
+    const next = { ...rootTreeCollapsed.value }
+    delete next[ws.id]
+    rootTreeCollapsed.value = next
+    return
+  }
+  toggleRootTree(ws.id)
+}
+
 const menuTargetWs = computed(() => {
   const id = menuOpenForId.value
   if (id == null) return null
@@ -177,7 +212,7 @@ const onNewFolderFromMenu = async (ws) => {
   emit('update:activeRootFolderId', ws.id)
   await nextTick()
   await nextTick()
-  folderCatalogRef.value?.openCreateChildFolderForRoot?.(ws.id)
+  folderCatalogRef.value?.openCreateSubfolder?.(ws.id)
 }
 
 const onNewRootRequestFromMenu = async (ws) => {
@@ -186,7 +221,7 @@ const onNewRootRequestFromMenu = async (ws) => {
   emit('update:activeRootFolderId', ws.id)
   await nextTick()
   await nextTick()
-  folderCatalogRef.value?.openCreateRootRequestForFolder?.(ws.id)
+  folderCatalogRef.value?.openCreateRequest?.(ws.id)
 }
 
 const onDocumentPointerDown = (e) => {
@@ -204,11 +239,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown, false)
 })
-
-const selectWorkspace = (ws) => {
-  if (!ws?.id) return
-  emit('update:activeRootFolderId', ws.id)
-}
 
 const syncSelectionAfterLoad = () => {
   const list = rootFolderList.value
@@ -368,7 +398,7 @@ function statusBadgeClass(code) {
 
 defineExpose({
   refreshHistory,
-  refreshCatalog: () => folderCatalogRef.value?.loadTree?.()
+  refreshCatalog: () => folderCatalogRef.value?.load?.()
 })
 </script>
 
@@ -416,39 +446,49 @@ defineExpose({
             <div v-else-if="rootFolderList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
               No root folders yet.
             </div>
-            <div
-              v-for="ws in rootFolderList"
-              :key="ws.id"
-              role="button"
-              tabindex="0"
-              class="mb-1 flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group cursor-pointer"
-              :class="{ 'bg-gray-800/80': activeRootFolderId === ws.id }"
-              @click="selectWorkspace(ws)"
-              @keydown.enter.prevent="selectWorkspace(ws)"
-            >
-              <span class="text-gray-500 shrink-0">📁</span>
-              <span class="min-w-0 flex-1 truncate pr-1">{{ ws.name }}</span>
-              <button
-                type="button"
-                data-ws-menu
-                class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
-                style="min-width: 28px; line-height: 1"
-                :aria-expanded="menuOpenForId === ws.id"
-                aria-haspopup="menu"
-                :aria-label="'Folder actions ' + (ws.name || '')"
-                @click.stop="toggleWorkspaceMenu(ws, $event)"
+            <div v-for="ws in rootFolderList" v-else :key="ws.id" class="mb-1">
+              <div
+                role="button"
+                tabindex="0"
+                class="flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group cursor-pointer"
+                :class="{ 'bg-gray-800/80': activeRootFolderId === ws.id }"
+                @click="onRootFolderRowClick(ws)"
+                @keydown.enter.prevent="onRootFolderRowClick(ws)"
               >
-                ⋮
-              </button>
+                <span class="text-gray-500 shrink-0">📁</span>
+                <span class="min-w-0 flex-1 truncate pr-1">{{ ws.name }}</span>
+                <button
+                  type="button"
+                  data-ws-menu
+                  class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
+                  style="min-width: 28px; line-height: 1"
+                  :aria-expanded="menuOpenForId === ws.id"
+                  aria-haspopup="menu"
+                  :aria-label="'Folder actions ' + (ws.name || '')"
+                  @click.stop="toggleWorkspaceMenu(ws, $event)"
+                >
+                  ⋮
+                </button>
+              </div>
+              <!-- Cây con + request ngay dưới folder gốc đang chọn (IDE-style), cùng vùng cuộn -->
+              <div
+                v-if="activeRootFolderId === ws.id"
+                class="mt-1 border-l border-gray-700/90 pl-2.5 ml-1.5 text-[11px] text-gray-300"
+              >
+                <Transition name="folder-tree-slide">
+                  <div v-show="!isRootTreeCollapsed(ws.id)">
+                    <FolderTreeNode
+                      :ref="setFolderTreeRef"
+                      :folder-id="ws.id"
+                      :depth="0"
+                      @open-saved-request="(id) => emit('open-saved-request', id)"
+                      @console="(msg) => emit('console', msg)"
+                    />
+                  </div>
+                </Transition>
+              </div>
             </div>
           </div>
-          <FolderCatalog
-            v-if="activeRootFolderId"
-            ref="folderCatalogRef"
-            :root-folder-id="activeRootFolderId"
-            @open-saved-request="(id) => emit('open-saved-request', id)"
-            @console="(msg) => emit('console', msg)"
-          />
           <div class="flex shrink-0 justify-end border-t border-gray-800 bg-[#1c1c1c] px-2 py-1">
             <button
               type="button"
@@ -526,7 +566,7 @@ defineExpose({
           class="w-full px-3 py-2 text-left text-sm text-orange-300 hover:bg-gray-700"
           @click="onNewFolderFromMenu(menuTargetWs)"
         >
-          New subfolder
+          New Folder
         </button>
         <button
           type="button"
@@ -534,7 +574,7 @@ defineExpose({
           class="w-full px-3 py-2 text-left text-sm text-orange-300 hover:bg-gray-700"
           @click="onNewRootRequestFromMenu(menuTargetWs)"
         >
-          New request (in folder)
+          New Request
         </button>
         <div class="my-1 border-t border-gray-600" role="separator" />
         <button

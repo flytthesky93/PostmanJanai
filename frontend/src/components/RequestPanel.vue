@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
 import { PickFileForBody, ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
@@ -345,7 +345,24 @@ async function saveSavedRequest() {
   }
 }
 
-defineExpose({ loadFromSavedRequest, applySavedRequestDto })
+/** Lưu request đang mở: Ctrl+S (Windows/Linux) hoặc ⌘+S (macOS) */
+function onGlobalKeydown(e) {
+  if (!(e.ctrlKey || e.metaKey)) return
+  if (String(e.key || '').toLowerCase() !== 's') return
+  if (!savedRequestId.value) return
+  e.preventDefault()
+  saveSavedRequest()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown, true)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown, true)
+})
+
+defineExpose({ loadFromSavedRequest, applySavedRequestDto, saveSavedRequest })
 
 const formatJsonBody = () => {
   const raw = (body.value ?? '').trim()
@@ -403,26 +420,6 @@ const formatXmlBody = () => {
         @click="handleSend"
       >
         Send
-      </button>
-    </div>
-
-    <div
-      v-if="savedRequestId"
-      class="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-800/80 px-3 py-1.5 text-xs"
-    >
-      <span class="shrink-0 text-gray-500">Saved request</span>
-      <input
-        v-model="savedRequestLabel"
-        type="text"
-        class="min-w-0 flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-gray-200"
-        placeholder="Name"
-      />
-      <button
-        type="button"
-        class="shrink-0 rounded border border-orange-600/70 px-2 py-1 font-semibold text-orange-400 hover:bg-orange-600/15"
-        @click="saveSavedRequest"
-      >
-        Save
       </button>
     </div>
 

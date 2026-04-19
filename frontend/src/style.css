@@ -32,3 +32,25 @@
 .app-scrollbar:hover::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.22);
 }
+
+/* Folder tree expand/collapse (Sidebar + FolderTreeNode) */
+.folder-tree-slide-enter-active,
+.folder-tree-slide-leave-active {
+  overflow: hidden;
+  transition:
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.22s ease,
+    transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.folder-tree-slide-enter-from,
+.folder-tree-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.folder-tree-slide-enter-to,
+.folder-tree-slide-leave-from {
+  max-height: 1600px;
+  opacity: 1;
+  transform: translateY(0);
+}
