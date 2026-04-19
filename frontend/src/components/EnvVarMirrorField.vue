@@ -120,12 +120,198 @@ function isPosInsidePlaceholder(text, pos) {
   return false
 }
 
+/** `{{…}}` spans as [from, to) — same regex as chips / CodeMirror atomic ranges. */
+function listEnvPlaceholderSpans(text) {
+  const t = text ?? ''
+  const re = /\{\{\s*([^{}]*?)\s*\}\}/g
+  const out = []
+  let m
+  while ((m = re.exec(t)) !== null) {
+    out.push({ from: m.index, to: m.index + m[0].length })
+  }
+  return out
+}
+
+/** Span `{from,to}` if `pos` is strictly inside (not on boundaries). */
+function envSpanStrictlyContainingPos(text, pos) {
+  for (const s of listEnvPlaceholderSpans(text)) {
+    if (pos > s.from && pos < s.to) return s
+  }
+  return null
+}
+
+/**
+ * ArrowLeft/Right: skip `{{…}}` in one step on keydown (sync), avoiding rAF races when keys repeat fast.
+ */
+function tryEnvArrowKeydown(e) {
+  if (props.disabled || rawMode.value) return
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+
+  const el = inputRef.value
+  if (!el) return
+
+  const a = el.selectionStart
+  const b = el.selectionEnd
+  if (typeof a !== 'number' || typeof b !== 'number') return
+  if (a !== b) return
+
+  const text = local.value ?? ''
+  const len = text.length
+  const forward = e.key === 'ArrowRight'
+
+  if (forward) {
+    if (a >= len) return
+    let inner = envSpanStrictlyContainingPos(text, a)
+    if (inner) {
+      e.preventDefault()
+      try {
+        el.setSelectionRange(inner.to, inner.to)
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+    const next = a + 1
+    if (next <= len && envSpanStrictlyContainingPos(text, next)) {
+      inner = envSpanStrictlyContainingPos(text, next)
+      e.preventDefault()
+      try {
+        el.setSelectionRange(inner.to, inner.to)
+      } catch {
+        /* ignore */
+      }
+    }
+    return
+  }
+
+  if (a <= 0) return
+  let innerL = envSpanStrictlyContainingPos(text, a)
+  if (innerL) {
+    e.preventDefault()
+    try {
+      el.setSelectionRange(innerL.from, innerL.from)
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+  const prev = a - 1
+  if (prev >= 0 && envSpanStrictlyContainingPos(text, prev)) {
+    innerL = envSpanStrictlyContainingPos(text, prev)
+    e.preventDefault()
+    try {
+      el.setSelectionRange(innerL.from, innerL.from)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Snap collapsed caret out of placeholder interior.
+ * @param {number} bias -1 → exit at start (`from`), +1 → exit at end (`to`), 0 → nearest edge (pointer click).
+ */
+function snapCollapsedPastEnvInterior(text, pos, bias) {
+  for (const { from, to } of listEnvPlaceholderSpans(text)) {
+    if (pos > from && pos < to) {
+      if (bias < 0) return from
+      if (bias > 0) return to
+      return pos - from < to - pos ? from : to
+    }
+  }
+  return pos
+}
+
+/** Snap one selection endpoint out of placeholder interior (bias like CodeMirror). */
+function snapEndpointPastEnvInterior(text, pos, bias) {
+  for (const { from, to } of listEnvPlaceholderSpans(text)) {
+    if (pos > from && pos < to) {
+      if (bias < 0) return from
+      if (bias > 0) return to
+      return pos - from < to - pos ? from : to
+    }
+  }
+  return pos
+}
+
+/**
+ * @param {number} collapsedBias for single caret: -1 / +1 from arrow keys; 0 for pointer (nearest edge).
+ */
+function snapCaretIfNeeded(collapsedBias = 0) {
+  const el = inputRef.value
+  if (!el || props.disabled || rawMode.value) return
+  const text = local.value ?? ''
+  let a = el.selectionStart
+  let b = el.selectionEnd
+  if (typeof a !== 'number' || typeof b !== 'number') return
+
+  if (a === b) {
+    const next = snapCollapsedPastEnvInterior(text, a, collapsedBias)
+    if (next !== a) {
+      try {
+        el.setSelectionRange(next, next)
+      } catch {
+        /* ignore */
+      }
+    }
+    return
+  }
+
+  const start = Math.min(a, b)
+  const end = Math.max(a, b)
+  const ns = snapEndpointPastEnvInterior(text, start, -1)
+  const ne = snapEndpointPastEnvInterior(text, end, 1)
+  if (ns !== start || ne !== end) {
+    try {
+      el.setSelectionRange(ns, ne)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** ArrowLeft/Right handled synchronously on keydown. Others still post-adjust after browser move. */
+const NAV_KEYS_UP = new Set(['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'])
+
+function navKeyToCollapsedBias(key) {
+  if (key === 'End') return 1
+  if (key === 'Home') return -1
+  return 0
+}
+
+function onChipKeyup(e) {
+  if (props.disabled || rawMode.value) return
+  if (!NAV_KEYS_UP.has(e.key)) return
+  const bias = navKeyToCollapsedBias(e.key)
+  queueMicrotask(() => snapCaretIfNeeded(bias))
+}
+
+function onChipPointerSnap() {
+  if (props.disabled || rawMode.value) return
+  queueMicrotask(() => snapCaretIfNeeded(0))
+}
+
+function onChipKeydownLine(e) {
+  tryEnvArrowKeydown(e)
+  emit('keydown', e)
+}
+
+function onChipKeydownMultilineChip(e) {
+  tryEnvArrowKeydown(e)
+  onKeydownMultiline(e)
+  emit('keydown', e)
+}
+
 function onChipViewDblClick(e) {
   if (props.disabled) return
-  const el = e.target
-  if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return
-  const pos = typeof el.selectionStart === 'number' ? el.selectionStart : 0
-  if (!isPosInsidePlaceholder(local.value, pos)) return
+  const el = inputRef.value
+  if (!el) return
+  const text = local.value ?? ''
+  const pos = props.multiline
+    ? indexFromPointerTextarea(el, text, e.clientX, e.clientY)
+    : indexFromPointerInput(el, text, e.clientX)
+  if (!isPosInsidePlaceholder(text, pos)) return
   e.preventDefault()
   closeEnvPopover()
   rawMode.value = true
@@ -396,7 +582,9 @@ watch(rawMode, (raw) => {
         :disabled="disabled"
         autocomplete="off"
         spellcheck="false"
-        @keydown="(e) => emit('keydown', e)"
+        @keydown="onChipKeydownLine"
+        @keyup="onChipKeyup"
+        @pointerup="onChipPointerSnap"
         @dblclick="onChipViewDblClick"
         @mousemove="onChipPointerMove"
         @mouseleave="onChipPointerLeave"
@@ -411,12 +599,9 @@ watch(rawMode, (raw) => {
         :rows="rows"
         spellcheck="false"
         @scroll="syncScroll"
-        @keydown="
-          (e) => {
-            onKeydownMultiline(e)
-            emit('keydown', e)
-          }
-        "
+        @keydown="onChipKeydownMultilineChip"
+        @keyup="onChipKeyup"
+        @pointerup="onChipPointerSnap"
         @dblclick="onChipViewDblClick"
         @mousemove="onChipPointerMove"
         @mouseleave="onChipPointerLeave"
