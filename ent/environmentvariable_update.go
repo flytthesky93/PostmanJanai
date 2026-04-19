@@ -172,11 +172,6 @@ func (_u *EnvironmentVariableUpdate) check() error {
 			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "EnvironmentVariable.key": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.Value(); ok {
-		if err := environmentvariable.ValueValidator(v); err != nil {
-			return &ValidationError{Name: "value", err: fmt.Errorf(`ent: validator failed for field "EnvironmentVariable.value": %w`, err)}
-		}
-	}
 	if _u.mutation.EnvironmentCleared() && len(_u.mutation.EnvironmentIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "EnvironmentVariable.environment"`)
 	}
@@ -415,11 +410,6 @@ func (_u *EnvironmentVariableUpdateOne) check() error {
 	if v, ok := _u.mutation.Key(); ok {
 		if err := environmentvariable.KeyValidator(v); err != nil {
 			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "EnvironmentVariable.key": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Value(); ok {
-		if err := environmentvariable.ValueValidator(v); err != nil {
-			return &ValidationError{Name: "value", err: fmt.Errorf(`ent: validator failed for field "EnvironmentVariable.value": %w`, err)}
 		}
 	}
 	if _u.mutation.EnvironmentCleared() && len(_u.mutation.EnvironmentIDs()) > 0 {

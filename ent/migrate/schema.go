@@ -34,7 +34,7 @@ var (
 	EnvironmentVariablesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "key", Type: field.TypeString},
-		{Name: "value", Type: field.TypeString, Size: 2147483647},
+		{Name: "value", Type: field.TypeString, Size: 2147483647, Default: ""},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "sort_order", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},

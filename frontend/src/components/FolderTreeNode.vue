@@ -25,18 +25,18 @@ const childFolders = ref([])
 const requests = ref([])
 const loading = ref(false)
 
-/** true = đã thu gọn (ẩn cây con + request của folder đó) */
-const collapsedChildIds = ref(/** @type {Record<string, boolean>} */ ({}))
+/** Chỉ folder có key = true mới mở cây con (mặc định thu gọn). */
+const expandedChildIds = ref(/** @type {Record<string, boolean>} */ ({}))
 
-function isChildCollapsed(folderId) {
-  return !!collapsedChildIds.value[folderId]
+function isChildExpanded(folderId) {
+  return !!expandedChildIds.value[folderId]
 }
 
-function toggleChildCollapse(folderId) {
-  const cur = { ...collapsedChildIds.value }
+function toggleChildExpand(folderId) {
+  const cur = { ...expandedChildIds.value }
   if (cur[folderId]) delete cur[folderId]
   else cur[folderId] = true
-  collapsedChildIds.value = cur
+  expandedChildIds.value = cur
 }
 
 const folderModal = ref({
@@ -116,7 +116,7 @@ function onFolderMenuEdit(f) {
 
 function onFolderMenuDelete(f) {
   closeFolderRowMenu()
-  deleteFolder(f)
+  openDeleteFolderModal(f)
 }
 
 const requestMenuOpenId = ref(null)
@@ -205,7 +205,7 @@ async function submitRenameRequestModal() {
 
 function onRequestMenuDelete(r) {
   closeRequestRowMenu()
-  deleteRequest(r)
+  openDeleteRequestModal(r)
 }
 
 function onDocumentPointerDownFolderMenu(e) {
@@ -334,13 +334,63 @@ async function submitFolderModal() {
   }
 }
 
-async function deleteFolder(f) {
-  if (!window.confirm(`Delete folder "${f.name}" and everything inside?`)) return
+const folderDeleteModal = ref({
+  open: false,
+  /** @type {{ id: string, name: string } | null} */
+  target: null
+})
+const requestDeleteModal = ref({
+  open: false,
+  /** @type {{ id: string, name: string } | null} */
+  target: null
+})
+const deleteActionLoading = ref(false)
+
+function openDeleteFolderModal(f) {
+  if (!f) return
+  folderDeleteModal.value = { open: true, target: { id: f.id, name: f.name || '' } }
+}
+
+function closeFolderDeleteModal() {
+  folderDeleteModal.value = { open: false, target: null }
+}
+
+async function confirmDeleteFolder() {
+  const t = folderDeleteModal.value.target
+  if (!t) return
+  deleteActionLoading.value = true
   try {
-    await FolderAPI.DeleteFolder(f.id)
+    await FolderAPI.DeleteFolder(t.id)
+    closeFolderDeleteModal()
     await load()
   } catch (e) {
     emit('console', `[Folders] ${e?.message || String(e)}`)
+  } finally {
+    deleteActionLoading.value = false
+  }
+}
+
+function openDeleteRequestModal(r) {
+  if (!r) return
+  requestDeleteModal.value = { open: true, target: { id: r.id, name: r.name || '' } }
+}
+
+function closeRequestDeleteModal() {
+  requestDeleteModal.value = { open: false, target: null }
+}
+
+async function confirmDeleteRequest() {
+  const t = requestDeleteModal.value.target
+  if (!t) return
+  deleteActionLoading.value = true
+  try {
+    await SavedRequestAPI.Delete(t.id)
+    closeRequestDeleteModal()
+    await load()
+  } catch (e) {
+    emit('console', `[Saved] ${e?.message || String(e)}`)
+  } finally {
+    deleteActionLoading.value = false
   }
 }
 
@@ -384,16 +434,6 @@ function openRequest(id) {
   emit('open-saved-request', id)
 }
 
-async function deleteRequest(r) {
-  if (!window.confirm(`Delete saved request "${r.name}"?`)) return
-  try {
-    await SavedRequestAPI.Delete(r.id)
-    await load()
-  } catch (e) {
-    emit('console', `[Folders] ${e?.message || String(e)}`)
-  }
-}
-
 defineExpose({ load, openCreateSubfolder, openCreateRequest })
 </script>
 
@@ -408,8 +448,8 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
         tabindex="0"
         class="flex cursor-pointer items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
         :title="f.name"
-        @click="toggleChildCollapse(f.id)"
-        @keydown.enter.prevent="toggleChildCollapse(f.id)"
+        @click="toggleChildExpand(f.id)"
+        @keydown.enter.prevent="toggleChildExpand(f.id)"
       >
         <span class="text-gray-500 shrink-0">📁</span>
         <span class="min-w-0 flex-1 truncate pr-1 text-gray-200">{{ f.name }}</span>
@@ -427,7 +467,7 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
         </button>
       </div>
       <Transition name="folder-tree-slide">
-        <div v-show="!isChildCollapsed(f.id)" class="ml-1 border-l border-gray-700/80 pl-2.5">
+        <div v-show="isChildExpanded(f.id)" class="ml-1 border-l border-gray-700/80 pl-2.5">
           <FolderTreeNode
             :folder-id="f.id"
             :depth="depth + 1"
@@ -627,6 +667,89 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
             </button>
             <button type="button" class="rounded bg-orange-600 px-3 py-1 text-xs font-semibold text-white hover:bg-orange-700" @click="submitRequestModal">
               Create
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="#app">
+      <div
+        v-if="folderDeleteModal.open"
+        class="fixed inset-0 z-[56] flex items-center justify-center bg-black/50 px-4"
+        role="presentation"
+        data-folder-delete-confirm
+        @mousedown.self="closeFolderDeleteModal"
+      >
+        <div class="w-full max-w-md rounded-lg border border-gray-600 bg-[#1f1f1f] shadow-xl" role="dialog" aria-modal="true" @mousedown.stop>
+          <div class="border-b border-gray-700 px-4 py-3">
+            <h3 class="text-sm font-semibold text-white">Delete folder</h3>
+          </div>
+          <div class="p-4">
+            <p class="text-sm text-gray-300">
+              Delete folder
+              <span class="font-semibold text-white">"{{ folderDeleteModal.target?.name }}"</span>
+              and everything inside? This cannot be undone — all nested folders and saved requests under it will be
+              removed.
+            </p>
+          </div>
+          <div class="flex justify-end gap-2 border-t border-gray-700 px-4 py-3">
+            <button
+              type="button"
+              class="rounded bg-gray-700 px-3 py-1.5 text-xs text-white hover:bg-gray-600 disabled:opacity-50"
+              :disabled="deleteActionLoading"
+              @click="closeFolderDeleteModal"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              :disabled="deleteActionLoading"
+              @click="confirmDeleteFolder"
+            >
+              {{ deleteActionLoading ? 'Working…' : 'Delete' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="#app">
+      <div
+        v-if="requestDeleteModal.open"
+        class="fixed inset-0 z-[56] flex items-center justify-center bg-black/50 px-4"
+        role="presentation"
+        data-request-delete-confirm
+        @mousedown.self="closeRequestDeleteModal"
+      >
+        <div class="w-full max-w-md rounded-lg border border-gray-600 bg-[#1f1f1f] shadow-xl" role="dialog" aria-modal="true" @mousedown.stop>
+          <div class="border-b border-gray-700 px-4 py-3">
+            <h3 class="text-sm font-semibold text-white">Delete saved request</h3>
+          </div>
+          <div class="p-4">
+            <p class="text-sm text-gray-300">
+              Remove saved request
+              <span class="font-semibold text-white">"{{ requestDeleteModal.target?.name }}"</span>
+              ? This cannot be undone.
+            </p>
+          </div>
+          <div class="flex justify-end gap-2 border-t border-gray-700 px-4 py-3">
+            <button
+              type="button"
+              class="rounded bg-gray-700 px-3 py-1.5 text-xs text-white hover:bg-gray-600 disabled:opacity-50"
+              :disabled="deleteActionLoading"
+              @click="closeRequestDeleteModal"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              :disabled="deleteActionLoading"
+              @click="confirmDeleteRequest"
+            >
+              {{ deleteActionLoading ? 'Working…' : 'Delete' }}
             </button>
           </div>
         </div>

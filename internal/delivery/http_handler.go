@@ -99,6 +99,9 @@ func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecute
 	if strings.TrimSpace(respText) == "" && res.ErrorMessage != "" {
 		respText = res.ErrorMessage
 	}
+	if res.BodyTruncated && strings.TrimSpace(respText) != "" {
+		respText += "\n\n[… response body truncated at configured max size …]"
+	}
 	var respBody *string
 	if respText != "" {
 		respBody = &respText

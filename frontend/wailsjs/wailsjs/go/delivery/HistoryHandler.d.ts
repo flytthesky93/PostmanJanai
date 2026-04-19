@@ -3,6 +3,10 @@
 import {entity} from '../models';
 import {context} from '../models';
 
-export function List():Promise<Array<entity.HistoryItem>>;
+export function Delete(arg1:string):Promise<void>;
+
+export function Get(arg1:string):Promise<entity.HistoryItem>;
+
+export function List(arg1:string):Promise<Array<entity.HistorySummary>>;
 
 export function SetContext(arg1:context.Context):Promise<void>;

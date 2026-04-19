@@ -4,11 +4,12 @@ import JsonCodeMirror from './JsonCodeMirror.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
   /** @type {import('vue').PropType<Record<string, unknown> | null>} */
   item: { type: Object, default: null }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'delete'])
 
 const activeTab = ref('request')
 
@@ -86,7 +87,7 @@ onUnmounted(() => {
 <template>
   <Teleport to="#app">
     <div
-      v-if="open && item"
+      v-if="open"
       class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-3 py-6"
       role="dialog"
       aria-modal="true"
@@ -100,18 +101,34 @@ onUnmounted(() => {
         <div class="flex shrink-0 items-start justify-between gap-2 border-b border-gray-700 px-4 py-3">
           <div class="min-w-0">
             <h2 id="history-detail-title" class="text-sm font-semibold text-white">Request snapshot</h2>
-            <p class="mt-0.5 text-[11px] text-gray-500">{{ formatWhen(item.created_at) }}</p>
+            <p v-if="item" class="mt-0.5 text-[11px] text-gray-500">{{ formatWhen(item.created_at) }}</p>
+            <p v-else class="mt-0.5 text-[11px] text-gray-500">Loading…</p>
           </div>
-          <button
-            type="button"
-            class="shrink-0 rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-white"
-            aria-label="Close"
-            @click="emit('close')"
-          >
-            Close
-          </button>
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              v-if="item?.id && !loading"
+              type="button"
+              class="rounded px-2 py-1 text-xs text-red-300 hover:bg-red-900/40 hover:text-red-100"
+              @click="emit('delete')"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-white"
+              aria-label="Close"
+              @click="emit('close')"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
+        <div v-if="loading && !item" class="app-scrollbar flex min-h-[200px] items-center justify-center p-8 text-sm text-gray-400">
+          Loading snapshot…
+        </div>
+
+        <template v-else-if="item">
         <div class="shrink-0 border-b border-gray-800 px-4 pt-2">
           <div class="flex flex-wrap gap-1 text-xs font-semibold">
             <button
@@ -172,6 +189,7 @@ onUnmounted(() => {
             </div>
           </template>
         </div>
+        </template>
       </div>
     </div>
   </Teleport>

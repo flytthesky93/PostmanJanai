@@ -1,7 +1,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick, provide } from 'vue'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
-import { List as ListHistory } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
+import * as EnvAPI from '../../wailsjs/wailsjs/go/delivery/EnvironmentHandler'
+import {
+  List as ListHistory,
+  Get as GetHistoryDetail,
+  Delete as DeleteHistoryEntry
+} from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
+import { ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import HistoryDetailModal from './HistoryDetailModal.vue'
 import FolderTreeNode from './FolderTreeNode.vue'
 
@@ -10,13 +16,22 @@ const props = defineProps({
   activeRootFolderId: { type: String, default: null }
 })
 
-const emit = defineEmits(['update:activeRootFolderId', 'open-saved-request', 'console'])
+const emit = defineEmits([
+  'update:activeRootFolderId',
+  'open-saved-request',
+  'open-environment',
+  'main-workspace-request',
+  'environments-changed',
+  'environment-deleted',
+  'console',
+  'apply-curl-import'
+])
 
 /** Đồng bộ UI sau khi tạo folder/request trong folder con: instance đúng `folderId` sẽ gọi load() */
 const folderTreeReload = ref({ targetId: null, tick: 0 })
 provide('folderTreeReload', folderTreeReload)
 
-/** @type {import('vue').Ref<'folders' | 'history'>} */
+/** @type {import('vue').Ref<'folders' | 'env' | 'history'>} */
 const sidebarTab = ref('folders')
 
 const rootFolders = ref([])
@@ -30,18 +45,104 @@ const historyList = computed(() => (Array.isArray(historyItems.value) ? historyI
 const submitting = ref(false)
 
 const historyDetailOpen = ref(false)
+const historyDetailLoading = ref(false)
 /** @type {import('vue').Ref<Record<string, unknown> | null>} */
 const historyDetailItem = ref(null)
 
-const openHistoryDetail = (h) => {
-  if (!h) return
-  historyDetailItem.value = h
+const openHistoryDetail = async (h) => {
+  if (!h?.id) return
   historyDetailOpen.value = true
+  historyDetailLoading.value = true
+  historyDetailItem.value = null
+  try {
+    const full = await GetHistoryDetail(String(h.id))
+    historyDetailItem.value = full && typeof full === 'object' ? { ...full } : full
+  } catch (error) {
+    console.error('[History] Detail failed:', error)
+    showToast('error', `Could not load history detail: ${error?.message || error}`)
+    closeHistoryDetail()
+  } finally {
+    historyDetailLoading.value = false
+  }
 }
 
 const closeHistoryDetail = () => {
   historyDetailOpen.value = false
   historyDetailItem.value = null
+  historyDetailLoading.value = false
+}
+
+const curlModalOpen = ref(false)
+const curlText = ref('curl -X GET "https://httpbin.org/get?hello=world"')
+
+/** Environments tab */
+const envItems = ref([])
+const envLoading = ref(false)
+const envList = computed(() => (Array.isArray(envItems.value) ? envItems.value : []))
+
+const envModalState = ref({
+  show: false,
+  mode: 'create',
+  title: '',
+  submitLabel: '',
+  target: null
+})
+const envFormName = ref('')
+const envFormDescription = ref('')
+const envSubmitting = ref(false)
+
+const menuOpenForEnvId = ref(null)
+const envMenuStyle = ref({
+  position: 'fixed',
+  top: '0px',
+  left: '0px',
+  zIndex: 45
+})
+
+const openCurlImportModal = () => {
+  curlModalOpen.value = true
+}
+
+const closeCurlModal = () => {
+  curlModalOpen.value = false
+}
+
+const applyCurlImport = async () => {
+  const text = (curlText.value || '').trim()
+  if (!text) {
+    emit('console', '[cURL] Paste a command first.')
+    return
+  }
+  try {
+    const payload = await ImportFromCurl(text)
+    let plain = payload
+    if (payload && typeof payload === 'object') {
+      try {
+        plain = JSON.parse(JSON.stringify(payload))
+      } catch {
+        plain = payload
+      }
+    }
+    emit('apply-curl-import', plain)
+    closeCurlModal()
+    emit('console', '[Import] cURL loaded as a new ad-hoc request. Use Save in the request panel to store it in a folder.')
+  } catch (e) {
+    emit('console', `[cURL] ${e?.message || String(e)}`)
+  }
+}
+
+const onDeleteHistoryFromModal = async () => {
+  const id = historyDetailItem.value?.id
+  if (!id) return
+  try {
+    await DeleteHistoryEntry(String(id))
+    showToast('success', 'Removed from history')
+    closeHistoryDetail()
+    await loadHistory()
+  } catch (error) {
+    console.error('[History] Delete failed:', error)
+    showToast('error', `Could not delete history: ${error?.message || error}`)
+  }
 }
 
 const toast = ref({
@@ -127,36 +228,57 @@ const menuStyle = ref({
   zIndex: 45
 })
 
-const folderCatalogRef = ref(null)
+/**
+ * Giữ instance FolderTreeNode theo root id.
+ * Không dùng ref()/reactive ở đây: gán trong callback `:ref` mỗi lần mount sẽ kích hoạt re-render
+ * liên tục (vòng lặp) và có thể làm WebView/Wails treo — cửa sổ không hiện, process vẫn chạy.
+ */
+const folderTreeRefById = new Map()
 
-function setFolderTreeRef(el) {
-  folderCatalogRef.value = el
+function setFolderTreeRef(wsId, el) {
+  if (el) folderTreeRefById.set(wsId, el)
+  else folderTreeRefById.delete(wsId)
 }
 
-/** Thu gọn/mở cây dưới từng workspace (folder gốc) */
-const rootTreeCollapsed = ref(/** @type {Record<string, boolean>} */ ({}))
+/** Chỉ các root được mở rõ (mặc định: thu gọn — không có key = đóng). */
+const rootTreeExpanded = ref(/** @type {Record<string, boolean>} */ ({}))
 
-function isRootTreeCollapsed(wsId) {
-  return !!rootTreeCollapsed.value[wsId]
+function isRootTreeExpanded(wsId) {
+  return !!rootTreeExpanded.value[wsId]
 }
 
 function toggleRootTree(wsId) {
-  const next = { ...rootTreeCollapsed.value }
+  const next = { ...rootTreeExpanded.value }
   if (next[wsId]) delete next[wsId]
   else next[wsId] = true
-  rootTreeCollapsed.value = next
+  rootTreeExpanded.value = next
 }
 
-/** Click folder: lần đầu chọn + mở cây; cùng folder click lại thì thu/mở */
+/**
+ * Root row: mở/đóng cây 1 click.
+ * - Root đang chọn: click = toggle thu/mở.
+ * - Root khác đang chọn + cây root này đang mở: 1 click chỉ thu cây (giữ selection), tránh phải click 2 lần.
+ * - Root khác + cây đang đóng: chọn root + mở cây.
+ */
 function onRootFolderRowClick(ws) {
   if (!ws?.id) return
-  if (props.activeRootFolderId !== ws.id) {
+  const isActive = props.activeRootFolderId === ws.id
+  const expanded = isRootTreeExpanded(ws.id)
+
+  if (!isActive) {
+    if (expanded) {
+      const next = { ...rootTreeExpanded.value }
+      delete next[ws.id]
+      rootTreeExpanded.value = next
+      return
+    }
     emit('update:activeRootFolderId', ws.id)
-    const next = { ...rootTreeCollapsed.value }
-    delete next[ws.id]
-    rootTreeCollapsed.value = next
+    const next = { ...rootTreeExpanded.value }
+    next[ws.id] = true
+    rootTreeExpanded.value = next
     return
   }
+
   toggleRootTree(ws.id)
 }
 
@@ -212,7 +334,7 @@ const onNewFolderFromMenu = async (ws) => {
   emit('update:activeRootFolderId', ws.id)
   await nextTick()
   await nextTick()
-  folderCatalogRef.value?.openCreateSubfolder?.(ws.id)
+  folderTreeRefById.get(ws.id)?.openCreateSubfolder?.(ws.id)
 }
 
 const onNewRootRequestFromMenu = async (ws) => {
@@ -221,14 +343,22 @@ const onNewRootRequestFromMenu = async (ws) => {
   emit('update:activeRootFolderId', ws.id)
   await nextTick()
   await nextTick()
-  folderCatalogRef.value?.openCreateRequest?.(ws.id)
+  folderTreeRefById.get(ws.id)?.openCreateRequest?.(ws.id)
 }
 
 const onDocumentPointerDown = (e) => {
-  if (menuOpenForId.value == null) return
-  const t = e.target
-  if (t.closest?.('[data-ws-menu]')) return
-  closeWorkspaceMenu()
+  if (menuOpenForId.value != null) {
+    const t = e.target
+    if (!t.closest?.('[data-ws-menu]')) {
+      closeWorkspaceMenu()
+    }
+  }
+  if (menuOpenForEnvId.value != null) {
+    const t = e.target
+    if (!t.closest?.('[data-env-menu]')) {
+      closeEnvMenu()
+    }
+  }
 }
 
 onMounted(() => {
@@ -255,7 +385,7 @@ const syncSelectionAfterLoad = () => {
 const loadHistory = async () => {
   historyLoading.value = true
   try {
-    const list = await ListHistory()
+    const list = await ListHistory('')
     historyItems.value = Array.isArray(list) ? list : []
   } catch (error) {
     console.error('[History] Load failed:', error)
@@ -271,9 +401,170 @@ const refreshHistory = async () => {
   await loadHistory()
 }
 
+const loadEnvironments = async () => {
+  envLoading.value = true
+  try {
+    const list = await EnvAPI.List()
+    envItems.value = Array.isArray(list) ? list : []
+  } catch (error) {
+    console.error('[Env] Load failed:', error)
+    envItems.value = []
+    showToast('error', `Could not load environments: ${error?.message || error}`)
+  } finally {
+    envLoading.value = false
+  }
+}
+
+const closeEnvMenu = () => {
+  menuOpenForEnvId.value = null
+}
+
+const toggleEnvMenu = (item, event) => {
+  event?.stopPropagation()
+  if (!item?.id) return
+  if (menuOpenForEnvId.value === item.id) {
+    closeEnvMenu()
+    return
+  }
+  menuOpenForEnvId.value = item.id
+  const el = event?.currentTarget
+  if (el && typeof el.getBoundingClientRect === 'function') {
+    const r = el.getBoundingClientRect()
+    const width = 200
+    let left = r.right - width
+    if (left < 8) left = 8
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8
+    const top = r.bottom + 4
+    envMenuStyle.value = {
+      position: 'fixed',
+      top: `${top}px`,
+      left: `${left}px`,
+      zIndex: 45
+    }
+  }
+}
+
+const menuTargetEnv = computed(() => {
+  const id = menuOpenForEnvId.value
+  if (id == null) return null
+  return envList.value.find((e) => e.id === id) ?? null
+})
+
+const openCreateEnvModal = () => {
+  closeEnvMenu()
+  envFormName.value = ''
+  envFormDescription.value = ''
+  envModalState.value = {
+    show: true,
+    mode: 'create',
+    title: 'New environment',
+    submitLabel: 'Create',
+    target: null
+  }
+}
+
+const openEditEnvModal = (item) => {
+  if (!item) return
+  closeEnvMenu()
+  envFormName.value = item.name || ''
+  envFormDescription.value = item.description || ''
+  envModalState.value = {
+    show: true,
+    mode: 'edit',
+    title: 'Edit environment',
+    submitLabel: 'Save',
+    target: item
+  }
+}
+
+const openDeleteEnvModal = (item) => {
+  if (!item) return
+  closeEnvMenu()
+  envModalState.value = {
+    show: true,
+    mode: 'delete',
+    title: 'Delete environment',
+    submitLabel: 'Delete',
+    target: item
+  }
+}
+
+const closeEnvModal = (force = false) => {
+  if (!force && envSubmitting.value) return
+  envModalState.value.show = false
+}
+
+const submitEnvModal = async () => {
+  try {
+    envSubmitting.value = true
+    if (envModalState.value.mode === 'create') {
+      const name = envFormName.value.trim()
+      if (!name) {
+        showToast('warning', 'Environment name cannot be empty')
+        return
+      }
+      await EnvAPI.Create(name, envFormDescription.value.trim())
+      showToast('success', 'Environment created')
+      closeEnvModal(true)
+      await loadEnvironments()
+      emit('environments-changed')
+      return
+    }
+    if (envModalState.value.mode === 'edit') {
+      const target = envModalState.value.target
+      const name = envFormName.value.trim()
+      if (!target?.id || !name) {
+        showToast('warning', 'Invalid environment')
+        return
+      }
+      await EnvAPI.UpdateMeta(target.id, name, envFormDescription.value.trim())
+      showToast('success', 'Environment updated')
+      closeEnvModal(true)
+      await loadEnvironments()
+      emit('environments-changed')
+      return
+    }
+    if (envModalState.value.mode === 'delete') {
+      const target = envModalState.value.target
+      if (!target?.id) {
+        showToast('warning', 'Invalid environment')
+        return
+      }
+      await EnvAPI.Delete(target.id)
+      showToast('success', `Deleted "${target.name}"`)
+      emit('environment-deleted', target.id)
+      closeEnvModal(true)
+      await loadEnvironments()
+      emit('environments-changed')
+    }
+  } catch (error) {
+    console.error('[Env] Action failed:', error)
+    const label =
+      envModalState.value.mode === 'create'
+        ? 'Create'
+        : envModalState.value.mode === 'edit'
+          ? 'Update'
+          : 'Delete'
+    const msg = error?.message || String(error)
+    if (msg.includes('ENV_602') || msg.includes('already exists')) {
+      showToast('warning', 'That environment name is already in use.')
+    } else {
+      showToast('error', `${label} failed: ${msg}`)
+    }
+  } finally {
+    envSubmitting.value = false
+  }
+}
+
 watch(sidebarTab, (tab) => {
   if (tab === 'history') {
     loadHistory()
+  }
+  if (tab === 'env') {
+    loadEnvironments()
+  }
+  if (tab === 'folders' || tab === 'history') {
+    emit('main-workspace-request')
   }
 })
 
@@ -398,7 +689,12 @@ function statusBadgeClass(code) {
 
 defineExpose({
   refreshHistory,
-  refreshCatalog: () => folderCatalogRef.value?.load?.()
+  refreshEnvironments: loadEnvironments,
+  refreshCatalog: () => {
+    for (const node of folderTreeRefById.values()) {
+      node?.load?.()
+    }
+  }
 })
 </script>
 
@@ -415,7 +711,7 @@ defineExpose({
       <div class="flex shrink-0 border-b border-gray-800">
         <button
           type="button"
-          class="flex-1 px-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors"
+          class="flex-1 px-1.5 py-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors sm:text-xs"
           :class="
             sidebarTab === 'folders'
               ? 'border-b-2 border-orange-500 bg-[#1a1a1a] text-white'
@@ -427,7 +723,19 @@ defineExpose({
         </button>
         <button
           type="button"
-          class="flex-1 px-2 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors"
+          class="flex-1 px-1.5 py-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors sm:text-xs"
+          :class="
+            sidebarTab === 'env'
+              ? 'border-b-2 border-orange-500 bg-[#1a1a1a] text-white'
+              : 'border-b-2 border-transparent text-gray-500 hover:text-gray-300'
+          "
+          @click="sidebarTab = 'env'"
+        >
+          Env
+        </button>
+        <button
+          type="button"
+          class="flex-1 px-1.5 py-2.5 text-[10px] font-semibold uppercase tracking-wide transition-colors sm:text-xs"
           :class="
             sidebarTab === 'history'
               ? 'border-b-2 border-orange-500 bg-[#1a1a1a] text-white'
@@ -470,26 +778,33 @@ defineExpose({
                   ⋮
                 </button>
               </div>
-              <!-- Cây con + request ngay dưới folder gốc đang chọn (IDE-style), cùng vùng cuộn -->
-              <div
-                v-if="activeRootFolderId === ws.id"
-                class="mt-1 border-l border-gray-700/90 pl-2.5 ml-1.5 text-[11px] text-gray-300"
-              >
-                <Transition name="folder-tree-slide">
-                  <div v-show="!isRootTreeCollapsed(ws.id)">
-                    <FolderTreeNode
-                      :ref="setFolderTreeRef"
-                      :folder-id="ws.id"
-                      :depth="0"
-                      @open-saved-request="(id) => emit('open-saved-request', id)"
-                      @console="(msg) => emit('console', msg)"
-                    />
-                  </div>
-                </Transition>
-              </div>
+              <!-- Giống FolderTreeNode: v-show trên con trực tiếp của Transition để enter/leave chạy mượt -->
+              <Transition name="folder-tree-slide">
+                <div
+                  v-show="isRootTreeExpanded(ws.id)"
+                  class="mt-1 border-l border-gray-700/90 pl-2.5 ml-1.5 text-[11px] text-gray-300"
+                >
+                  <FolderTreeNode
+                    :ref="(el) => setFolderTreeRef(ws.id, el)"
+                    :folder-id="ws.id"
+                    :depth="0"
+                    @open-saved-request="(id) => emit('open-saved-request', id)"
+                    @console="(msg) => emit('console', msg)"
+                  />
+                </div>
+              </Transition>
             </div>
           </div>
-          <div class="flex shrink-0 justify-end border-t border-gray-800 bg-[#1c1c1c] px-2 py-1">
+          <div class="flex shrink-0 flex-wrap items-center justify-between gap-1 border-t border-gray-800 bg-[#1c1c1c] px-2 py-1">
+            <button
+              type="button"
+              class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-gray-200 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
+              aria-label="Import from cURL"
+              title="Import as ad-hoc request (not tied to a saved item)"
+              @click="openCurlImportModal"
+            >
+              Import cURL
+            </button>
             <button
               type="button"
               class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
@@ -504,7 +819,58 @@ defineExpose({
         </div>
       </template>
 
-      <template v-else>
+      <template v-else-if="sidebarTab === 'env'">
+        <div class="flex min-h-0 flex-1 flex-col">
+          <div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-800 px-3 py-2">
+            <span class="min-w-0 text-xs text-gray-500" style="color: #9ca3af">Environments</span>
+            <button
+              type="button"
+              class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
+              style="color: #f97316"
+              @click="openCreateEnvModal"
+            >
+              Add
+            </button>
+          </div>
+          <div class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeEnvMenu">
+            <div v-if="envLoading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading…</div>
+            <div v-else-if="envList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
+              No environments yet. Create one to store variables.
+            </div>
+            <div v-for="item in envList" v-else :key="item.id" class="mb-1">
+              <div
+                role="button"
+                tabindex="0"
+                class="group flex cursor-pointer items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800"
+                :class="{ 'bg-gray-800/80 ring-1 ring-orange-500/30': item.is_active }"
+                @click="emit('open-environment', item.id)"
+                @keydown.enter.prevent="emit('open-environment', item.id)"
+              >
+                <span class="shrink-0 text-gray-500">🌿</span>
+                <span class="min-w-0 flex-1 truncate pr-1">{{ item.name }}</span>
+                <span
+                  v-if="item.is_active"
+                  class="shrink-0 rounded bg-emerald-900/80 px-1 py-0.5 text-[9px] font-bold uppercase text-emerald-200"
+                  >Active</span>
+                <button
+                  type="button"
+                  data-env-menu
+                  class="shrink-0 rounded p-1.5 text-gray-400 opacity-70 hover:bg-gray-700 hover:text-white group-hover:opacity-100"
+                  style="min-width: 28px; line-height: 1"
+                  :aria-expanded="menuOpenForEnvId === item.id"
+                  aria-haspopup="menu"
+                  :aria-label="'Environment actions ' + (item.name || '')"
+                  @click.stop="toggleEnvMenu(item, $event)"
+                >
+                  ⋮
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template v-else-if="sidebarTab === 'history'">
         <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 px-3 py-2">
           <span class="min-w-0 text-xs text-gray-500" style="color: #9ca3af">Recent requests</span>
           <button
@@ -551,6 +917,33 @@ defineExpose({
         </div>
       </template>
     </aside>
+
+    <Teleport to="#app">
+      <div
+        v-if="menuOpenForEnvId !== null && menuTargetEnv"
+        data-env-menu
+        class="min-w-[200px] rounded-md border border-gray-600 bg-[#2a2a2a] py-1 shadow-xl"
+        :style="envMenuStyle"
+        role="menu"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="openEditEnvModal(menuTargetEnv)"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+          @click="openDeleteEnvModal(menuTargetEnv)"
+        >
+          Delete
+        </button>
+      </div>
+    </Teleport>
 
     <Teleport to="#app">
       <div
@@ -607,8 +1000,10 @@ defineExpose({
       <div class="p-4">
         <template v-if="modalState.mode === 'delete'">
           <p class="text-sm text-gray-300">
-            Are you sure you want to delete folder
-            <span class="text-white font-semibold">"{{ modalState.target?.name }}"</span>?
+            Delete folder
+            <span class="font-semibold text-white">"{{ modalState.target?.name }}"</span>
+            and everything inside? This cannot be undone — all subfolders and saved requests in this tree will be
+            removed.
           </p>
         </template>
         <template v-else>
@@ -651,7 +1046,125 @@ defineExpose({
   </div>
     </Teleport>
 
-    <HistoryDetailModal :open="historyDetailOpen" :item="historyDetailItem" @close="closeHistoryDetail" />
+    <Teleport to="#app">
+      <div
+        v-if="curlModalOpen"
+        class="fixed inset-0 z-[58] flex items-center justify-center bg-black/50 px-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sidebar-curl-import-title"
+      >
+        <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-gray-700 bg-[#1f1f1f] shadow-lg">
+          <div class="flex items-start justify-between gap-2 border-b border-gray-700 px-4 py-3">
+            <div class="min-w-0 flex-1 pr-2">
+              <h3 id="sidebar-curl-import-title" class="text-sm font-semibold text-white">Import from cURL</h3>
+              <p class="mt-1 text-[11px] leading-relaxed text-gray-500">
+                Creates an <span class="text-gray-400">ad-hoc</span> request in the editor. Use <span class="text-gray-400">Save</span> there to store it in a folder.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 rounded p-1.5 text-lg leading-none text-gray-500 hover:bg-gray-800 hover:text-gray-200"
+              aria-label="Close"
+              @click="closeCurlModal"
+            >
+              ×
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 overflow-hidden p-4">
+            <textarea
+              v-model="curlText"
+              class="app-scrollbar h-80 w-full resize-y rounded border border-gray-700 bg-gray-900 px-3 py-2 font-mono text-xs text-gray-200 outline-none focus:border-orange-500"
+              spellcheck="false"
+              placeholder="curl https://httpbin.org/get"
+            />
+          </div>
+          <div class="flex justify-end gap-2 border-t border-gray-700 px-4 py-3">
+            <button
+              type="button"
+              class="rounded bg-gray-700 px-3 py-1.5 text-xs text-white hover:bg-gray-600"
+              @click="closeCurlModal"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
+              @click="applyCurlImport"
+            >
+              Import
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <HistoryDetailModal
+      :open="historyDetailOpen"
+      :loading="historyDetailLoading"
+      :item="historyDetailItem"
+      @close="closeHistoryDetail"
+      @delete="onDeleteHistoryFromModal"
+    />
+
+    <Teleport to="#app">
+      <div
+        v-if="envModalState.show"
+        class="fixed inset-0 z-[42] flex items-center justify-center bg-black/50 px-4"
+      >
+        <div class="w-full max-w-md rounded-lg border border-gray-700 bg-[#1f1f1f] shadow-lg">
+          <div class="border-b border-gray-700 px-4 py-3">
+            <h3 class="text-sm font-semibold text-white">{{ envModalState.title }}</h3>
+          </div>
+          <div class="p-4">
+            <template v-if="envModalState.mode === 'delete'">
+              <p class="text-sm text-gray-300">
+                Delete
+                <span class="font-semibold text-white">"{{ envModalState.target?.name }}"</span>
+                and all variables? This cannot be undone.
+              </p>
+            </template>
+            <template v-else>
+              <label class="mb-1 block text-xs text-gray-400">Name</label>
+              <input
+                v-model="envFormName"
+                type="text"
+                class="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
+                placeholder="Environment name"
+              />
+              <label class="mt-3 mb-1 block text-xs text-gray-400">Description</label>
+              <textarea
+                v-model="envFormDescription"
+                rows="2"
+                class="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
+                placeholder="Optional"
+              />
+            </template>
+          </div>
+          <div class="flex justify-end gap-2 border-t border-gray-700 px-4 py-3">
+            <button
+              type="button"
+              class="rounded bg-gray-700 px-3 py-1.5 text-xs text-white hover:bg-gray-600 disabled:opacity-50"
+              :disabled="envSubmitting"
+              @click="() => closeEnvModal()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded px-3 py-1.5 text-xs text-white disabled:opacity-50"
+              :class="
+                envModalState.mode === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'
+              "
+              :disabled="envSubmitting"
+              @click="submitEnvModal"
+            >
+              {{ envSubmitting ? 'Working…' : envModalState.submitLabel }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <div v-if="toast.show" class="pointer-events-none fixed bottom-4 right-4 z-50">
       <div

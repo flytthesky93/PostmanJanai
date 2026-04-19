@@ -79,14 +79,17 @@ func main() {
 	folderRepo := repository.NewFolderRepository(client)
 	savedRequestRepo := repository.NewRequestRepository(client)
 	historyRepo := repository.NewHistoryRepository(client)
+	envRepo := repository.NewEnvironmentRepository(client)
 
 	folderUc := usecase.NewFolderUsecase(folderRepo)
 	savedRequestUc := usecase.NewRequestUsecase(folderRepo, savedRequestRepo)
+	envUc := usecase.NewEnvironmentUsecase(envRepo)
 
 	appHandler := delivery.NewAppHandler()
 	folderHandler := delivery.NewFolderHandler(folderUc)
 	savedRequestHandler := delivery.NewSavedRequestHandler(savedRequestUc)
 	historyHandler := delivery.NewHistoryHandler(historyRepo)
+	environmentHandler := delivery.NewEnvironmentHandler(envUc)
 	httpExecutor := service.NewHTTPExecutor()
 	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo)
 
@@ -113,6 +116,7 @@ func main() {
 			folderHandler.SetContext(ctx)
 			savedRequestHandler.SetContext(ctx)
 			historyHandler.SetContext(ctx)
+			environmentHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
@@ -120,6 +124,7 @@ func main() {
 			folderHandler,
 			savedRequestHandler,
 			historyHandler,
+			environmentHandler,
 			httpHandler,
 		},
 	})

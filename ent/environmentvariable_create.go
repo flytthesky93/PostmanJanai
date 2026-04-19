@@ -40,6 +40,14 @@ func (_c *EnvironmentVariableCreate) SetValue(v string) *EnvironmentVariableCrea
 	return _c
 }
 
+// SetNillableValue sets the "value" field if the given value is not nil.
+func (_c *EnvironmentVariableCreate) SetNillableValue(v *string) *EnvironmentVariableCreate {
+	if v != nil {
+		_c.SetValue(*v)
+	}
+	return _c
+}
+
 // SetEnabled sets the "enabled" field.
 func (_c *EnvironmentVariableCreate) SetEnabled(v bool) *EnvironmentVariableCreate {
 	_c.mutation.SetEnabled(v)
@@ -150,6 +158,10 @@ func (_c *EnvironmentVariableCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *EnvironmentVariableCreate) defaults() {
+	if _, ok := _c.mutation.Value(); !ok {
+		v := environmentvariable.DefaultValue
+		_c.mutation.SetValue(v)
+	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		v := environmentvariable.DefaultEnabled
 		_c.mutation.SetEnabled(v)
@@ -187,11 +199,6 @@ func (_c *EnvironmentVariableCreate) check() error {
 	}
 	if _, ok := _c.mutation.Value(); !ok {
 		return &ValidationError{Name: "value", err: errors.New(`ent: missing required field "EnvironmentVariable.value"`)}
-	}
-	if v, ok := _c.mutation.Value(); ok {
-		if err := environmentvariable.ValueValidator(v); err != nil {
-			return &ValidationError{Name: "value", err: fmt.Errorf(`ent: validator failed for field "EnvironmentVariable.value": %w`, err)}
-		}
 	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`ent: missing required field "EnvironmentVariable.enabled"`)}

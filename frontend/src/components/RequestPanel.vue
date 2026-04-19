@@ -2,8 +2,9 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
-import { PickFileForBody, ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
+import { PickFileForBody } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
+import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
 
 const props = defineProps({
   /** Selected root folder UUID for history (optional). */
@@ -51,39 +52,16 @@ const multipartParts = ref([{ key: '', kind: 'text', value: '', file_path: '' }]
 
 const activeTab = ref('params')
 
-/** Step 1: choose import type. Step 2: cURL paste (when applicable). */
-const importMenuOpen = ref(false)
-const curlModalOpen = ref(false)
-const curlText = ref(
-  'curl -X GET "https://httpbin.org/get?hello=world"'
-)
-
 /** When set, Send includes request_id; Save updates DB. */
 const savedRequestId = ref(null)
 /** Folder that owns the saved request */
 const savedFolderId = ref(null)
 const savedRequestLabel = ref('')
 
-const openImportMenu = () => {
-  importMenuOpen.value = true
-}
-
-const closeImportMenu = () => {
-  importMenuOpen.value = false
-}
-
-const chooseImportCurl = () => {
-  closeImportMenu()
-  curlModalOpen.value = true
-}
-
-const chooseImportCollection = () => {
-  emit('console', '[Import] Collection import is not available yet.')
-  closeImportMenu()
-}
-
-const closeCurlModal = () => {
-  curlModalOpen.value = false
+/** Áp payload từ Import cURL (sidebar): luôn ad-hoc, không gắn saved request. */
+function applyImportPayload(payload) {
+  if (!payload) return
+  applyInputToForm(payload)
 }
 
 function applyInputToForm(payload) {
@@ -148,19 +126,134 @@ function applyInputToForm(payload) {
   activeTab.value = bm === 'none' || bm === '' ? 'params' : 'body'
 }
 
-const applyCurlImport = async () => {
-  const text = (curlText.value || '').trim()
-  if (!text) {
-    emit('console', '[cURL] Paste a command first.')
+const saveAdhocModalOpen = ref(false)
+const saveAdhocName = ref('')
+const saveAdhocFolderId = ref('')
+/** @type {import('vue').Ref<Array<{ id: string, label: string }>>} */
+const saveAdhocFolderOptions = ref([])
+const saveAdhocFoldersLoading = ref(false)
+const saveAdhocSubmitting = ref(false)
+
+function suggestRequestName() {
+  const raw = (url.value || '').trim()
+  if (!raw) return 'New request'
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`)
+    const parts = u.pathname.split('/').filter(Boolean)
+    const last = parts.length ? parts[parts.length - 1] : ''
+    if (last) return last.length > 48 ? last.slice(0, 45) + '…' : last
+    return u.host || 'New request'
+  } catch {
+    return 'New request'
+  }
+}
+
+async function loadSaveAdhocFolderOptions() {
+  saveAdhocFoldersLoading.value = true
+  saveAdhocFolderOptions.value = []
+  try {
+    const roots = await FolderAPI.ListRootFolders()
+    const list = Array.isArray(roots) ? roots : []
+    const out = []
+    async function walk(folderId, pathLabel) {
+      const children = await FolderAPI.ListChildFolders(folderId)
+      const ch = Array.isArray(children) ? children : []
+      for (const c of ch) {
+        const label = `${pathLabel} / ${c.name}`
+        out.push({ id: c.id, label })
+        await walk(c.id, label)
+      }
+    }
+    for (const r of list) {
+      out.push({ id: r.id, label: r.name })
+      await walk(r.id, r.name)
+    }
+    saveAdhocFolderOptions.value = out
+  } catch (e) {
+    emit('console', `[Save] Could not load folders: ${e?.message || String(e)}`)
+  } finally {
+    saveAdhocFoldersLoading.value = false
+  }
+}
+
+async function openSaveAdhocModal() {
+  await loadSaveAdhocFolderOptions()
+  if (saveAdhocFolderOptions.value.length === 0) {
+    emit('console', '[Save] Create a folder in the sidebar before saving a request.')
     return
   }
+  saveAdhocName.value = suggestRequestName()
+  const preferred = props.activeRootFolderId && saveAdhocFolderOptions.value.some((o) => o.id === props.activeRootFolderId)
+  saveAdhocFolderId.value = preferred ? props.activeRootFolderId : saveAdhocFolderOptions.value[0].id
+  saveAdhocModalOpen.value = true
+}
+
+function closeSaveAdhocModal() {
+  saveAdhocModalOpen.value = false
+}
+
+function buildNewSavedRequestDto() {
+  const q = queryParams.value.filter((p) => (p.key || '').trim() !== '')
+  const h = headers.value.filter((p) => (p.key || '').trim() !== '')
+  const dto = {
+    folder_id: (saveAdhocFolderId.value || '').trim(),
+    name: (saveAdhocName.value || '').trim() || 'Untitled',
+    method: method.value,
+    url: url.value,
+    body_mode: bodyMode.value,
+    headers: h,
+    query_params: q,
+    form_fields:
+      bodyMode.value === 'form_urlencoded'
+        ? formFields.value.filter((p) => (p.key || '').trim() !== '')
+        : [],
+    multipart_parts:
+      bodyMode.value === 'multipart'
+        ? multipartParts.value
+            .filter((p) => (p.key || '').trim() !== '')
+            .map((p) => ({
+              key: p.key.trim(),
+              kind: p.kind === 'file' ? 'file' : 'text',
+              value: p.kind === 'text' ? p.value : '',
+              file_path: p.kind === 'file' ? (p.file_path || '').trim() : ''
+            }))
+        : []
+  }
+  if (bodyMode.value === 'raw' || bodyMode.value === 'xml') {
+    dto.raw_body = body.value
+  }
+  return dto
+}
+
+async function submitSaveAdhoc() {
+  const fid = (saveAdhocFolderId.value || '').trim()
+  const name = (saveAdhocName.value || '').trim()
+  if (!fid) {
+    emit('console', '[Save] Choose a folder.')
+    return
+  }
+  if (!name) {
+    emit('console', '[Save] Enter a request name.')
+    return
+  }
+  saveAdhocSubmitting.value = true
   try {
-    const payload = await ImportFromCurl(text)
-    applyInputToForm(payload)
-    closeCurlModal()
-    emit('console', '[Import] Request imported from cURL.')
+    const created = await SavedRequestAPI.Create(buildNewSavedRequestDto())
+    closeSaveAdhocModal()
+    if (created) {
+      loadFromSavedRequest(created)
+    }
+    emit('console', `[Saved] "${name}" added to library.`)
+    emit('saved-request')
   } catch (e) {
-    emit('console', `[cURL] ${e?.message || String(e)}`)
+    const msg = e?.message || String(e)
+    if (msg.includes('REQ_') || msg.toLowerCase().includes('already') || msg.toLowerCase().includes('exists')) {
+      emit('console', '[Save] A request with that name already exists in this folder. Choose another name.')
+    } else {
+      emit('console', `[Save] ${msg}`)
+    }
+  } finally {
+    saveAdhocSubmitting.value = false
   }
 }
 
@@ -345,13 +438,16 @@ async function saveSavedRequest() {
   }
 }
 
-/** Lưu request đang mở: Ctrl+S (Windows/Linux) hoặc ⌘+S (macOS) */
+/** Lưu request: saved → Update; ad-hoc → hỏi folder + tên */
 function onGlobalKeydown(e) {
   if (!(e.ctrlKey || e.metaKey)) return
   if (String(e.key || '').toLowerCase() !== 's') return
-  if (!savedRequestId.value) return
   e.preventDefault()
-  saveSavedRequest()
+  if (savedRequestId.value) {
+    saveSavedRequest()
+    return
+  }
+  openSaveAdhocModal()
 }
 
 onMounted(() => {
@@ -362,7 +458,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown, true)
 })
 
-defineExpose({ loadFromSavedRequest, applySavedRequestDto, saveSavedRequest })
+defineExpose({ loadFromSavedRequest, applySavedRequestDto, saveSavedRequest, applyImportPayload })
 
 const formatJsonBody = () => {
   const raw = (body.value ?? '').trim()
@@ -415,6 +511,15 @@ const formatXmlBody = () => {
         @keydown.enter.prevent="handleSend"
       />
       <button
+        v-if="!savedRequestId"
+        type="button"
+        class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-4 py-2 text-sm font-semibold text-gray-200 transition-colors hover:border-orange-500/50 hover:text-orange-300"
+        title="Save into a folder (⌘/Ctrl+S)"
+        @click="openSaveAdhocModal"
+      >
+        Save…
+      </button>
+      <button
         type="button"
         class="shrink-0 rounded bg-orange-600 px-6 py-2 text-sm font-bold text-white transition-all hover:bg-orange-700 active:scale-95"
         @click="handleSend"
@@ -454,14 +559,6 @@ const formatXmlBody = () => {
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          class="shrink-0 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 transition-colors hover:bg-gray-800/80 hover:text-orange-400"
-          title="Import request or collection"
-          @click="openImportMenu"
-        >
-          Import
-        </button>
       </div>
     </div>
 
@@ -784,108 +881,56 @@ const formatXmlBody = () => {
 
   <Teleport to="#app">
     <div
-      v-if="importMenuOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      v-if="saveAdhocModalOpen"
+      class="fixed inset-0 z-[57] flex items-center justify-center bg-black/50 px-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="import-menu-title"
+      aria-labelledby="save-adhoc-title"
     >
-      <div
-        class="w-full max-w-md rounded-lg border border-gray-700 bg-[#1f1f1f] p-4 shadow-xl"
-      >
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0 flex-1">
-            <h3 id="import-menu-title" class="text-sm font-semibold text-white">Import</h3>
-            <p class="mt-1 text-[11px] leading-relaxed text-gray-500">Choose what you want to bring into the app.</p>
+      <div class="w-full max-w-md rounded-lg border border-gray-700 bg-[#1f1f1f] shadow-xl">
+        <div class="border-b border-gray-700 px-4 py-3">
+          <h3 id="save-adhoc-title" class="text-sm font-semibold text-white">Save request to folder</h3>
+          <p class="mt-1 text-[11px] text-gray-500">Choose where to store this request in your library.</p>
+        </div>
+        <div class="space-y-3 p-4">
+          <div>
+            <label class="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">Folder</label>
+            <select
+              v-model="saveAdhocFolderId"
+              :disabled="saveAdhocFoldersLoading || saveAdhocFolderOptions.length === 0"
+              class="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
+            >
+              <option v-for="opt in saveAdhocFolderOptions" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
+            </select>
+            <p v-if="saveAdhocFoldersLoading" class="mt-1 text-[10px] text-gray-500">Loading folders…</p>
           </div>
-          <button
-            type="button"
-            class="shrink-0 rounded p-1.5 text-lg leading-none text-gray-500 hover:bg-gray-800 hover:text-gray-200"
-            aria-label="Close"
-            @click="closeImportMenu"
-          >
-            ×
-          </button>
-        </div>
-        <div class="mt-4 flex flex-col gap-2">
-          <button
-            type="button"
-            class="rounded border border-gray-600 bg-[#2a2a2a] px-3 py-2.5 text-left transition-colors hover:border-orange-500/40 hover:bg-gray-800/90"
-            @click="chooseImportCurl"
-          >
-            <span class="block text-sm font-medium text-gray-100">Request from cURL</span>
-            <span class="mt-0.5 block text-[10px] text-gray-500">Paste a curl command (e.g. from browser DevTools).</span>
-          </button>
-          <button
-            type="button"
-            class="rounded border border-gray-700 bg-[#252525] px-3 py-2.5 text-left transition-colors hover:border-gray-600 hover:bg-[#2a2a2a]"
-            @click="chooseImportCollection"
-          >
-            <span class="block text-sm font-medium text-gray-300">Collection</span>
-            <span class="mt-0.5 block text-[10px] text-gray-500">Postman collection, OpenAPI, etc. — coming soon.</span>
-          </button>
-        </div>
-        <div class="mt-4 flex justify-end">
-          <button
-            type="button"
-            class="rounded px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-            @click="closeImportMenu"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-
-  <Teleport to="#app">
-    <div
-      v-if="curlModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="curl-import-title"
-    >
-      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-gray-700 bg-[#1f1f1f] shadow-lg">
-        <div class="flex items-start justify-between gap-2 border-b border-gray-700 px-4 py-3">
-          <div class="min-w-0 flex-1 pr-2">
-            <h3 id="curl-import-title" class="text-sm font-semibold text-white">Import from cURL</h3>
-            <p class="mt-1 text-[11px] leading-relaxed text-gray-500">
-              Paste a full curl command (e.g. from browser DevTools → Copy as cURL). Supports -X, -H, -d, --data-urlencode, -F,
-              -G, -d @file, -u (Basic auth).
-            </p>
+          <div>
+            <label class="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">Request name</label>
+            <input
+              v-model="saveAdhocName"
+              type="text"
+              class="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 outline-none focus:border-orange-500"
+              placeholder="My API call"
+              @keydown.enter.prevent="submitSaveAdhoc"
+            />
           </div>
-          <button
-            type="button"
-            class="shrink-0 rounded p-1.5 text-lg leading-none text-gray-500 hover:bg-gray-800 hover:text-gray-200"
-            aria-label="Close"
-            @click="closeCurlModal"
-          >
-            ×
-          </button>
-        </div>
-        <div class="min-h-0 flex-1 overflow-hidden p-4">
-          <textarea
-            v-model="curlText"
-            class="app-scrollbar h-80 w-full resize-y rounded border border-gray-700 bg-gray-900 px-3 py-2 font-mono text-xs text-gray-200 outline-none focus:border-orange-500"
-            spellcheck="false"
-            placeholder="curl https://httpbin.org/get"
-          />
         </div>
         <div class="flex justify-end gap-2 border-t border-gray-700 px-4 py-3">
           <button
             type="button"
-            class="rounded bg-gray-700 px-3 py-1.5 text-xs text-white hover:bg-gray-600"
-            @click="closeCurlModal"
+            class="rounded bg-gray-700 px-3 py-1.5 text-xs text-white hover:bg-gray-600 disabled:opacity-50"
+            :disabled="saveAdhocSubmitting"
+            @click="closeSaveAdhocModal"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="rounded bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700"
-            @click="applyCurlImport"
+            class="rounded bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+            :disabled="saveAdhocSubmitting || saveAdhocFoldersLoading"
+            @click="submitSaveAdhoc"
           >
-            Import
+            {{ saveAdhocSubmitting ? 'Saving…' : 'Save' }}
           </button>
         </div>
       </div>

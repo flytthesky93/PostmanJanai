@@ -24,4 +24,9 @@ var (
 	// Saved request
 	ErrSavedRequestNotFound     = apperror.ErrDetail{Code: "REQ_501", Message: "Request not found"}
 	ErrSavedRequestNameConflict = apperror.ErrDetail{Code: "REQ_502", Message: "A request with this name already exists in this location"}
+
+	// Environment (global app)
+	ErrEnvironmentNotFound      = apperror.ErrDetail{Code: "ENV_601", Message: "Environment not found"}
+	ErrEnvironmentNameConflict = apperror.ErrDetail{Code: "ENV_602", Message: "An environment with this name already exists"}
+	ErrEnvironmentDuplicateVariableKey = apperror.ErrDetail{Code: "ENV_603", Message: "Duplicate variable key in the same environment"}
 )

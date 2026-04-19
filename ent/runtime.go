@@ -57,8 +57,8 @@ func init() {
 	environmentvariable.KeyValidator = environmentvariableDescKey.Validators[0].(func(string) error)
 	// environmentvariableDescValue is the schema descriptor for value field.
 	environmentvariableDescValue := environmentvariableFields[3].Descriptor()
-	// environmentvariable.ValueValidator is a validator for the "value" field. It is called by the builders before save.
-	environmentvariable.ValueValidator = environmentvariableDescValue.Validators[0].(func(string) error)
+	// environmentvariable.DefaultValue holds the default value on creation for the value field.
+	environmentvariable.DefaultValue = environmentvariableDescValue.Default.(string)
 	// environmentvariableDescEnabled is the schema descriptor for enabled field.
 	environmentvariableDescEnabled := environmentvariableFields[4].Descriptor()
 	// environmentvariable.DefaultEnabled holds the default value on creation for the enabled field.
