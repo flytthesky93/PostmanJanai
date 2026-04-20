@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, onMounted, onUnmounted, inject } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
 import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 
@@ -11,6 +11,81 @@ const props = defineProps({
 const emit = defineEmits(['open-saved-request', 'console'])
 
 const folderTreeReload = inject('folderTreeReload', null)
+/**
+ * Reveal state provided by Sidebar: after a search result click we walk this
+ * chain (root → target) and each node on the path auto-expands the next hop.
+ * The node whose `folderId === chain[chain.length - 2]` also scrolls/flashes
+ * the target child row; if the target is a folder AND `requestId` is set, the
+ * target's own node flashes that request row once requests have loaded.
+ */
+const folderTreeReveal = inject('folderTreeReveal', null)
+
+/** `folderId` currently flashing as a direct child of this node, or null. */
+const flashChildFolderId = ref(null)
+/** `requestId` currently flashing inside this node, or null. */
+const flashRequestId = ref(null)
+let flashChildTimer = null
+let flashRequestTimer = null
+
+function triggerChildFolderFlash(fid) {
+  if (flashChildTimer) clearTimeout(flashChildTimer)
+  flashChildFolderId.value = fid
+  nextTick(() => {
+    const el = rootEl.value?.querySelector?.(`[data-subfolder-row="${fid}"]`)
+    if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+  flashChildTimer = setTimeout(() => {
+    flashChildFolderId.value = null
+    flashChildTimer = null
+  }, 1500)
+}
+
+function triggerRequestFlash(rid) {
+  if (flashRequestTimer) clearTimeout(flashRequestTimer)
+  flashRequestId.value = rid
+  nextTick(() => {
+    const el = rootEl.value?.querySelector?.(`[data-request-row="${rid}"]`)
+    if (el?.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+  flashRequestTimer = setTimeout(() => {
+    flashRequestId.value = null
+    flashRequestTimer = null
+  }, 1500)
+}
+
+const rootEl = ref(null)
+
+/** Apply the current reveal state against this node's children/requests. Safe
+ * to call repeatedly; no-op when nothing matches. */
+function applyReveal() {
+  const st = folderTreeReveal?.value
+  if (!st || !Array.isArray(st.chain) || st.chain.length === 0) return
+  const idx = st.chain.indexOf(props.folderId)
+  if (idx < 0) return
+  const nextHop = idx < st.chain.length - 1 ? st.chain[idx + 1] : null
+
+  if (nextHop) {
+    // Expand the chain's next folder so its own FolderTreeNode instance mounts
+    // and can continue the reveal recursively.
+    if (childFolders.value.some((f) => f.id === nextHop)) {
+      if (!expandedChildIds.value[nextHop]) {
+        const cur = { ...expandedChildIds.value }
+        cur[nextHop] = true
+        expandedChildIds.value = cur
+      }
+      // If this hop IS the target, flash the child row we just expanded.
+      if (idx + 1 === st.chain.length - 1 && st.targetId === nextHop) {
+        triggerChildFolderFlash(nextHop)
+      }
+    }
+  }
+
+  if (props.folderId === st.targetId && st.requestId) {
+    if (requests.value.some((r) => r.id === st.requestId)) {
+      triggerRequestFlash(st.requestId)
+    }
+  }
+}
 
 function notifyFolderTreeReload(folderId) {
   const r = folderTreeReload
@@ -274,6 +349,20 @@ watch(
   }
 )
 
+/** Re-run reveal after each load (children list changed) and every time the
+ * Sidebar publishes a new command (tick bump). */
+watch(
+  () => [
+    folderTreeReveal?.value?.tick,
+    childFolders.value.length,
+    requests.value.length
+  ],
+  () => {
+    applyReveal()
+  },
+  { immediate: true }
+)
+
 function openCreateSubfolder(parentId) {
   folderModal.value = {
     open: true,
@@ -438,7 +527,7 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
 </script>
 
 <template>
-  <div class="folder-tree-node text-[11px]">
+  <div ref="rootEl" class="folder-tree-node text-[11px]">
     <div v-if="loading && depth === 0" class="py-1 text-gray-500">Loading…</div>
 
     <!-- Subfolders: click hàng (trừ ⋮) để thu/mở; hiệu ứng folder-tree-slide -->
@@ -446,7 +535,9 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
       <div
         role="button"
         tabindex="0"
+        :data-subfolder-row="f.id"
         class="flex cursor-pointer items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
+        :class="{ 'pmj-reveal-flash': flashChildFolderId === f.id }"
         :title="f.name"
         @click="toggleChildExpand(f.id)"
         @keydown.enter.prevent="toggleChildExpand(f.id)"
@@ -482,7 +573,9 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
     <div
       v-for="r in requests"
       :key="r.id"
+      :data-request-row="r.id"
       class="mb-0.5 flex min-w-0 items-center gap-0.5 py-0.5 group"
+      :class="{ 'pmj-reveal-flash': flashRequestId === r.id }"
     >
       <button
         type="button"

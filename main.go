@@ -85,6 +85,7 @@ func main() {
 	savedRequestUc := usecase.NewRequestUsecase(folderRepo, savedRequestRepo)
 	envUc := usecase.NewEnvironmentUsecase(envRepo)
 	importUc := usecase.NewImportUsecase(folderRepo, savedRequestRepo, envRepo)
+	searchUc := usecase.NewSearchUsecase(folderRepo, savedRequestRepo)
 
 	appHandler := delivery.NewAppHandler()
 	folderHandler := delivery.NewFolderHandler(folderUc)
@@ -92,6 +93,7 @@ func main() {
 	historyHandler := delivery.NewHistoryHandler(historyRepo)
 	environmentHandler := delivery.NewEnvironmentHandler(envUc)
 	importHandler := delivery.NewImportHandler(importUc)
+	searchHandler := delivery.NewSearchHandler(searchUc)
 	httpExecutor := service.NewHTTPExecutor()
 	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo)
 
@@ -120,6 +122,7 @@ func main() {
 			historyHandler.SetContext(ctx)
 			environmentHandler.SetContext(ctx)
 			importHandler.SetContext(ctx)
+			searchHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
@@ -129,6 +132,7 @@ func main() {
 			historyHandler,
 			environmentHandler,
 			importHandler,
+			searchHandler,
 			httpHandler,
 		},
 	})

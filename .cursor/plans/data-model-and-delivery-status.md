@@ -204,7 +204,7 @@ erDiagram
 
 ## Tiến độ đã triển khai (cập nhật 2026-04-20)
 
-- **Roadmap:** Phase **0–3** **đã đóng**, **Phase 4 đang chạy** (item #1 **Import collection** đã xong) — xem [roadmap.md](roadmap.md).
+- **Roadmap:** Phase **0–3** **đã đóng**, **Phase 4 đang chạy** (items #1 **Import collection**, #2 **Multi-tab**, #3 **Search/filter** đã xong) — xem [roadmap.md](roadmap.md).
 
 ### Đã xong (Phase 1 + Phase 2)
 
@@ -246,9 +246,18 @@ erDiagram
   - **Frontend:** `frontend/src/components/ImportCollectionModal.vue` (preview tên, format, số folder/request, variables, warnings; option tạo + activate env) + nút **Import** trên sidebar Folders (`Sidebar.vue`); refresh folder tree + env list và toast sau khi import.
   - **DB impact:** **không** đổi schema — tái sử dụng bảng `folders` / `requests` / `request_*` / `environments` / `environment_variables` hiện có; `DBSchemaUserVersion` vẫn `3`.
 
+- [x] **Search / filter** (folders, saved requests, history) (2026-04-20):
+  - **Backend:** `internal/repository/folder_repository.go` — `SearchByName(ctx, query, limit) ([]*FolderItem, truncated, error)` dùng `folder.NameContainsFold` + `LIMIT n+1` để phát hiện truncate; thêm `ListAllSkeleton(ctx)` (chỉ `id` / `name` / `parent_id`) để tính breadcrumb. `internal/repository/request_repository.go` — `SearchByNameOrURL(ctx, query, limit)` OR `name`/`url` với `ContainsFold`.
+  - **Usecase:** `internal/usecase/search_usecase.go` — `SearchTree(query, limit)` ghép folder + request hits, build `path[]` (breadcrumb tên folders từ root) từ skeleton, cycle-safe. Test `search_usecase_test.go` cho `pathForFolder` (root / mid / leaf / sibling / missing / cycle).
+  - **Delivery:** `internal/delivery/search_handler.go` — Wails `SearchHandler.SearchTree(query, limit)`; empty query ⇒ empty result để UI fallback về cây thường. Wire trong `main.go`.
+  - **Frontend:** `frontend/src/components/HighlightText.vue` (utility bôi match không regex); `Sidebar.vue` bổ sung:
+    - Tab **Folders**: ô search đầu panel, debounce 250ms + anti-stale token, render flat list "Folders · n" + "Requests · n" kèm breadcrumb path + highlight; click folder hit ⇒ activate root + expand, click request hit ⇒ `open-saved-request`.
+    - Tab **History**: input free-text (URL/method/status substring, highlight trên URL) + filter panel toggle (method chip multi-select, status group 2xx/3xx/4xx/5xx/other, date range `from`/`to`), pure client-side qua `computed filteredHistoryList`; counter `matched / total` + "Clear all".
+  - **Giới hạn:** mặc định 100 hit/nhóm, cứng ≤ 500 (`searchMaxLimit`), truncate hiển thị hint cho user.
+  - **DB impact:** **không** đổi schema — dùng SQLite `LIKE` qua Ent `*ContainsFold`; ở scale local (thousands) không cần FTS/index phụ.
+
 ### Chưa làm / backlog (Phase 4+)
 
-- [ ] **Search / filter** folder + request + history (LIKE + debounce UI)
 - [ ] **Export** collection/project (JSON) — đối xứng với import
 - [ ] **Snippet** curl / fetch (pure Go, input là payload đã resolve `{{var}}`)
 - [ ] **Polish** cây folder (expand/collapse bền, DnD, rename inline) — cần API `MoveFolder` / `MoveRequest`
@@ -269,8 +278,8 @@ erDiagram
 - [x] **Active env duy nhất** + **resolve `{{var}}`** trước gửi request
 - [x] Import **collection** (file) vào folder tree — Postman v2.1/v2.0, OpenAPI 3.x (JSON+YAML), Insomnia v4 (2026-04-20)
 - [x] **Multi-tab** request editor + persist `localStorage` (2026-04-20)
+- [x] **Search / filter** folder + saved request + history (2026-04-20)
 - [ ] **Export** collection/project (file)
-- [ ] **Search / filter** folder + request + history
 - [ ] **Snippet** curl / fetch
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
@@ -278,4 +287,4 @@ erDiagram
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-20). **Phase 3 đã xong** + **Phase 4 items #1 (Import collection) và #2 (Multi-tab) đã xong**. Tiếp theo: **search / filter** (item #3), **export** project JSON (#4), **snippet** curl/fetch (#5), polish cây folder DnD + rename inline (#6); tùy chọn migrate v2→v3 giữ dữ liệu.
+Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-20). **Phase 3 đã xong** + **Phase 4 items #1 (Import collection), #2 (Multi-tab) và #3 (Search/filter) đã xong**. Tiếp theo: **export** project JSON (#4), **snippet** curl/fetch (#5), polish cây folder DnD + rename inline (#6); tùy chọn migrate v2→v3 giữ dữ liệu.

@@ -29,6 +29,11 @@ type RequestRepository interface {
 	GetByID(ctx context.Context, id string) (*entity.SavedRequestFull, error)
 	ListByFolder(ctx context.Context, folderID string) ([]*entity.SavedRequestSummary, error)
 	ExistsNameInFolder(ctx context.Context, folderID, name string, excludeRequestID *string) (bool, error)
+
+	// SearchByNameOrURL returns saved requests whose name OR URL matches the
+	// `query` (case-insensitive substring). Capped at `limit` rows; the second
+	// return value signals truncation.
+	SearchByNameOrURL(ctx context.Context, query string, limit int) ([]*entity.SavedRequestSummary, bool, error)
 }
 
 type requestRepo struct {
@@ -58,6 +63,32 @@ func (r *requestRepo) ExistsNameInFolder(ctx context.Context, folderID, name str
 		q = q.Where(request.IDNEQ(ex))
 	}
 	return q.Exist(ctx)
+}
+
+func (r *requestRepo) SearchByNameOrURL(ctx context.Context, query string, limit int) ([]*entity.SavedRequestSummary, bool, error) {
+	q := strings.TrimSpace(query)
+	if q == "" {
+		return nil, false, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := r.client.Request.Query().
+		Where(request.Or(
+			request.NameContainsFold(q),
+			request.URLContainsFold(q),
+		)).
+		Order(ent.Desc(request.FieldUpdatedAt)).
+		Limit(limit + 1).
+		All(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	truncated := len(rows) > limit
+	if truncated {
+		rows = rows[:limit]
+	}
+	return mapSummaries(rows), truncated, nil
 }
 
 func (r *requestRepo) ListByFolder(ctx context.Context, folderID string) ([]*entity.SavedRequestSummary, error) {

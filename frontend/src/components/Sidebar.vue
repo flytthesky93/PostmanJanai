@@ -8,9 +8,11 @@ import {
   Delete as DeleteHistoryEntry
 } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
 import { ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
+import { SearchTree as SearchTreeAPI } from '../../wailsjs/wailsjs/go/delivery/SearchHandler'
 import HistoryDetailModal from './HistoryDetailModal.vue'
 import FolderTreeNode from './FolderTreeNode.vue'
 import ImportCollectionModal from './ImportCollectionModal.vue'
+import HighlightText from './HighlightText.vue'
 
 const props = defineProps({
   /** Selected root folder id (UUID) — history + tree scope */
@@ -31,6 +33,16 @@ const emit = defineEmits([
 /** Đồng bộ UI sau khi tạo folder/request trong folder con: instance đúng `folderId` sẽ gọi load() */
 const folderTreeReload = ref({ targetId: null, tick: 0 })
 provide('folderTreeReload', folderTreeReload)
+
+/**
+ * Ra lệnh cho cây folder "lộ diện" một node cụ thể sau search.
+ * - `chain`: [rootId, ..., targetFolderId] hoặc [rootId, ..., parentOfRequest]
+ * - `targetId`: node cuối trong chain — được scroll + flash highlight
+ * - `requestId`: khi click request hit, flash thêm hàng request đó sau khi lộ folder cha
+ * - `tick`: tăng mỗi lần ra lệnh để các FolderTreeNode nhận re-trigger
+ */
+const folderTreeReveal = ref({ chain: [], targetId: null, requestId: null, tick: 0 })
+provide('folderTreeReveal', folderTreeReveal)
 
 /** @type {import('vue').Ref<'folders' | 'env' | 'history'>} */
 const sidebarTab = ref('folders')
@@ -601,6 +613,244 @@ watch(sidebarTab, (tab) => {
   }
 })
 
+/* ─────────────────────────── Folders search ────────────────────────────── */
+
+const folderSearchInput = ref('')
+/** The debounced, trimmed query actually sent to the backend. */
+const folderSearchQuery = ref('')
+const folderSearchLoading = ref(false)
+const folderSearchError = ref('')
+/** @type {import('vue').Ref<{ folders: any[], requests: any[], truncated: boolean } | null>} */
+const folderSearchResults = ref(null)
+
+const folderSearchActive = computed(() => folderSearchQuery.value.trim().length > 0)
+
+let folderSearchDebounceTimer = null
+let folderSearchRequestToken = 0
+
+function scheduleFolderSearch(raw) {
+  const next = String(raw ?? '').trim()
+  if (folderSearchDebounceTimer) {
+    clearTimeout(folderSearchDebounceTimer)
+    folderSearchDebounceTimer = null
+  }
+  if (!next) {
+    folderSearchQuery.value = ''
+    folderSearchResults.value = null
+    folderSearchError.value = ''
+    folderSearchLoading.value = false
+    return
+  }
+  folderSearchDebounceTimer = setTimeout(() => {
+    folderSearchDebounceTimer = null
+    runFolderSearch(next)
+  }, 250)
+}
+
+async function runFolderSearch(query) {
+  folderSearchQuery.value = query
+  folderSearchError.value = ''
+  folderSearchLoading.value = true
+  const myToken = ++folderSearchRequestToken
+  try {
+    const res = await SearchTreeAPI(query, 100)
+    // Discard stale responses so a slow request can't overwrite a newer one.
+    if (myToken !== folderSearchRequestToken) return
+    folderSearchResults.value = res && typeof res === 'object'
+      ? {
+          folders: Array.isArray(res.folders) ? res.folders : [],
+          requests: Array.isArray(res.requests) ? res.requests : [],
+          truncated: !!res.truncated
+        }
+      : { folders: [], requests: [], truncated: false }
+  } catch (error) {
+    if (myToken !== folderSearchRequestToken) return
+    console.error('[Search] SearchTree failed:', error)
+    folderSearchError.value = error?.message || String(error)
+    folderSearchResults.value = { folders: [], requests: [], truncated: false }
+  } finally {
+    if (myToken === folderSearchRequestToken) {
+      folderSearchLoading.value = false
+    }
+  }
+}
+
+function onFolderSearchInput(e) {
+  const v = e?.target?.value ?? ''
+  folderSearchInput.value = v
+  scheduleFolderSearch(v)
+}
+
+function clearFolderSearch() {
+  folderSearchInput.value = ''
+  scheduleFolderSearch('')
+}
+
+/** Id of the root folder row to flash briefly after a search reveal whose
+ * target happens to BE the root. Nested folder / request flashes are handled
+ * inside FolderTreeNode via the provided `folderTreeReveal` state. */
+const flashRootFolderId = ref(null)
+let flashRootTimer = null
+
+/** Reveal a node deep in the tree: activate its root, expand the root row,
+ * close the search overlay, and broadcast a reveal command so each nested
+ * FolderTreeNode on the chain auto-expands the correct child (and the leaf
+ * scrolls into view with a brief flash highlight). */
+function revealInTree({ chain, targetId, requestId }) {
+  if (!Array.isArray(chain) || chain.length === 0 || !targetId) return
+  const rootId = chain[0]
+  emit('update:activeRootFolderId', rootId)
+  const next = { ...rootTreeExpanded.value }
+  next[rootId] = true
+  rootTreeExpanded.value = next
+  folderTreeReveal.value = {
+    chain: chain.slice(),
+    targetId,
+    requestId: requestId || null,
+    tick: (folderTreeReveal.value?.tick || 0) + 1
+  }
+  clearFolderSearch()
+
+  // Special case: user searched a root folder itself — the row lives in THIS
+  // component's template, not inside FolderTreeNode, so we flash it here.
+  if (targetId === rootId && !requestId) {
+    if (flashRootTimer) clearTimeout(flashRootTimer)
+    flashRootFolderId.value = rootId
+    nextTick(() => {
+      const el = document.querySelector(`[data-root-folder-row="${rootId}"]`)
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    })
+    flashRootTimer = setTimeout(() => {
+      flashRootFolderId.value = null
+      flashRootTimer = null
+    }, 1500)
+  }
+}
+
+function onFolderSearchHit(hit) {
+  if (!hit?.id) return
+  // ancestor_ids goes [root, ..., self]; fall back to [root_id, self] when
+  // the backend couldn't reconstruct (shouldn't happen but keep UI usable).
+  const chain = Array.isArray(hit.ancestor_ids) && hit.ancestor_ids.length > 0
+    ? hit.ancestor_ids
+    : [hit.root_id, hit.id].filter(Boolean)
+  revealInTree({ chain, targetId: hit.id })
+}
+
+function onRequestSearchHit(hit) {
+  if (!hit?.id) return
+  // The target folder to expand is the request's parent folder; requestId
+  // tells the leaf node to flash that specific request row.
+  const chain = Array.isArray(hit.ancestor_ids) && hit.ancestor_ids.length > 0
+    ? hit.ancestor_ids
+    : [hit.root_id, hit.folder_id].filter(Boolean)
+  revealInTree({ chain, targetId: hit.folder_id, requestId: hit.id })
+  emit('open-saved-request', hit.id)
+}
+
+/* ─────────────────────────── History filter ────────────────────────────── */
+
+/** Free-text filter (matches URL, method, status code as substring). */
+const historyFilterText = ref('')
+/** Empty set = "all methods"; else whitelist. */
+const historyMethodFilter = ref(/** @type {Set<string>} */(new Set()))
+/** Empty set = "all status groups"; else whitelist of '2xx' | '3xx' | '4xx' | '5xx' | 'other'. */
+const historyStatusFilter = ref(/** @type {Set<string>} */(new Set()))
+const historyDateFrom = ref('')
+const historyDateTo = ref('')
+const historyFilterPanelOpen = ref(false)
+
+const historyMethodChoices = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+const historyStatusChoices = [
+  { id: '2xx', label: '2xx' },
+  { id: '3xx', label: '3xx' },
+  { id: '4xx', label: '4xx' },
+  { id: '5xx', label: '5xx' },
+  { id: 'other', label: 'Other' }
+]
+
+function toggleHistoryMethod(m) {
+  const set = new Set(historyMethodFilter.value)
+  if (set.has(m)) set.delete(m)
+  else set.add(m)
+  historyMethodFilter.value = set
+}
+
+function toggleHistoryStatus(group) {
+  const set = new Set(historyStatusFilter.value)
+  if (set.has(group)) set.delete(group)
+  else set.add(group)
+  historyStatusFilter.value = set
+}
+
+function statusGroupOf(code) {
+  const c = Number(code)
+  if (c >= 200 && c < 300) return '2xx'
+  if (c >= 300 && c < 400) return '3xx'
+  if (c >= 400 && c < 500) return '4xx'
+  if (c >= 500 && c < 600) return '5xx'
+  return 'other'
+}
+
+function parseDateInput(v, endOfDay = false) {
+  const s = String(v ?? '').trim()
+  if (!s) return null
+  // <input type="date"> gives 'YYYY-MM-DD' — interpret as local day.
+  const d = new Date(endOfDay ? `${s}T23:59:59.999` : `${s}T00:00:00.000`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function parseRowDate(raw) {
+  if (raw == null || raw === '') return null
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+const historyFilterActive = computed(() => {
+  return (
+    (historyFilterText.value || '').trim().length > 0 ||
+    historyMethodFilter.value.size > 0 ||
+    historyStatusFilter.value.size > 0 ||
+    !!historyDateFrom.value ||
+    !!historyDateTo.value
+  )
+})
+
+function clearHistoryFilters() {
+  historyFilterText.value = ''
+  historyMethodFilter.value = new Set()
+  historyStatusFilter.value = new Set()
+  historyDateFrom.value = ''
+  historyDateTo.value = ''
+}
+
+const filteredHistoryList = computed(() => {
+  const rows = historyList.value
+  if (!historyFilterActive.value) return rows
+  const text = historyFilterText.value.trim().toLowerCase()
+  const methodSet = historyMethodFilter.value
+  const statusSet = historyStatusFilter.value
+  const from = parseDateInput(historyDateFrom.value, false)
+  const to = parseDateInput(historyDateTo.value, true)
+  return rows.filter((h) => {
+    if (methodSet.size > 0 && !methodSet.has(String(h.method || '').toUpperCase())) return false
+    if (statusSet.size > 0 && !statusSet.has(statusGroupOf(h.status_code))) return false
+    if (from || to) {
+      const d = parseRowDate(h.created_at)
+      if (!d) return false
+      if (from && d < from) return false
+      if (to && d > to) return false
+    }
+    if (text) {
+      const hay = [h.url, h.method, String(h.status_code ?? '')].filter(Boolean).join(' ').toLowerCase()
+      if (!hay.includes(text)) return false
+    }
+    return true
+  })
+})
+
 const loadRootFolders = async () => {
   loading.value = true
   try {
@@ -782,7 +1032,104 @@ defineExpose({
 
       <template v-if="sidebarTab === 'folders'">
         <div class="flex min-h-0 flex-1 flex-col">
-          <div class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
+          <div class="relative shrink-0 border-b border-gray-800 px-2 py-2">
+            <input
+              :value="folderSearchInput"
+              type="search"
+              placeholder="Search folders & requests…"
+              aria-label="Search folders and saved requests"
+              class="w-full rounded border border-gray-700 bg-[#1a1a1a] px-2 py-1 pr-7 text-xs text-gray-200 placeholder:text-gray-500 focus:border-orange-500/60 focus:outline-none"
+              @input="onFolderSearchInput"
+            />
+            <button
+              v-if="folderSearchInput"
+              type="button"
+              class="absolute right-3 top-1/2 -translate-y-1/2 rounded px-1 text-xs text-gray-500 hover:text-gray-200"
+              aria-label="Clear search"
+              title="Clear"
+              @click="clearFolderSearch"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div v-if="folderSearchActive" class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2">
+            <div v-if="folderSearchLoading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
+              Searching…
+            </div>
+            <div v-else-if="folderSearchError" class="p-2 text-xs text-red-400">
+              {{ folderSearchError }}
+            </div>
+            <template v-else-if="folderSearchResults">
+              <div
+                v-if="folderSearchResults.folders.length === 0 && folderSearchResults.requests.length === 0"
+                class="p-2 text-xs text-gray-500"
+                style="color: #9ca3af"
+              >
+                No matches for “{{ folderSearchQuery }}”.
+              </div>
+              <template v-else>
+                <div
+                  v-if="folderSearchResults.folders.length > 0"
+                  class="mb-1 px-1 text-[9px] font-semibold uppercase tracking-wider text-gray-500"
+                >Folders · {{ folderSearchResults.folders.length }}</div>
+                <div
+                  v-for="hit in folderSearchResults.folders"
+                  :key="'f:' + hit.id"
+                  role="button"
+                  tabindex="0"
+                  class="mb-0.5 flex cursor-pointer items-start gap-1 rounded p-1.5 text-xs transition-colors hover:bg-gray-800"
+                  :title="hit.path && hit.path.length ? hit.path.join(' / ') + ' / ' + hit.name : hit.name"
+                  @click="onFolderSearchHit(hit)"
+                  @keydown.enter.prevent="onFolderSearchHit(hit)"
+                >
+                  <span class="shrink-0 text-gray-500">📁</span>
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate text-gray-200">
+                      <HighlightText :text="hit.name" :query="folderSearchQuery" />
+                    </div>
+                    <div v-if="hit.path && hit.path.length" class="truncate text-[10px] text-gray-500">
+                      {{ hit.path.join(' / ') }}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  v-if="folderSearchResults.requests.length > 0"
+                  class="mb-1 mt-2 px-1 text-[9px] font-semibold uppercase tracking-wider text-gray-500"
+                >Requests · {{ folderSearchResults.requests.length }}</div>
+                <div
+                  v-for="hit in folderSearchResults.requests"
+                  :key="'r:' + hit.id"
+                  role="button"
+                  tabindex="0"
+                  class="mb-0.5 flex cursor-pointer items-start gap-1 rounded p-1.5 text-xs transition-colors hover:bg-gray-800"
+                  :title="hit.url"
+                  @click="onRequestSearchHit(hit)"
+                  @keydown.enter.prevent="onRequestSearchHit(hit)"
+                >
+                  <span class="shrink-0 font-mono text-[9px] text-gray-500 pt-0.5">{{ hit.method }}</span>
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate text-gray-200">
+                      <HighlightText :text="hit.name" :query="folderSearchQuery" />
+                    </div>
+                    <div class="truncate text-[10px] text-gray-500">
+                      <HighlightText :text="hit.url" :query="folderSearchQuery" />
+                    </div>
+                    <div v-if="hit.path && hit.path.length" class="truncate text-[10px] text-gray-500">
+                      {{ hit.path.join(' / ') }}
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="folderSearchResults.truncated" class="mt-2 px-1 text-[10px] text-gray-500">
+                  Showing first {{ folderSearchResults.folders.length + folderSearchResults.requests.length }} matches — refine the query for more precise results.
+                </div>
+              </template>
+            </template>
+          </div>
+
+          <div v-else class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2" @scroll.passive="closeWorkspaceMenu">
             <div v-if="loading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading folders…</div>
             <div v-else-if="rootFolderList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
               No root folders yet.
@@ -791,8 +1138,12 @@ defineExpose({
               <div
                 role="button"
                 tabindex="0"
+                :data-root-folder-row="ws.id"
                 class="flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group cursor-pointer"
-                :class="{ 'bg-gray-800/80': activeRootFolderId === ws.id }"
+                :class="{
+                  'bg-gray-800/80': activeRootFolderId === ws.id,
+                  'pmj-reveal-flash': flashRootFolderId === ws.id
+                }"
                 @click="onRootFolderRowClick(ws)"
                 @keydown.enter.prevent="onRootFolderRowClick(ws)"
               >
@@ -917,25 +1268,127 @@ defineExpose({
       <template v-else-if="sidebarTab === 'history'">
         <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 px-3 py-2">
           <span class="min-w-0 text-xs text-gray-500" style="color: #9ca3af">Recent requests</span>
-          <button
-            type="button"
-            class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-            style="color: #f97316"
-            aria-label="Refresh history"
-            title="Refresh history"
-            :disabled="historyLoading"
-            @click="loadHistory"
-          >
-            Refresh
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold transition-colors hover:border-orange-500/50 hover:bg-gray-800"
+              :class="historyFilterPanelOpen || historyFilterActive ? 'text-orange-300' : 'text-gray-300'"
+              aria-label="Toggle history filters"
+              title="Method / status / URL / date filters"
+              @click="historyFilterPanelOpen = !historyFilterPanelOpen"
+            >
+              Filters<span v-if="historyFilterActive" class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-orange-400"></span>
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              style="color: #f97316"
+              aria-label="Refresh history"
+              title="Refresh history"
+              :disabled="historyLoading"
+              @click="loadHistory"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
+
+        <div class="shrink-0 border-b border-gray-800 px-3 py-2">
+          <div class="relative">
+            <input
+              v-model="historyFilterText"
+              type="search"
+              placeholder="Filter by URL / method / status…"
+              aria-label="Filter history"
+              class="w-full rounded border border-gray-700 bg-[#1a1a1a] px-2 py-1 pr-7 text-xs text-gray-200 placeholder:text-gray-500 focus:border-orange-500/60 focus:outline-none"
+            />
+            <button
+              v-if="historyFilterText"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 text-xs text-gray-500 hover:text-gray-200"
+              aria-label="Clear filter text"
+              title="Clear"
+              @click="historyFilterText = ''"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div v-if="historyFilterPanelOpen" class="shrink-0 border-b border-gray-800 bg-[#1a1a1a] px-3 py-2 space-y-2">
+          <div>
+            <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">Method</div>
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="m in historyMethodChoices"
+                :key="m"
+                type="button"
+                class="rounded border px-1.5 py-0.5 text-[10px] font-mono transition-colors"
+                :class="historyMethodFilter.has(m)
+                  ? 'border-orange-500/60 bg-orange-500/20 text-orange-200'
+                  : 'border-gray-700 bg-[#2a2a2a] text-gray-400 hover:border-gray-500'"
+                @click="toggleHistoryMethod(m)"
+              >{{ m }}</button>
+            </div>
+          </div>
+          <div>
+            <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">Status</div>
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="g in historyStatusChoices"
+                :key="g.id"
+                type="button"
+                class="rounded border px-1.5 py-0.5 text-[10px] font-mono transition-colors"
+                :class="historyStatusFilter.has(g.id)
+                  ? 'border-orange-500/60 bg-orange-500/20 text-orange-200'
+                  : 'border-gray-700 bg-[#2a2a2a] text-gray-400 hover:border-gray-500'"
+                @click="toggleHistoryStatus(g.id)"
+              >{{ g.label }}</button>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex-1 min-w-[120px]">
+              <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">From</div>
+              <input
+                v-model="historyDateFrom"
+                type="date"
+                class="w-full rounded border border-gray-700 bg-[#2a2a2a] px-1.5 py-0.5 text-[11px] text-gray-200 focus:border-orange-500/60 focus:outline-none"
+              />
+            </div>
+            <div class="flex-1 min-w-[120px]">
+              <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">To</div>
+              <input
+                v-model="historyDateTo"
+                type="date"
+                class="w-full rounded border border-gray-700 bg-[#2a2a2a] px-1.5 py-0.5 text-[11px] text-gray-200 focus:border-orange-500/60 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[10px] text-gray-500">
+              {{ historyFilterActive ? `${filteredHistoryList.length} / ${historyList.length} match` : `${historyList.length} total` }}
+            </span>
+            <button
+              v-if="historyFilterActive"
+              type="button"
+              class="rounded px-2 py-0.5 text-[10px] text-gray-400 hover:bg-gray-800 hover:text-white"
+              @click="clearHistoryFilters"
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+
         <div class="app-scrollbar min-h-0 flex-1 overflow-y-auto p-2">
           <div v-if="historyLoading" class="p-2 text-xs text-gray-500" style="color: #9ca3af">Loading history…</div>
           <div v-else-if="historyList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
             No request history yet. Send a request to see it here.
           </div>
+          <div v-else-if="filteredHistoryList.length === 0" class="p-2 text-xs text-gray-500" style="color: #9ca3af">
+            No history entries match the current filter.
+          </div>
           <div
-            v-for="h in historyList"
+            v-for="h in filteredHistoryList"
             :key="h.id"
             role="button"
             tabindex="0"
@@ -955,7 +1408,9 @@ defineExpose({
                 >{{ h.status_code }}</span>
               <span v-if="h.duration_ms != null" class="text-[10px] text-gray-500">{{ h.duration_ms }} ms</span>
             </div>
-            <div class="mt-1 truncate text-xs text-gray-300" :title="h.url">{{ truncateMiddle(h.url, 52) }}</div>
+            <div class="mt-1 truncate text-xs text-gray-300" :title="h.url">
+              <HighlightText :text="truncateMiddle(h.url, 52)" :query="historyFilterText" />
+            </div>
             <div class="mt-1 text-[10px] text-gray-500">{{ formatHistoryTime(h.created_at) }}</div>
           </div>
         </div>
@@ -1232,3 +1687,20 @@ defineExpose({
     </div>
   </div>
 </template>
+
+<style>
+/*
+ * Brief pulse used to point the user to a folder/request row that was just
+ * revealed via search. Kept global (no scoped) so FolderTreeNode rows can
+ * share the same class name.
+ */
+@keyframes pmj-reveal-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.55); background-color: rgba(249, 115, 22, 0.22); }
+  60%  { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0);  background-color: rgba(249, 115, 22, 0.14); }
+  100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);    background-color: transparent; }
+}
+.pmj-reveal-flash {
+  animation: pmj-reveal-pulse 1.4s ease-out 1;
+  border-radius: 0.25rem;
+}
+</style>

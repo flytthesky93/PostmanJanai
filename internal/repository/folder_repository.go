@@ -26,6 +26,16 @@ type FolderRepository interface {
 	RootNameTaken(ctx context.Context, name string, excludeID *string) (bool, error)
 	ChildNameTaken(ctx context.Context, parentID, name string, excludeID *string) (bool, error)
 	ResolveRootID(ctx context.Context, folderID string) (string, error)
+
+	// SearchByName returns folders whose name matches `query` (case-insensitive
+	// substring). Capped at `limit` rows. The returned count is len(result); the
+	// second return value signals truncation (true ⇒ there may be more matches).
+	SearchByName(ctx context.Context, query string, limit int) ([]*entity.FolderItem, bool, error)
+
+	// ListAllSkeleton returns every folder as (id, name, parent_id) tuples,
+	// ordered so that callers can build the complete in-memory hierarchy. Used
+	// by search to compute breadcrumb paths without recursive DB hits.
+	ListAllSkeleton(ctx context.Context) ([]*entity.FolderItem, error)
 }
 
 type folderRepo struct {
@@ -257,6 +267,48 @@ func (r *folderRepo) ChildNameTaken(ctx context.Context, parentID, name string, 
 		q = q.Where(folder.IDNEQ(ex))
 	}
 	return q.Exist(ctx)
+}
+
+func (r *folderRepo) SearchByName(ctx context.Context, query string, limit int) ([]*entity.FolderItem, bool, error) {
+	q := strings.TrimSpace(query)
+	if q == "" {
+		return nil, false, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	// +1 so we can detect truncation with a single query.
+	rows, err := r.client.Folder.Query().
+		Where(folder.NameContainsFold(q)).
+		Order(ent.Asc(folder.FieldName)).
+		Limit(limit + 1).
+		All(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	truncated := len(rows) > limit
+	if truncated {
+		rows = rows[:limit]
+	}
+	out := make([]*entity.FolderItem, 0, len(rows))
+	for _, f := range rows {
+		out = append(out, entFolderToItem(f))
+	}
+	return out, truncated, nil
+}
+
+func (r *folderRepo) ListAllSkeleton(ctx context.Context) ([]*entity.FolderItem, error) {
+	rows, err := r.client.Folder.Query().
+		Select(folder.FieldID, folder.FieldName, folder.FieldParentID).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*entity.FolderItem, 0, len(rows))
+	for _, f := range rows {
+		out = append(out, entFolderToItem(f))
+	}
+	return out, nil
 }
 
 func (r *folderRepo) ResolveRootID(ctx context.Context, folderID string) (string, error) {
