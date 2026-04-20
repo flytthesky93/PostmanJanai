@@ -190,7 +190,7 @@ erDiagram
 ## Trạng thái (schema)
 
 - **Schema Ent** khớp các bảng trên (folder, request, history, environment, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
-- **Wails:** `FolderHandler`, `SavedRequestHandler`, `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`** — binding đã generate trong `frontend/wailsjs/`.
+- **Wails:** `FolderHandler` (gồm `MoveFolder`), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`** — binding trong `frontend/wailsjs/`.
 
 ---
 
@@ -204,7 +204,7 @@ erDiagram
 
 ## Tiến độ đã triển khai (cập nhật 2026-04-20)
 
-- **Roadmap:** Phase **0–3** **đã đóng**, **Phase 4 đang chạy** (items #1 **Import collection**, #2 **Multi-tab**, #3 **Search/filter** đã xong) — xem [roadmap.md](roadmap.md).
+- **Roadmap:** Phase **0–3** **đã đóng**, **Phase 4 đang chạy** — items #1–#3 (Import, Multi-tab, Search) + **Flow B** (export Postman v2.1, snippets, expand/rename/DnD) **đã xong** — xem [roadmap.md](roadmap.md).
 
 ### Đã xong (Phase 1 + Phase 2)
 
@@ -246,6 +246,18 @@ erDiagram
   - **Frontend:** `frontend/src/components/ImportCollectionModal.vue` (preview tên, format, số folder/request, variables, warnings; option tạo + activate env) + nút **Import** trên sidebar Folders (`Sidebar.vue`); refresh folder tree + env list và toast sau khi import.
   - **DB impact:** **không** đổi schema — tái sử dụng bảng `folders` / `requests` / `request_*` / `environments` / `environment_variables` hiện có; `DBSchemaUserVersion` vẫn `3`.
 
+- [x] **Inline rename folder + saved request** (2026-04-20 — Phase 4 item #6.2):
+  - `FolderTreeNode.vue` + `Sidebar.vue`: double-click tên folder (nested hoặc root) hoặc request → input inline; **Enter** lưu, **Esc** hủy, **blur** commit (nếu đổi tên); single-click folder vẫn thu/mở cây nhờ delayed click (~220ms) để không xung đột với double-click; single-click request mở tab như cũ.
+  - Menu ⋮: folder có **Rename** (inline) + **Edit folder…** (modal mô tả); request **Rename** dùng inline (modal rename cũ vẫn trong code nhưng không gắn menu).
+  - `emit('saved-request')` từ tree khi đổi tên request → `Sidebar` forward → `App` `onSavedRequestUpdated` (refresh catalog).
+  - **Không đổi backend / schema** (dùng `FolderHandler.UpdateFolder` / `SavedRequestHandler.Update` hiện có).
+
+- [x] **Persist folder tree expand/collapse** (2026-04-20 — Phase 4 item #6.1):
+  - `Sidebar.vue` sở hữu `expandedFolderIds` (plain `Record<string, boolean>`) và `rootTreeExpanded`; provide `expandedFolderIds` để mọi `FolderTreeNode` share một trạng thái thay vì mỗi instance tự giữ.
+  - Persist vào `localStorage`: `pmj.sidebar.folder-expanded.v1` (nested) và `pmj.sidebar.root-expanded.v1` (root) — debounce 200ms, load trước khi render cây để tránh flicker.
+  - Stale ids sau khi xoá folder là vô hại (id không tồn tại chỉ ẩn mục).
+  - **Không đổi backend / schema.**
+
 - [x] **Search / filter** (folders, saved requests, history) (2026-04-20):
   - **Backend:** `internal/repository/folder_repository.go` — `SearchByName(ctx, query, limit) ([]*FolderItem, truncated, error)` dùng `folder.NameContainsFold` + `LIMIT n+1` để phát hiện truncate; thêm `ListAllSkeleton(ctx)` (chỉ `id` / `name` / `parent_id`) để tính breadcrumb. `internal/repository/request_repository.go` — `SearchByNameOrURL(ctx, query, limit)` OR `name`/`url` với `ContainsFold`.
   - **Usecase:** `internal/usecase/search_usecase.go` — `SearchTree(query, limit)` ghép folder + request hits, build `path[]` (breadcrumb tên folders từ root) từ skeleton, cycle-safe. Test `search_usecase_test.go` cho `pathForFolder` (root / mid / leaf / sibling / missing / cycle).
@@ -258,10 +270,14 @@ erDiagram
 
 ### Chưa làm / backlog (Phase 4+)
 
-- [ ] **Export** collection/project (JSON) — đối xứng với import
-- [ ] **Snippet** curl / fetch (pure Go, input là payload đã resolve `{{var}}`)
-- [ ] **Polish** cây folder (expand/collapse bền, DnD, rename inline) — cần API `MoveFolder` / `MoveRequest`
+- [ ] **Export** project JSON “native” / đối xứng đầy đủ Import (tùy chọn — đã có **Postman Collection v2.1** từ root folder)
 - [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path là **drop**
+
+### Đã xong (Flow B — 2026-04-20)
+
+- [x] **Export Postman Collection v2.1** — `export_usecase.go` + `ExportHandler.ExportPostmanV21`; UI save dialog từ menu root folder
+- [x] **Snippet** curl / fetch / axios / httpie — `SnippetHandler` + resolve env + auth (cùng pipeline Execute)
+- [x] **Polish cây folder** — expand/collapse `localStorage`; inline rename; DnD với `MoveFolder` / `MoveRequest` + refresh cây sau move
 
 ---
 
@@ -279,12 +295,13 @@ erDiagram
 - [x] Import **collection** (file) vào folder tree — Postman v2.1/v2.0, OpenAPI 3.x (JSON+YAML), Insomnia v4 (2026-04-20)
 - [x] **Multi-tab** request editor + persist `localStorage` (2026-04-20)
 - [x] **Search / filter** folder + saved request + history (2026-04-20)
-- [ ] **Export** collection/project (file)
-- [ ] **Snippet** curl / fetch
+- [x] **Export** Postman Collection v2.1 (file) — 2026-04-20
+- [x] **Snippet** curl / fetch / axios / httpie — 2026-04-20
+- [x] **DnD** move folder/request — 2026-04-20
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-20). **Phase 3 đã xong** + **Phase 4 items #1 (Import collection), #2 (Multi-tab) và #3 (Search/filter) đã xong**. Tiếp theo: **export** project JSON (#4), **snippet** curl/fetch (#5), polish cây folder DnD + rename inline (#6); tùy chọn migrate v2→v3 giữ dữ liệu.
+Bảng ưu tiên: [roadmap.md](roadmap.md). **Phase 4 — Flow B** (export Postman v2.1, snippets, tree polish + DnD) **đã xong (2026-04-20)**. Tiếp theo (tùy chọn): export project JSON “native”, migrate v2→v3 giữ dữ liệu, Phase 5 quality/packaging.

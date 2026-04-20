@@ -404,6 +404,7 @@ watch(
         @environment-deleted="onEnvironmentDeleted"
         @console="onRequestConsole"
         @apply-curl-import="onApplyCurlImport"
+        @saved-request="onSavedRequestUpdated"
       />
     </div>
 

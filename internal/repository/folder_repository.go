@@ -36,6 +36,10 @@ type FolderRepository interface {
 	// ordered so that callers can build the complete in-memory hierarchy. Used
 	// by search to compute breadcrumb paths without recursive DB hits.
 	ListAllSkeleton(ctx context.Context) ([]*entity.FolderItem, error)
+
+	// MoveToParent re-parents a folder. `newParentID` empty string means root
+	// (parent_id NULL). Caller must validate cycles and name uniqueness.
+	MoveToParent(ctx context.Context, folderID string, newParentID *string) error
 }
 
 type folderRepo struct {
@@ -309,6 +313,21 @@ func (r *folderRepo) ListAllSkeleton(ctx context.Context) ([]*entity.FolderItem,
 		out = append(out, entFolderToItem(f))
 	}
 	return out, nil
+}
+
+func (r *folderRepo) MoveToParent(ctx context.Context, folderID string, newParentID *string) error {
+	uid, err := uuid.Parse(strings.TrimSpace(folderID))
+	if err != nil {
+		return err
+	}
+	if newParentID == nil || strings.TrimSpace(*newParentID) == "" {
+		return r.client.Folder.UpdateOneID(uid).ClearParentID().Exec(ctx)
+	}
+	pid, err := uuid.Parse(strings.TrimSpace(*newParentID))
+	if err != nil {
+		return err
+	}
+	return r.client.Folder.UpdateOneID(uid).SetParentID(pid).Exec(ctx)
 }
 
 func (r *folderRepo) ResolveRootID(ctx context.Context, folderID string) (string, error) {

@@ -53,3 +53,8 @@ func (h *SavedRequestHandler) ListByFolder(folderID string) ([]*entity.SavedRequ
 	ctx := h.getContext()
 	return h.uc.ListRequestsInFolder(ctx, folderID)
 }
+
+func (h *SavedRequestHandler) MoveRequest(requestID, folderID string) error {
+	ctx := h.getContext()
+	return h.uc.MoveRequest(ctx, requestID, folderID)
+}

@@ -22,7 +22,7 @@ Build a desktop API client (Postman-like) focused on:
 | **1** | **Done**   | Closed **2026-04-17**: runner thật (`HTTPExecutor` + `HTTPHandler`), editor request/response/console, history persist + list; gắn **root folder context** khi gửi (`root_folder_id`); import request từ cURL. Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **2** | **Done**   | Closed **2026-04**: CRUD **folder** (cây lồng) + **saved request** (`folder_id`), UI sidebar **Folders** + cây đệ quy (`FolderCatalog` / `FolderTreeNode`), Wails `FolderHandler` + `SavedRequestHandler`, bump **DB v3** (workspace/collection → folder). |
 | **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
-| **4** | In progress | **Item #1 done (2026-04-20):** Import collection (Postman v2.1/v2.0, OpenAPI 3.x, Insomnia v4). **Item #2 done (2026-04-20):** Multi-tab request editor (tab strip + dirty dot + persist qua `localStorage`). **Item #3 done (2026-04-20):** Search / filter (sidebar search folders + saved requests; history filter method/status/URL/date). Xem mục Phase 4 + backlog bên dưới. |
+| **4** | In progress | **Flow B (2026-04-20):** #6.1 expand/collapse persist; #6.2 inline rename; #5 snippets (curl/fetch/axios/httpie + resolve `{{var}}`/auth); #4 **Export Postman Collection v2.1**; #6.3 DnD move folder/request (+ root drop). **Trước đó:** #1 Import; #2 Multi-tab; #3 Search/filter. **Còn:** export “native” / project JSON (tùy chọn); #7 migrate v2→v3 giữ data (optional). |
 | **5** | Not started | — |
 
 ---
@@ -97,8 +97,8 @@ Scope:
 
 - ~~Multi-tab request editing.~~ **Done (2026-04-20)** — tabs lưu state riêng (URL/method/headers/body/form/multipart/auth/response/loading), **dirty dot** cho tab chưa lưu, **tab strip** có close + `+`, khôi phục tabs qua `localStorage` (`pmj.tabs.v1`), trần 20 tab; tái dùng tab rỗng khi Import cURL; khi "Save…" ad-hoc thành công → tab tự promote thành saved.
 - ~~Search/filter for **folders** / requests and history.~~ **Done (2026-04-20)** — sidebar Folders có ô search (debounce 250ms) → gọi `SearchHandler.SearchTree` (SQLite `LIKE` case-insensitive cho `folders.name` + `requests.name`/`requests.url`), hiển thị flat list kèm breadcrumb path + highlight match; sidebar History có filter panel client-side (method multi-select, status group 2xx/3xx/4xx/5xx/other, URL substring, date range) + highlight URL.
-- ~~Import/export project JSON (then evolve to Postman collection import).~~ **Import done (2026-04-20)** — Postman v2.1 / v2.0, OpenAPI 3.x (JSON + YAML), Insomnia v4; auto-detect format; map vào **folder tree mới** (root folder tự rename khi trùng); sibling trùng tên tự `" (n)"`; tùy chọn tạo Environment mới từ collection variables (optional activate). Export project JSON còn pending.
-- Code snippet generation (curl/fetch).
+- ~~Import/export project JSON (then evolve to Postman collection import).~~ **Import done (2026-04-20)** — Postman v2.1 / v2.0, OpenAPI 3.x (JSON + YAML), Insomnia v4; auto-detect format; map vào **folder tree mới** (root folder tự rename khi trùng); sibling trùng tên tự `" (n)"`; tùy chọn tạo Environment mới từ collection variables (optional activate). **Export Postman v2.1 done (2026-04-20)** — save dialog + file write từ root folder; export project JSON “native” vẫn tùy chọn.
+- ~~Code snippet generation (curl/fetch).~~ **Done (2026-04-20)** — curl / fetch / axios / httpie; backend resolve `{{var}}` + auth như Execute.
 
 Done when:
 
@@ -113,6 +113,9 @@ Done when:
 - **Item #3 — Search / filter (Backend):** `internal/repository/folder_repository.go` thêm `SearchByName(q, limit)` + `ListAllSkeleton()`; `internal/repository/request_repository.go` thêm `SearchByNameOrURL(q, limit)` (Ent `NameContainsFold` / `URLContainsFold` → SQLite `LIKE` case-insensitive, `LIMIT n+1` để báo truncate); usecase `internal/usecase/search_usecase.go` ghép 2 nguồn + build breadcrumb `path[]` từ skeleton (có cycle-safe), kèm unit test `TestPathForFolder`; Wails `delivery/SearchHandler.SearchTree(query, limit)` (empty query ⇒ empty result để UI fallback về cây).
 - **Item #3 — Search / filter (Frontend):** `HighlightText.vue` (bôi orange match, không dùng regex — `indexOf` theo lowercase); `Sidebar.vue` thêm ô search ở tab Folders với debounce 250ms + anti-stale token, render flat results (folders + requests group) kèm path breadcrumb + highlight, click hit tự activate root + mở cây hoặc mở saved request; tab History thêm filter panel (method chip multi-select, status group 2xx/3xx/4xx/5xx/other, free-text URL/method/status, date-range `from`/`to` theo `<input type="date">`) client-side qua `computed filteredHistoryList`, highlight URL theo filter text, hiển thị counter `matched / total`.
 - **Không đổi schema:** không bump `DBSchemaUserVersion` (tái sử dụng `folders` + `requests` + `environments` hiện có; tab state **chỉ lưu browser-side** qua `localStorage`; search dựa trên SQLite `LIKE`, không cần index mới ở scale local).
+- **Flow B — Export Postman v2.1 (#4):** `internal/usecase/export_usecase.go` `ExportPostmanV21CollectionJSON`; Wails `ExportHandler.ExportPostmanV21` (save dialog + `os.WriteFile`); menu root ⋮ **Export Postman v2.1…** trong `Sidebar.vue`.
+- **Flow B — Snippets (#5):** `internal/service/snippet.go` + `request_url.go` `FinalURLForRequest`; `SnippetHandler` (`RenderSnippet`, `ListSnippetKinds`); `SnippetPanel.vue` + `RequestPanel` `buildHttpExecutePayload` dùng chung với Send.
+- **Flow B — DnD (#6.3):** repository `MoveToParent` / `MoveToFolder`; usecase `MoveFolder` / `MoveRequest`; Wails `FolderHandler.MoveFolder`, `SavedRequestHandler.MoveRequest`; `FolderTreeNode` drag/drop + `@tree-changed` → refresh mọi cây; hàng root trong `Sidebar` nhận drop (kéo folder/request vào collection) + `draggable` root.
 
 ### Phase 5 - Quality and Packaging
 
@@ -160,9 +163,9 @@ Phase **3** đã đóng. Ưu tiên tiếp theo gắn **Phase 4** (productivity) 
 | ~~**1**~~ | ~~**Import collection** (Postman/OpenAPI) — map vào **folder tree**~~ | **Done (Phase 4 item #1 — 2026-04-20).** |
 | ~~**2**~~ | ~~**Multi-tab request editor**~~ | **Done (Phase 4 item #2 — 2026-04-20).** |
 | ~~**3**~~ | ~~**Search / filter** (folders, requests, history)~~ | **Done (Phase 4 item #3 — 2026-04-20).** |
-| **4** | **Export** collection / project JSON (đối xứng Import) | Tái dùng DTO `ImportedCollection`, build ngược từ DB. |
-| **5** | **Snippet** curl / fetch (pure Go) | Panel nhỏ trong editor, input là payload đã resolve `{{var}}`. |
-| **6** | **Polish cây folder:** expand/collapse bền, kéo-thả, rename inline | Thêm API `MoveFolder` / `MoveRequest` + DnD UI. |
+| ~~**4**~~ | ~~**Export** Postman v2.1~~ | **Done (2026-04-20)** — `ExportPostmanV21CollectionJSON` + Wails save dialog. |
+| ~~**5**~~ | ~~**Snippet** curl/fetch/axios/httpie~~ | **Done (2026-04-20)** — `SnippetHandler` + `SnippetPanel`. |
+| ~~**6**~~ | ~~**Polish cây folder** (expand, rename, DnD)~~ | **Done (2026-04-20)** — `MoveFolder`/`MoveRequest` + `FolderTreeNode` + root row DnD. |
 | **7** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Hiện bump v3 **drop** domain — chỉ làm khi có yêu cầu upgrade không mất data. |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL.

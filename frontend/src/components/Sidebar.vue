@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick, provide } from 'vue'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
+import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as EnvAPI from '../../wailsjs/wailsjs/go/delivery/EnvironmentHandler'
 import {
   List as ListHistory,
@@ -9,6 +10,7 @@ import {
 } from '../../wailsjs/wailsjs/go/delivery/HistoryHandler'
 import { ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import { SearchTree as SearchTreeAPI } from '../../wailsjs/wailsjs/go/delivery/SearchHandler'
+import { ExportPostmanV21 } from '../../wailsjs/wailsjs/go/delivery/ExportHandler'
 import HistoryDetailModal from './HistoryDetailModal.vue'
 import FolderTreeNode from './FolderTreeNode.vue'
 import ImportCollectionModal from './ImportCollectionModal.vue'
@@ -27,7 +29,8 @@ const emit = defineEmits([
   'environments-changed',
   'environment-deleted',
   'console',
-  'apply-curl-import'
+  'apply-curl-import',
+  'saved-request'
 ])
 
 /** Đồng bộ UI sau khi tạo folder/request trong folder con: instance đúng `folderId` sẽ gọi load() */
@@ -43,6 +46,49 @@ provide('folderTreeReload', folderTreeReload)
  */
 const folderTreeReveal = ref({ chain: [], targetId: null, requestId: null, tick: 0 })
 provide('folderTreeReveal', folderTreeReveal)
+
+/**
+ * Shared expand-state cho mọi FolderTreeNode (key = folderId). Dùng plain
+ * object thay cho Set để dễ persist/restore qua JSON. Sidebar là single owner,
+ * các node chỉ đọc/ghi qua inject.
+ */
+const EXPANDED_FOLDER_STORAGE_KEY = 'pmj.sidebar.folder-expanded.v1'
+const EXPANDED_ROOT_STORAGE_KEY = 'pmj.sidebar.root-expanded.v1'
+
+const expandedFolderIds = ref(/** @type {Record<string, boolean>} */({}))
+provide('expandedFolderIds', expandedFolderIds)
+
+function safeLoadJson(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    const out = {}
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof k === 'string' && k && v === true) out[k] = true
+    }
+    return out
+  } catch {
+    return null
+  }
+}
+
+/** Persist both expand maps with a single shared debounce — avoids hammering
+ * localStorage on drag-expand or rapid reveals. */
+let persistExpandTimer = null
+function schedulePersistExpand() {
+  if (persistExpandTimer) return
+  persistExpandTimer = setTimeout(() => {
+    persistExpandTimer = null
+    try {
+      localStorage.setItem(EXPANDED_FOLDER_STORAGE_KEY, JSON.stringify(expandedFolderIds.value))
+      localStorage.setItem(EXPANDED_ROOT_STORAGE_KEY, JSON.stringify(rootTreeExpanded.value))
+    } catch {
+      /* ignore quota / privacy-mode errors */
+    }
+  }, 200)
+}
 
 /** @type {import('vue').Ref<'folders' | 'env' | 'history'>} */
 const sidebarTab = ref('folders')
@@ -299,6 +345,79 @@ function toggleRootTree(wsId) {
   rootTreeExpanded.value = next
 }
 
+/** Inline rename for root folder row (double-click name). */
+const inlineRenameRootFolder = ref({ id: /** @type {string|null} */(null), name: '' })
+const inlineRootSubmitting = ref(false)
+const ROOT_ROW_CLICK_MS = 220
+let rootRowClickTimer = null
+
+function scheduleRootRowClick(ws) {
+  if (!ws?.id) return
+  if (inlineRenameRootFolder.value.id === ws.id) return
+  if (rootRowClickTimer) return
+  rootRowClickTimer = setTimeout(() => {
+    rootRowClickTimer = null
+    onRootFolderRowClick(ws)
+  }, ROOT_ROW_CLICK_MS)
+}
+
+function onRootFolderRowDblClick(ws) {
+  if (rootRowClickTimer) {
+    clearTimeout(rootRowClickTimer)
+    rootRowClickTimer = null
+  }
+  startInlineRootRename(ws)
+}
+
+function startInlineRootRename(ws) {
+  if (!ws?.id) return
+  closeWorkspaceMenu()
+  inlineRenameRootFolder.value = { id: ws.id, name: ws.name || '' }
+  nextTick(() => {
+    const el = document.querySelector(`[data-root-inline-input="${ws.id}"]`)
+    if (el && typeof el.focus === 'function') {
+      el.focus()
+      try { el.select() } catch { /* ignore */ }
+    }
+  })
+}
+
+function cancelInlineRootRename() {
+  inlineRenameRootFolder.value = { id: null, name: '' }
+}
+
+async function submitInlineRootRename() {
+  if (inlineRootSubmitting.value) return
+  const id = inlineRenameRootFolder.value.id
+  const name = (inlineRenameRootFolder.value.name || '').trim()
+  if (!id) return
+  const ws = rootFolderList.value.find((w) => w.id === id)
+  if (!ws) {
+    cancelInlineRootRename()
+    return
+  }
+  if (!name || name === ws.name) {
+    cancelInlineRootRename()
+    return
+  }
+  inlineRootSubmitting.value = true
+  try {
+    await FolderAPI.UpdateFolder(id, name, (ws.description || '').trim())
+    cancelInlineRootRename()
+    await loadRootFolders()
+  } catch (error) {
+    const msg = error?.message || String(error)
+    if (msg.includes('FOL_301') || msg.includes('already exists')) {
+      showToast('warning', 'That folder name is already in use here.')
+    } else {
+      showToast('error', `Rename failed: ${msg}`)
+    }
+    cancelInlineRootRename()
+  } finally {
+    inlineRootSubmitting.value = false
+  }
+}
+
 /**
  * Root row: mở/đóng cây 1 click.
  * - Root đang chọn: click = toggle thu/mở.
@@ -365,6 +484,63 @@ const toggleWorkspaceMenu = (ws, event) => {
 const onEditFromMenu = (ws) => {
   closeWorkspaceMenu()
   openEditModal(ws)
+}
+
+const onExportPostmanFromMenu = async (ws) => {
+  closeWorkspaceMenu()
+  if (!ws?.id) return
+  try {
+    await ExportPostmanV21(ws.id)
+    showToast('success', 'Collection exported.')
+  } catch (error) {
+    console.error('[Export] Postman v2.1 failed:', error)
+    showToast('error', `Export failed: ${error?.message || error}`)
+  }
+}
+
+const PMJ_DND_FOLDER = 'pmj/folder'
+const PMJ_DND_REQUEST = 'pmj/request'
+
+function onRootFolderDragOver(e) {
+  e.preventDefault()
+  try {
+    e.dataTransfer.dropEffect = 'move'
+  } catch {
+    /* ignore */
+  }
+}
+
+async function onRootFolderDrop(ws, e) {
+  e.preventDefault()
+  const fromF = e.dataTransfer.getData(PMJ_DND_FOLDER)
+  const fromR = e.dataTransfer.getData(PMJ_DND_REQUEST)
+  if (!fromF && !fromR) return
+  if (!ws?.id) return
+  try {
+    if (fromF) {
+      if (fromF === ws.id) return
+      await FolderAPI.MoveFolder(fromF, ws.id)
+    } else if (fromR) {
+      await SavedRequestAPI.MoveRequest(fromR, ws.id)
+    }
+    onFolderTreeDndRefresh()
+    await loadRootFolders()
+  } catch (error) {
+    console.error('[DnD] Root drop failed:', error)
+    showToast('error', `Move failed: ${error?.message || error}`)
+  }
+}
+
+function onDragStartRootFolder(ws, e) {
+  closeWorkspaceMenu()
+  e.dataTransfer.setData(PMJ_DND_FOLDER, ws.id)
+  e.dataTransfer.effectAllowed = 'move'
+}
+
+function onFolderTreeDndRefresh() {
+  for (const node of folderTreeRefById.values()) {
+    node?.load?.()
+  }
 }
 
 const onDeleteFromMenu = (ws) => {
@@ -929,7 +1105,18 @@ const submitModal = async () => {
   }
 }
 
-onMounted(loadRootFolders)
+onMounted(() => {
+  // Restore persisted expand state BEFORE folders render to avoid a flicker of
+  // collapsed nodes right after reload.
+  const savedFolders = safeLoadJson(EXPANDED_FOLDER_STORAGE_KEY)
+  if (savedFolders) expandedFolderIds.value = savedFolders
+  const savedRoots = safeLoadJson(EXPANDED_ROOT_STORAGE_KEY)
+  if (savedRoots) rootTreeExpanded.value = savedRoots
+  loadRootFolders()
+})
+
+watch(expandedFolderIds, schedulePersistExpand, { deep: true })
+watch(rootTreeExpanded, schedulePersistExpand, { deep: true })
 
 function truncateMiddle(s, max) {
   if (s == null || s === '') return ''
@@ -973,11 +1160,7 @@ function statusBadgeClass(code) {
 defineExpose({
   refreshHistory,
   refreshEnvironments: loadEnvironments,
-  refreshCatalog: () => {
-    for (const node of folderTreeRefById.values()) {
-      node?.load?.()
-    }
-  }
+  refreshCatalog: onFolderTreeDndRefresh
 })
 </script>
 
@@ -1139,18 +1322,41 @@ defineExpose({
                 role="button"
                 tabindex="0"
                 :data-root-folder-row="ws.id"
+                draggable="true"
                 class="flex items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group cursor-pointer"
                 :class="{
                   'bg-gray-800/80': activeRootFolderId === ws.id,
                   'pmj-reveal-flash': flashRootFolderId === ws.id
                 }"
-                @click="onRootFolderRowClick(ws)"
-                @keydown.enter.prevent="onRootFolderRowClick(ws)"
+                @dragstart="onDragStartRootFolder(ws, $event)"
+                @dragover="onRootFolderDragOver"
+                @drop="onRootFolderDrop(ws, $event)"
               >
-                <span class="text-gray-500 shrink-0">📁</span>
-                <span class="min-w-0 flex-1 truncate pr-1">{{ ws.name }}</span>
+                <div
+                  class="flex min-w-0 flex-1 items-center gap-1"
+                  @click="scheduleRootRowClick(ws)"
+                  @dblclick="onRootFolderRowDblClick(ws)"
+                  @keydown.enter.prevent="
+                    inlineRenameRootFolder.id === ws.id ? undefined : onRootFolderRowClick(ws)
+                  "
+                >
+                  <span class="text-gray-500 shrink-0">📁</span>
+                  <input
+                    v-if="inlineRenameRootFolder.id === ws.id"
+                    :data-root-inline-input="ws.id"
+                    v-model="inlineRenameRootFolder.name"
+                    type="text"
+                    class="min-w-0 flex-1 rounded border border-orange-500/50 bg-gray-900 px-1 py-0.5 text-sm text-gray-200 outline-none"
+                    @click.stop
+                    @keydown.enter.prevent="submitInlineRootRename"
+                    @keydown.escape.prevent="cancelInlineRootRename"
+                    @blur="submitInlineRootRename"
+                  />
+                  <span v-else class="min-w-0 flex-1 truncate pr-1">{{ ws.name }}</span>
+                </div>
                 <button
                   type="button"
+                  draggable="false"
                   data-ws-menu
                   class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
                   style="min-width: 28px; line-height: 1"
@@ -1158,6 +1364,8 @@ defineExpose({
                   aria-haspopup="menu"
                   :aria-label="'Folder actions ' + (ws.name || '')"
                   @click.stop="toggleWorkspaceMenu(ws, $event)"
+                  @dblclick.stop
+                  @dragstart.stop
                 >
                   ⋮
                 </button>
@@ -1174,6 +1382,8 @@ defineExpose({
                     :depth="0"
                     @open-saved-request="(id) => emit('open-saved-request', id)"
                     @console="(msg) => emit('console', msg)"
+                    @saved-request="emit('saved-request')"
+                    @tree-changed="onFolderTreeDndRefresh"
                   />
                 </div>
               </Transition>
@@ -1469,6 +1679,14 @@ defineExpose({
           New Request
         </button>
         <div class="my-1 border-t border-gray-600" role="separator" />
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="onExportPostmanFromMenu(menuTargetWs)"
+        >
+          Export Postman v2.1…
+        </button>
         <button
           type="button"
           role="menuitem"

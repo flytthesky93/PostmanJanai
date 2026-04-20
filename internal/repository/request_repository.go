@@ -34,6 +34,10 @@ type RequestRepository interface {
 	// `query` (case-insensitive substring). Capped at `limit` rows; the second
 	// return value signals truncation.
 	SearchByNameOrURL(ctx context.Context, query string, limit int) ([]*entity.SavedRequestSummary, bool, error)
+
+	// MoveToFolder updates `folder_id` for a saved request. Caller validates
+	// name uniqueness within the destination folder.
+	MoveToFolder(ctx context.Context, requestID, folderID string) error
 }
 
 type requestRepo struct {
@@ -89,6 +93,18 @@ func (r *requestRepo) SearchByNameOrURL(ctx context.Context, query string, limit
 		rows = rows[:limit]
 	}
 	return mapSummaries(rows), truncated, nil
+}
+
+func (r *requestRepo) MoveToFolder(ctx context.Context, requestID, folderID string) error {
+	rid, err := uuid.Parse(strings.TrimSpace(requestID))
+	if err != nil {
+		return err
+	}
+	fid, err := uuid.Parse(strings.TrimSpace(folderID))
+	if err != nil {
+		return err
+	}
+	return r.client.Request.UpdateOneID(rid).SetFolderID(fid).Exec(ctx)
 }
 
 func (r *requestRepo) ListByFolder(ctx context.Context, folderID string) ([]*entity.SavedRequestSummary, error) {

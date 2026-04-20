@@ -3,6 +3,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
 import EnvVarMirrorField from './EnvVarMirrorField.vue'
+import SnippetPanel from './SnippetPanel.vue'
 import { PickFileForBody } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
@@ -410,8 +411,8 @@ function validateUrlBeforeSend() {
   return true
 }
 
-const handleSend = () => {
-  if (!validateUrlBeforeSend()) return
+/** Same shape as Wails `HTTPExecuteInput` — used by Send and snippet generator. */
+function buildHttpExecutePayload() {
   const q = queryParams.value.filter((p) => (p.key || '').trim() !== '')
   const h = headers.value.filter((p) => (p.key || '').trim() !== '')
 
@@ -447,7 +448,12 @@ const handleSend = () => {
   }
   const ap = buildAuthPayload()
   if (ap) payload.auth = ap
-  emit('send', payload)
+  return payload
+}
+
+const handleSend = () => {
+  if (!validateUrlBeforeSend()) return
+  emit('send', buildHttpExecutePayload())
 }
 
 /** Load a persisted request from SavedRequestFull (Wails). */
@@ -697,7 +703,8 @@ defineExpose({
   saveSavedRequest,
   applyImportPayload,
   snapshot: captureSnapshot,
-  hydrate
+  hydrate,
+  buildHttpExecutePayload
 })
 
 const formatJsonBody = () => {
@@ -769,6 +776,8 @@ const formatXmlBody = () => {
         Send
       </button>
     </div>
+
+    <SnippetPanel :build-payload="buildHttpExecutePayload" @console="(m) => emit('console', m)" />
 
     <div class="shrink-0 border-t border-gray-800/80 px-3 pt-2 pb-1">
       <div class="flex items-end justify-between gap-3">

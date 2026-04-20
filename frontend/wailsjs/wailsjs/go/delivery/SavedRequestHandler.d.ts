@@ -11,6 +11,8 @@ export function Get(arg1:string):Promise<entity.SavedRequestFull>;
 
 export function ListByFolder(arg1:string):Promise<Array<entity.SavedRequestSummary>>;
 
+export function MoveRequest(arg1:string,arg2:string):Promise<void>;
+
 export function SetContext(arg1:context.Context):Promise<void>;
 
 export function Update(arg1:entity.SavedRequestFull):Promise<void>;

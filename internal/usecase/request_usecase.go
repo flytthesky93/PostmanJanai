@@ -17,6 +17,7 @@ type RequestUsecase interface {
 	DeleteRequest(ctx context.Context, id string) error
 	GetRequest(ctx context.Context, id string) (*entity.SavedRequestFull, error)
 	ListRequestsInFolder(ctx context.Context, folderID string) ([]*entity.SavedRequestSummary, error)
+	MoveRequest(ctx context.Context, requestID, folderID string) error
 }
 
 type requestUsecaseImpl struct {
@@ -118,4 +119,28 @@ func (u *requestUsecaseImpl) ListRequestsInFolder(ctx context.Context, folderID 
 		return nil, err
 	}
 	return u.savedR.ListByFolder(ctx, folderID)
+}
+
+func (u *requestUsecaseImpl) MoveRequest(ctx context.Context, requestID, folderID string) error {
+	requestID = strings.TrimSpace(requestID)
+	folderID = strings.TrimSpace(folderID)
+	if requestID == "" || folderID == "" {
+		return apperror.NewWithErrorDetail(constant.ErrInternal, nil)
+	}
+	full, err := u.savedR.GetByID(ctx, requestID)
+	if err != nil {
+		return err
+	}
+	if full.FolderID == folderID {
+		return nil
+	}
+	if err := u.validateFolder(ctx, folderID); err != nil {
+		return err
+	}
+	dup := *full
+	dup.FolderID = folderID
+	if err := u.checkName(ctx, &dup, &requestID); err != nil {
+		return err
+	}
+	return u.savedR.MoveToFolder(ctx, requestID, folderID)
 }

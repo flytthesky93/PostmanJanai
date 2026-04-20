@@ -20,6 +20,8 @@ type FolderUsecase interface {
 	ListChildFolders(ctx context.Context, parentID string) ([]*entity.FolderItem, error)
 	UpdateFolder(ctx context.Context, id, name, desc string) error
 	DeleteFolder(ctx context.Context, id string) error
+	// MoveFolder re-parents a folder. `newParentID` empty string = move to root.
+	MoveFolder(ctx context.Context, folderID, newParentID string) error
 }
 
 type folderUsecaseImpl struct {
@@ -136,4 +138,65 @@ func (u *folderUsecaseImpl) DeleteFolder(ctx context.Context, id string) error {
 		return err
 	}
 	return u.folders.DeleteByID(ctx, id)
+}
+
+// isDescendantOf returns true if `descendantID` is `ancestorID` itself or any
+// nested folder under it (walk upward from descendant toward root).
+func (u *folderUsecaseImpl) isDescendantOf(ctx context.Context, ancestorID, descendantID string) bool {
+	cur := strings.TrimSpace(descendantID)
+	target := strings.TrimSpace(ancestorID)
+	if cur == "" || target == "" {
+		return false
+	}
+	for i := 0; i < 100000; i++ {
+		if cur == target {
+			return true
+		}
+		f, err := u.folders.GetByID(ctx, cur)
+		if err != nil || f.ParentID == nil {
+			return false
+		}
+		cur = *f.ParentID
+	}
+	return false
+}
+
+func (u *folderUsecaseImpl) MoveFolder(ctx context.Context, folderID, newParentID string) error {
+	folderID = strings.TrimSpace(folderID)
+	if folderID == "" {
+		return errors.New("empty folder id")
+	}
+	moving, err := u.folders.GetByID(ctx, folderID)
+	if err != nil {
+		return err
+	}
+	name := strings.TrimSpace(moving.Name)
+	np := strings.TrimSpace(newParentID)
+	if np == "" {
+		taken, err := u.folders.RootNameTaken(ctx, name, &folderID)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return apperror.NewWithErrorDetail(constant.ErrFolderRootNameConflict, nil)
+		}
+		return u.folders.MoveToParent(ctx, folderID, nil)
+	}
+	if np == folderID {
+		return errors.New("cannot move folder into itself")
+	}
+	if u.isDescendantOf(ctx, folderID, np) {
+		return errors.New("cannot move folder into its own subtree")
+	}
+	if _, err := u.folders.GetByID(ctx, np); err != nil {
+		return err
+	}
+	taken, err := u.folders.ChildNameTaken(ctx, np, name, &folderID)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return apperror.NewWithErrorDetail(constant.ErrFolderChildNameConflict, nil)
+	}
+	return u.folders.MoveToParent(ctx, folderID, &np)
 }

@@ -18,6 +18,10 @@ export function ListByFolder(arg1) {
   return window['go']['delivery']['SavedRequestHandler']['ListByFolder'](arg1);
 }
 
+export function MoveRequest(arg1, arg2) {
+  return window['go']['delivery']['SavedRequestHandler']['MoveRequest'](arg1, arg2);
+}
+
 export function SetContext(arg1) {
   return window['go']['delivery']['SavedRequestHandler']['SetContext'](arg1);
 }

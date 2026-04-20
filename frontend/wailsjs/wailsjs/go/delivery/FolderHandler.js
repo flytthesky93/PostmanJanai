@@ -18,6 +18,10 @@ export function ListRootFolders() {
   return window['go']['delivery']['FolderHandler']['ListRootFolders']();
 }
 
+export function MoveFolder(arg1, arg2) {
+  return window['go']['delivery']['FolderHandler']['MoveFolder'](arg1, arg2);
+}
+
 export function SetContext(arg1) {
   return window['go']['delivery']['FolderHandler']['SetContext'](arg1);
 }

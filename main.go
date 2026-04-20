@@ -86,6 +86,7 @@ func main() {
 	envUc := usecase.NewEnvironmentUsecase(envRepo)
 	importUc := usecase.NewImportUsecase(folderRepo, savedRequestRepo, envRepo)
 	searchUc := usecase.NewSearchUsecase(folderRepo, savedRequestRepo)
+	exportUc := usecase.NewExportUsecase(folderRepo, savedRequestRepo)
 
 	appHandler := delivery.NewAppHandler()
 	folderHandler := delivery.NewFolderHandler(folderUc)
@@ -94,8 +95,10 @@ func main() {
 	environmentHandler := delivery.NewEnvironmentHandler(envUc)
 	importHandler := delivery.NewImportHandler(importUc)
 	searchHandler := delivery.NewSearchHandler(searchUc)
+	exportHandler := delivery.NewExportHandler(exportUc)
 	httpExecutor := service.NewHTTPExecutor()
 	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo)
+	snippetHandler := delivery.NewSnippetHandler(envRepo)
 
 	err = wails.Run(&options.App{
 		Title:            constant.AppName,
@@ -123,7 +126,9 @@ func main() {
 			environmentHandler.SetContext(ctx)
 			importHandler.SetContext(ctx)
 			searchHandler.SetContext(ctx)
+			exportHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
+			snippetHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
 			appHandler,
@@ -133,7 +138,9 @@ func main() {
 			environmentHandler,
 			importHandler,
 			searchHandler,
+			exportHandler,
 			httpHandler,
+			snippetHandler,
 		},
 	})
 

@@ -61,3 +61,9 @@ func (h *FolderHandler) ListChildFolders(parentID string) ([]*entity.FolderItem,
 	ctx := h.getContext()
 	return h.uc.ListChildFolders(ctx, parentID)
 }
+
+// MoveFolder re-parents a folder. `newParentID` empty string = move to root.
+func (h *FolderHandler) MoveFolder(folderID, newParentID string) error {
+	ctx := h.getContext()
+	return h.uc.MoveFolder(ctx, folderID, newParentID)
+}

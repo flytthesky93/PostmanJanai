@@ -8,7 +8,7 @@ const props = defineProps({
   depth: { type: Number, default: 0 }
 })
 
-const emit = defineEmits(['open-saved-request', 'console'])
+const emit = defineEmits(['open-saved-request', 'console', 'saved-request', 'tree-changed'])
 
 const folderTreeReload = inject('folderTreeReload', null)
 /**
@@ -68,10 +68,10 @@ function applyReveal() {
     // Expand the chain's next folder so its own FolderTreeNode instance mounts
     // and can continue the reveal recursively.
     if (childFolders.value.some((f) => f.id === nextHop)) {
-      if (!expandedChildIds.value[nextHop]) {
-        const cur = { ...expandedChildIds.value }
+      if (!expandedFolderIds.value[nextHop]) {
+        const cur = { ...expandedFolderIds.value }
         cur[nextHop] = true
-        expandedChildIds.value = cur
+        expandedFolderIds.value = cur
       }
       // If this hop IS the target, flash the child row we just expanded.
       if (idx + 1 === st.chain.length - 1 && st.targetId === nextHop) {
@@ -100,18 +100,209 @@ const childFolders = ref([])
 const requests = ref([])
 const loading = ref(false)
 
-/** Chỉ folder có key = true mới mở cây con (mặc định thu gọn). */
-const expandedChildIds = ref(/** @type {Record<string, boolean>} */ ({}))
+/**
+ * Shared across all FolderTreeNode instances and owned by Sidebar, so the
+ * expand/collapse state survives mount/unmount (e.g. when a root is collapsed
+ * then re-expanded) AND can be persisted to localStorage in one place.
+ * Fallback to a local ref when no provider is found (e.g. tests/storybook).
+ */
+const expandedFolderIds = inject(
+  'expandedFolderIds',
+  ref(/** @type {Record<string, boolean>} */ ({}))
+)
 
 function isChildExpanded(folderId) {
-  return !!expandedChildIds.value[folderId]
+  return !!expandedFolderIds.value[folderId]
 }
 
 function toggleChildExpand(folderId) {
-  const cur = { ...expandedChildIds.value }
+  const cur = { ...expandedFolderIds.value }
   if (cur[folderId]) delete cur[folderId]
   else cur[folderId] = true
-  expandedChildIds.value = cur
+  expandedFolderIds.value = cur
+}
+
+/* ─────────────────────────── Inline rename ──────────────────────────────── */
+
+/** Currently inline-renaming folder (child of this node), or null. */
+const inlineRenameFolder = ref({ id: /** @type {string|null} */(null), name: '' })
+const inlineRenameRequest = ref({ id: /** @type {string|null} */(null), name: '' })
+/** Guard against re-entering submit via both Enter and blur. */
+const inlineSubmitting = ref(false)
+
+/** Delayed single-click lets us distinguish from double-click without
+ * mutating expand state on the first click of a dblclick sequence. */
+const CLICK_DOUBLE_WINDOW_MS = 220
+let folderRowSingleClickTimer = null
+let requestRowSingleClickTimer = null
+
+function onFolderRowClick(f) {
+  if (inlineRenameFolder.value.id === f.id) return
+  if (folderRowSingleClickTimer) return
+  folderRowSingleClickTimer = setTimeout(() => {
+    folderRowSingleClickTimer = null
+    toggleChildExpand(f.id)
+  }, CLICK_DOUBLE_WINDOW_MS)
+}
+
+function onFolderRowDblClick(f) {
+  if (folderRowSingleClickTimer) {
+    clearTimeout(folderRowSingleClickTimer)
+    folderRowSingleClickTimer = null
+  }
+  startInlineFolderRename(f)
+}
+
+function onRequestRowClick(r) {
+  if (inlineRenameRequest.value.id === r.id) return
+  if (requestRowSingleClickTimer) return
+  requestRowSingleClickTimer = setTimeout(() => {
+    requestRowSingleClickTimer = null
+    openRequest(r.id)
+  }, CLICK_DOUBLE_WINDOW_MS)
+}
+
+function onRequestRowDblClick(r) {
+  if (requestRowSingleClickTimer) {
+    clearTimeout(requestRowSingleClickTimer)
+    requestRowSingleClickTimer = null
+  }
+  startInlineRequestRename(r)
+}
+
+function startInlineFolderRename(f) {
+  if (!f?.id) return
+  closeFolderRowMenu()
+  closeRequestRowMenu()
+  cancelInlineRequestRename()
+  inlineRenameFolder.value = { id: f.id, name: f.name || '' }
+  nextTick(() => {
+    const el = rootEl.value?.querySelector?.(`[data-inline-folder-input="${f.id}"]`)
+    if (el) {
+      el.focus()
+      try { el.select() } catch { /* ignore */ }
+    }
+  })
+}
+
+function cancelInlineFolderRename() {
+  inlineRenameFolder.value = { id: null, name: '' }
+}
+
+async function submitInlineFolderRename() {
+  if (inlineSubmitting.value) return
+  const id = inlineRenameFolder.value.id
+  const name = (inlineRenameFolder.value.name || '').trim()
+  if (!id) return
+  const target = childFolders.value.find((f) => f.id === id)
+  if (!target) { cancelInlineFolderRename(); return }
+  if (!name || name === target.name) { cancelInlineFolderRename(); return }
+  inlineSubmitting.value = true
+  try {
+    await FolderAPI.UpdateFolder(id, name, target.description || '')
+    cancelInlineFolderRename()
+    await load()
+  } catch (e) {
+    const msg = e?.message || String(e)
+    if (msg.includes('FOL_301') || msg.includes('already exists')) {
+      emit('console', '[Folders] That folder name is already in use at this level.')
+    } else {
+      emit('console', `[Folders] ${msg}`)
+    }
+    cancelInlineFolderRename()
+  } finally {
+    inlineSubmitting.value = false
+  }
+}
+
+async function startInlineRequestRename(r) {
+  if (!r?.id) return
+  closeFolderRowMenu()
+  closeRequestRowMenu()
+  cancelInlineFolderRename()
+  inlineRenameRequest.value = { id: r.id, name: r.name || '' }
+  await nextTick()
+  const el = rootEl.value?.querySelector?.(`[data-inline-request-input="${r.id}"]`)
+  if (el) {
+    el.focus()
+    try { el.select() } catch { /* ignore */ }
+  }
+}
+
+function cancelInlineRequestRename() {
+  inlineRenameRequest.value = { id: null, name: '' }
+}
+
+async function submitInlineRequestRename() {
+  if (inlineSubmitting.value) return
+  const id = inlineRenameRequest.value.id
+  const name = (inlineRenameRequest.value.name || '').trim()
+  if (!id) return
+  const local = requests.value.find((r) => r.id === id)
+  if (!local) { cancelInlineRequestRename(); return }
+  if (!name || name === local.name) { cancelInlineRequestRename(); return }
+  inlineSubmitting.value = true
+  try {
+    const full = await SavedRequestAPI.Get(id)
+    if (!full) { cancelInlineRequestRename(); return }
+    full.name = name
+    await SavedRequestAPI.Update(full)
+    cancelInlineRequestRename()
+    await load()
+    emit('saved-request')
+  } catch (e) {
+    emit('console', `[Saved] ${e?.message || String(e)}`)
+    cancelInlineRequestRename()
+  } finally {
+    inlineSubmitting.value = false
+  }
+}
+
+const PMJ_FOLDER = 'pmj/folder'
+const PMJ_REQUEST = 'pmj/request'
+
+function onDragStartFolder(f, e) {
+  if (!f?.id) return
+  closeFolderRowMenu()
+  closeRequestRowMenu()
+  e.dataTransfer.setData(PMJ_FOLDER, f.id)
+  e.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragStartRequest(r, e) {
+  if (!r?.id) return
+  closeFolderRowMenu()
+  closeRequestRowMenu()
+  e.dataTransfer.setData(PMJ_REQUEST, r.id)
+  e.dataTransfer.effectAllowed = 'move'
+}
+
+function onDragOverFolder(e) {
+  e.preventDefault()
+  try {
+    e.dataTransfer.dropEffect = 'move'
+  } catch {
+    /* ignore */
+  }
+}
+
+async function onDropOnFolder(targetFolder, e) {
+  e.preventDefault()
+  const fromF = e.dataTransfer.getData(PMJ_FOLDER)
+  const fromR = e.dataTransfer.getData(PMJ_REQUEST)
+  if (!fromF && !fromR) return
+  try {
+    if (fromF) {
+      if (fromF === targetFolder.id) return
+      await FolderAPI.MoveFolder(fromF, targetFolder.id)
+    } else if (fromR) {
+      await SavedRequestAPI.MoveRequest(fromR, targetFolder.id)
+    }
+    emit('tree-changed')
+    await load()
+  } catch (err) {
+    emit('console', `[Folders] ${err?.message || err}`)
+  }
 }
 
 const folderModal = ref({
@@ -184,6 +375,11 @@ function onFolderMenuNewRequest(f) {
   openCreateRequest(f.id)
 }
 
+function onFolderMenuRename(f) {
+  closeFolderRowMenu()
+  startInlineFolderRename(f)
+}
+
 function onFolderMenuEdit(f) {
   closeFolderRowMenu()
   openEditFolder(f)
@@ -242,6 +438,11 @@ function toggleRequestRowMenu(r, event) {
       zIndex: 50
     }
   }
+}
+
+function onRequestMenuRename(r) {
+  closeRequestRowMenu()
+  startInlineRequestRename(r)
 }
 
 async function openRenameRequest(r) {
@@ -536,16 +737,37 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
         role="button"
         tabindex="0"
         :data-subfolder-row="f.id"
+        draggable="true"
         class="flex cursor-pointer items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
         :class="{ 'pmj-reveal-flash': flashChildFolderId === f.id }"
         :title="f.name"
-        @click="toggleChildExpand(f.id)"
-        @keydown.enter.prevent="toggleChildExpand(f.id)"
+        @dragstart="onDragStartFolder(f, $event)"
+        @dragover="onDragOverFolder"
+        @drop="onDropOnFolder(f, $event)"
       >
-        <span class="text-gray-500 shrink-0">📁</span>
-        <span class="min-w-0 flex-1 truncate pr-1 text-gray-200">{{ f.name }}</span>
+        <div
+          class="flex min-w-0 flex-1 items-center gap-1"
+          @click="onFolderRowClick(f)"
+          @dblclick="onFolderRowDblClick(f)"
+          @keydown.enter.prevent="inlineRenameFolder.id === f.id ? undefined : toggleChildExpand(f.id)"
+        >
+          <span class="text-gray-500 shrink-0">📁</span>
+          <input
+            v-if="inlineRenameFolder.id === f.id"
+            :data-inline-folder-input="f.id"
+            v-model="inlineRenameFolder.name"
+            type="text"
+            class="min-w-0 flex-1 rounded border border-orange-500/50 bg-gray-900 px-1 py-0.5 text-sm text-gray-200 outline-none"
+            @click.stop
+            @keydown.enter.prevent="submitInlineFolderRename"
+            @keydown.escape.prevent="cancelInlineFolderRename"
+            @blur="submitInlineFolderRename"
+          />
+          <span v-else class="min-w-0 flex-1 truncate pr-1 text-gray-200">{{ f.name }}</span>
+        </div>
         <button
           type="button"
+          draggable="false"
           data-folder-tree-menu
           class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
           style="min-width: 28px; line-height: 1"
@@ -553,6 +775,8 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
           aria-haspopup="menu"
           :aria-label="'Folder actions ' + (f.name || '')"
           @click.stop="toggleFolderRowMenu(f, $event)"
+          @dblclick.stop
+          @dragstart.stop
         >
           ⋮
         </button>
@@ -574,20 +798,35 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
       v-for="r in requests"
       :key="r.id"
       :data-request-row="r.id"
+      draggable="true"
       class="mb-0.5 flex min-w-0 items-center gap-0.5 py-0.5 group"
       :class="{ 'pmj-reveal-flash': flashRequestId === r.id }"
+      @dragstart="onDragStartRequest(r, $event)"
     >
-      <button
-        type="button"
-        class="min-w-0 flex-1 truncate text-left text-gray-400 hover:text-orange-300"
+      <div
+        class="min-w-0 flex-1 cursor-pointer text-left text-gray-400 hover:text-orange-300"
         :title="r.url"
-        @click="openRequest(r.id)"
+        @click="onRequestRowClick(r)"
+        @dblclick="onRequestRowDblClick(r)"
+        @keydown.enter.prevent="inlineRenameRequest.id === r.id ? undefined : openRequest(r.id)"
       >
         <span class="font-mono text-[10px] text-gray-500">{{ r.method }}</span>
-        {{ r.name }}
-      </button>
+        <input
+          v-if="inlineRenameRequest.id === r.id"
+          :data-inline-request-input="r.id"
+          v-model="inlineRenameRequest.name"
+          type="text"
+          class="ml-1 inline-block w-[min(100%,12rem)] rounded border border-orange-500/50 bg-gray-900 px-1 py-0.5 text-xs text-gray-200 outline-none"
+          @click.stop
+          @keydown.enter.prevent="submitInlineRequestRename"
+          @keydown.escape.prevent="cancelInlineRequestRename"
+          @blur="submitInlineRequestRename"
+        />
+        <span v-else class="ml-1">{{ r.name }}</span>
+      </div>
       <button
         type="button"
+        draggable="false"
         data-request-tree-menu
         class="shrink-0 rounded p-1 text-[10px] text-gray-500 opacity-70 hover:bg-gray-800 hover:text-gray-300 group-hover:opacity-100"
         style="min-width: 24px; line-height: 1"
@@ -595,6 +834,8 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
         aria-haspopup="menu"
         :aria-label="'Request actions ' + (r.name || '')"
         @click.stop="toggleRequestRowMenu(r, $event)"
+        @dblclick.stop
+        @dragstart.stop
       >
         ⋮
       </button>
@@ -629,9 +870,17 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
           type="button"
           role="menuitem"
           class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="onFolderMenuRename(menuTargetFolder)"
+        >
+          Rename
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
           @click="onFolderMenuEdit(menuTargetFolder)"
         >
-          Edit folder
+          Edit folder…
         </button>
         <button
           type="button"
@@ -656,7 +905,7 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
           type="button"
           role="menuitem"
           class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
-          @click="openRenameRequest(menuTargetRequest)"
+          @click="onRequestMenuRename(menuTargetRequest)"
         >
           Rename
         </button>
