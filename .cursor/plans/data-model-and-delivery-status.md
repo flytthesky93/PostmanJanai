@@ -41,6 +41,7 @@ Thay thế **workspace + collection**: một bảng, cây lồng nhau.
 | `parent_id` | UUID (TEXT) | NULL = **folder gốc** (hiển thị như hàng đầu sidebar); NOT NULL = con của folder cha |
 | `name` | TEXT | NOT NULL |
 | `description` | TEXT | NOT NULL, default `''` |
+| `sort_order` | INTEGER | NOT NULL, default `0` — thứ tự hiển thị trong cùng parent (sidebar); reorder qua DnD / `ReorderFolder` (DB **v5**). |
 | `created_at` | DATETIME | NOT NULL |
 
 - **UNIQUE** (`parent_id`, `name`) — tên không trùng giữa các folder cùng cấp (cùng parent).
@@ -177,20 +178,22 @@ erDiagram
 
 ## Migration & phiên bản DB
 
-- **`PRAGMA user_version` hiện tại (code):** **`3`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
+- **`PRAGMA user_version` hiện tại (code):** **`5`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
 - **Luồng migrate:** backup DB (nếu non-empty) → `MigrateDataBetweenVersions` → `ent.Client.Schema.Create` → set `user_version`.
 - **Các bước đã định nghĩa:**
   - `0 → 1`: placeholder.
   - `1 → 2`: drop bảng legacy (int PK) rồi recreate schema UUID (workspaces, collections, requests, …).
   - `2 → 3`: drop lại toàn bộ bảng domain có trong `dropLegacyTablesForUUIDSchema` (thêm `folders`), rồi `Schema.Create` — **mô hình mới folder + `requests.folder_id` + `histories.root_folder_id`**. **Không** có export/import tự động từ v2: dữ liệu cũ mất sau migrate (có file backup trong `AppDir/backups/` nếu backup chạy).
-- Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm).
+  - `3 → 4`: additive (Ent `Schema.Create`) — ví dụ `requests.auth_json`.
+  - `4 → 5`: `ALTER TABLE folders ADD COLUMN sort_order …` + backfill theo tên trong `internal/dbmanage/data_migrate.go` (`backfillFolderSortOrder`).
+- Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm — **backlog**).
 
 ---
 
 ## Trạng thái (schema)
 
 - **Schema Ent** khớp các bảng trên (folder, request, history, environment, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
-- **Wails:** `FolderHandler` (gồm `MoveFolder`), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`** — binding trong `frontend/wailsjs/`.
+- **Wails:** `FolderHandler` (gồm `MoveFolder`, **`ReorderFolder`**), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`** — binding trong `frontend/wailsjs/`.
 
 ---
 
@@ -204,7 +207,14 @@ erDiagram
 
 ## Tiến độ đã triển khai (cập nhật 2026-04-20)
 
-- **Roadmap:** Phase **0–3** **đã đóng**, **Phase 4 đang chạy** — items #1–#3 (Import, Multi-tab, Search) + **Flow B** (export Postman v2.1, snippets, expand/rename/DnD) **đã xong** — xem [roadmap.md](roadmap.md).
+- **Roadmap:** Phase **0–3** **đã đóng**; **Phase 4** **đã đóng** theo scope productivity (Import, Multi-tab, Search, export Postman v2.1, snippets, cây folder đầy đủ kể cả reorder + polish UX) — chi tiết [roadmap.md](roadmap.md).
+
+### Nhật ký công việc 2026-04-20 (bổ sung trong ngày)
+
+- **DnD:** vùng **Same level** / **Inside** trên hàng folder; root **Top-level** / **Inside**; highlight + strip gợi ý.
+- **Reorder:** `folders.sort_order`, **DB v5**, `FolderHandler.ReorderFolder`, khe drop giữa folder (nested + root) và cuối list.
+- **UX click:** toggle mở/thu trên **toàn hàng** (padding + `items-stretch`); khe reorder phía trên folder cũng gọi toggle; tránh dead zone mép trên/dưới.
+- **Rename folder:** chỉ qua **⋮ → Rename** (nested + root); không double-click folder; request vẫn delayed single-click + double-click rename.
 
 ### Đã xong (Phase 1 + Phase 2)
 
@@ -224,7 +234,7 @@ erDiagram
 - [x] **History:** persist snapshot **đã resolve** (URL/body/headers như gửi thật)
 - [x] **UI:** modal / flow **history chi tiết** (xem request/response đã lưu); editor **`{{var}}`** (chip, popover, caret nhảy khối trên CodeMirror + `EnvVarMirrorField`)
 
-### Đã xong (Phase 4 — một phần)
+### Đã xong (Phase 4 — productivity)
 
 - [x] **Multi-tab request editor** (2026-04-20):
   - **Store:** `frontend/src/stores/tabsStore.js` — reactive singleton (không dùng Pinia). Giữ `tabs: TabState[]` + `activeTabId`; mỗi `TabState` = `{ id, snapshot: RequestSnapshot, baseline: RequestSnapshot, response, loading }`.
@@ -244,11 +254,12 @@ erDiagram
   - **Delivery Wails:** `internal/delivery/import_handler.go` — `PickCollectionFile`, `PreviewCollectionFile`, `ImportCollectionFile`; wired trong `main.go` (OnStartup).
   - **Limits / errors:** cap file `constant.MaxImportFileBytes` (25 MB); error codes `IMP_701..IMP_707` trong `internal/constant/error_constant.go`.
   - **Frontend:** `frontend/src/components/ImportCollectionModal.vue` (preview tên, format, số folder/request, variables, warnings; option tạo + activate env) + nút **Import** trên sidebar Folders (`Sidebar.vue`); refresh folder tree + env list và toast sau khi import.
-  - **DB impact:** **không** đổi schema — tái sử dụng bảng `folders` / `requests` / `request_*` / `environments` / `environment_variables` hiện có; `DBSchemaUserVersion` vẫn `3`.
+  - **DB impact (lúc triển khai):** tái sử dụng bảng `folders` / `requests` / …; các bump sau (`auth_json`, `sort_order`) xem mục **Migration & phiên bản DB** (hiện **v5**).
 
-- [x] **Inline rename folder + saved request** (2026-04-20 — Phase 4 item #6.2):
-  - `FolderTreeNode.vue` + `Sidebar.vue`: double-click tên folder (nested hoặc root) hoặc request → input inline; **Enter** lưu, **Esc** hủy, **blur** commit (nếu đổi tên); single-click folder vẫn thu/mở cây nhờ delayed click (~220ms) để không xung đột với double-click; single-click request mở tab như cũ.
-  - Menu ⋮: folder có **Rename** (inline) + **Edit folder…** (modal mô tả); request **Rename** dùng inline (modal rename cũ vẫn trong code nhưng không gắn menu).
+- [x] **Inline rename folder + saved request** (2026-04-20 — Phase 4 item #6.2; cập nhật UX cùng ngày):
+  - **Folder:** chỉ **⋮ → Rename** → input inline (nested + root); **không** double-click folder; **Enter** / **Esc** / **blur** như trước.
+  - **Request:** double-click → input inline; single-click mở tab (delayed ~220ms để tách double-click).
+  - Menu ⋮: folder **Rename** (inline) + **Edit folder…** (modal mô tả); request **Rename** dùng inline.
   - `emit('saved-request')` từ tree khi đổi tên request → `Sidebar` forward → `App` `onSavedRequestUpdated` (refresh catalog).
   - **Không đổi backend / schema** (dùng `FolderHandler.UpdateFolder` / `SavedRequestHandler.Update` hiện có).
 
@@ -268,16 +279,16 @@ erDiagram
   - **Giới hạn:** mặc định 100 hit/nhóm, cứng ≤ 500 (`searchMaxLimit`), truncate hiển thị hint cho user.
   - **DB impact:** **không** đổi schema — dùng SQLite `LIKE` qua Ent `*ContainsFold`; ở scale local (thousands) không cần FTS/index phụ.
 
-### Chưa làm / backlog (Phase 4+)
+### Chưa làm / backlog (sau Phase 4)
 
 - [ ] **Export** project JSON “native” / đối xứng đầy đủ Import (tùy chọn — đã có **Postman Collection v2.1** từ root folder)
-- [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path là **drop**
+- [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path bump cũ là **drop** + backup
 
-### Đã xong (Flow B — 2026-04-20)
+### Đã xong (Flow B + polish — 2026-04-20)
 
 - [x] **Export Postman Collection v2.1** — `export_usecase.go` + `ExportHandler.ExportPostmanV21`; UI save dialog từ menu root folder
 - [x] **Snippet** curl / fetch / axios / httpie — `SnippetHandler` + resolve env + auth (cùng pipeline Execute)
-- [x] **Polish cây folder** — expand/collapse `localStorage`; inline rename; DnD với `MoveFolder` / `MoveRequest` + refresh cây sau move
+- [x] **Polish cây folder** — expand/collapse `localStorage`; rename folder qua ⋮; DnD `MoveFolder` / `MoveRequest`; vùng Same/Inside; **reorder** `sort_order` + `ReorderFolder` + **DB v5**; full-row click + khe reorder nhận toggle
 
 ---
 
@@ -297,11 +308,11 @@ erDiagram
 - [x] **Search / filter** folder + saved request + history (2026-04-20)
 - [x] **Export** Postman Collection v2.1 (file) — 2026-04-20
 - [x] **Snippet** curl / fetch / axios / httpie — 2026-04-20
-- [x] **DnD** move folder/request — 2026-04-20
+- [x] **DnD** move folder/request + **reorder** + **DB v5** `sort_order` — 2026-04-20
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên: [roadmap.md](roadmap.md). **Phase 4 — Flow B** (export Postman v2.1, snippets, tree polish + DnD) **đã xong (2026-04-20)**. Tiếp theo (tùy chọn): export project JSON “native”, migrate v2→v3 giữ dữ liệu, Phase 5 quality/packaging.
+**Phase 5** (quality, test, packaging) — xem [roadmap.md](roadmap.md). **Backlog tùy chọn:** export JSON native; migration giữ dữ liệu từ DB rất cũ.

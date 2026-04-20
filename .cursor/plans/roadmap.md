@@ -22,7 +22,7 @@ Build a desktop API client (Postman-like) focused on:
 | **1** | **Done**   | Closed **2026-04-17**: runner thật (`HTTPExecutor` + `HTTPHandler`), editor request/response/console, history persist + list; gắn **root folder context** khi gửi (`root_folder_id`); import request từ cURL. Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **2** | **Done**   | Closed **2026-04**: CRUD **folder** (cây lồng) + **saved request** (`folder_id`), UI sidebar **Folders** + cây đệ quy (`FolderCatalog` / `FolderTreeNode`), Wails `FolderHandler` + `SavedRequestHandler`, bump **DB v3** (workspace/collection → folder). |
 | **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
-| **4** | In progress | **Flow B (2026-04-20):** #6.1 expand/collapse persist; #6.2 inline rename; #5 snippets (curl/fetch/axios/httpie + resolve `{{var}}`/auth); #4 **Export Postman Collection v2.1**; #6.3 DnD move folder/request (+ root drop). **Trước đó:** #1 Import; #2 Multi-tab; #3 Search/filter. **Còn:** export “native” / project JSON (tùy chọn); #7 migrate v2→v3 giữ data (optional). |
+| **4** | **Done** (2026-04-20) | **Productivity scope đã đủ để đóng:** #1 Import; #2 Multi-tab; #3 Search/filter; Flow B — export Postman v2.1, snippets, cây folder (expand persist, rename, DnD move + **reorder** + vùng **Same level / Inside** + root drop), **DB v5** `folders.sort_order`. **Polish cùng ngày:** click mở/thu **full hàng** + khe reorder; rename folder **chỉ ⋮** (không double-click). **Backlog tùy chọn (không chặn Phase 4):** export project JSON “native”; migrate v2→v3 giữ dữ liệu. |
 | **5** | Not started | — |
 
 ---
@@ -117,6 +117,13 @@ Done when:
 - **Flow B — Snippets (#5):** `internal/service/snippet.go` + `request_url.go` `FinalURLForRequest`; `SnippetHandler` (`RenderSnippet`, `ListSnippetKinds`); `SnippetPanel.vue` + `RequestPanel` `buildHttpExecutePayload` dùng chung với Send.
 - **Flow B — DnD (#6.3):** repository `MoveToParent` / `MoveToFolder`; usecase `MoveFolder` / `MoveRequest`; Wails `FolderHandler.MoveFolder`, `SavedRequestHandler.MoveRequest`; `FolderTreeNode` drag/drop + `@tree-changed` → refresh mọi cây; hàng root trong `Sidebar` nhận drop (kéo folder/request vào collection) + `draggable` root.
 
+**Bổ sung cùng ngày 2026-04-20 (polish + reorder):**
+
+- **DnD “ra ngoài” / cùng cấp:** hàng folder chia vùng trên (~38%) = **Same level** (`MoveFolder` → parent của hàng đích), vùng dưới = **Inside**; hàng root: **Top-level** (`MoveFolder(…,'')`) vs **Inside** collection; highlight + tooltip.
+- **Reorder thứ tự folder:** cột `folders.sort_order`, migrate **4→5**, backfill theo tên; `FolderHandler.ReorderFolder`; khe drop giữa các folder (nested + root) + append cuối danh sách.
+- **UX click cây:** `@click` toggle trên toàn hàng (`role="button"` + padding), `items-stretch` + `min-h-[36px]`; khe reorder phía trên folder cũng toggle cùng folder — tránh “chỉ giữa hàng mới ăn click”.
+- **Rename folder:** nested + root — **Rename** trong ⋮ (bỏ double-click folder); request vẫn có delayed click + double-click rename như trước.
+
 ### Phase 5 - Quality and Packaging
 
 Scope:
@@ -151,9 +158,14 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 
 ---
 
-## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-19)
+## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-20)
 
-Phase **3** đã đóng. Ưu tiên tiếp theo gắn **Phase 4** (productivity) và backlog kỹ thuật trong [data-model-and-delivery-status.md](data-model-and-delivery-status.md):
+Phase **4** (productivity) **đã đóng** theo scope đã thống nhất. Ưu tiên tiếp theo:
+
+1. **Phase 5** — chất lượng & đóng gói: test Go/E2E smoke, checklist release, hardening Wails build.
+2. **Backlog tùy chọn:** export project JSON native; migration v2→v3 giữ dữ liệu (nếu cần).
+
+**Bảng hạng mục (lịch sử Phase 3–4 + backlog):**
 
 | Thứ tự | Hạng mục | Lý do ngắn |
 |--------|----------|------------|
@@ -165,7 +177,8 @@ Phase **3** đã đóng. Ưu tiên tiếp theo gắn **Phase 4** (productivity) 
 | ~~**3**~~ | ~~**Search / filter** (folders, requests, history)~~ | **Done (Phase 4 item #3 — 2026-04-20).** |
 | ~~**4**~~ | ~~**Export** Postman v2.1~~ | **Done (2026-04-20)** — `ExportPostmanV21CollectionJSON` + Wails save dialog. |
 | ~~**5**~~ | ~~**Snippet** curl/fetch/axios/httpie~~ | **Done (2026-04-20)** — `SnippetHandler` + `SnippetPanel`. |
-| ~~**6**~~ | ~~**Polish cây folder** (expand, rename, DnD)~~ | **Done (2026-04-20)** — `MoveFolder`/`MoveRequest` + `FolderTreeNode` + root row DnD. |
-| **7** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Hiện bump v3 **drop** domain — chỉ làm khi có yêu cầu upgrade không mất data. |
+| ~~**6**~~ | ~~**Polish cây folder** (expand, rename, DnD, reorder)~~ | **Done (2026-04-20)** — kể cả `sort_order`, vùng Same/Inside, full-row click. |
+| **7** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Backlog tùy chọn — chỉ khi cần upgrade không mất data từ DB rất cũ. |
+| **8** | **Export project JSON native** (đối xứng Import) | Backlog tùy chọn — đã có Export Postman v2.1. |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL.
