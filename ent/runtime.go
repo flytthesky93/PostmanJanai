@@ -91,8 +91,12 @@ func init() {
 	folderDescDescription := folderFields[3].Descriptor()
 	// folder.DefaultDescription holds the default value on creation for the description field.
 	folder.DefaultDescription = folderDescDescription.Default.(string)
+	// folderDescSortOrder is the schema descriptor for sort_order field.
+	folderDescSortOrder := folderFields[4].Descriptor()
+	// folder.DefaultSortOrder holds the default value on creation for the sort_order field.
+	folder.DefaultSortOrder = folderDescSortOrder.Default.(int)
 	// folderDescCreatedAt is the schema descriptor for created_at field.
-	folderDescCreatedAt := folderFields[4].Descriptor()
+	folderDescCreatedAt := folderFields[5].Descriptor()
 	// folder.DefaultCreatedAt holds the default value on creation for the created_at field.
 	folder.DefaultCreatedAt = folderDescCreatedAt.Default.(func() time.Time)
 	// folderDescID is the schema descriptor for id field.

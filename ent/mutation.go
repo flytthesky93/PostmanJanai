@@ -1437,6 +1437,8 @@ type FolderMutation struct {
 	id               *uuid.UUID
 	name             *string
 	description      *string
+	sort_order       *int
+	addsort_order    *int
 	created_at       *time.Time
 	clearedFields    map[string]struct{}
 	children         map[uuid.UUID]struct{}
@@ -1678,6 +1680,62 @@ func (m *FolderMutation) OldDescription(ctx context.Context) (v string, err erro
 // ResetDescription resets all changes to the "description" field.
 func (m *FolderMutation) ResetDescription() {
 	m.description = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *FolderMutation) SetSortOrder(i int) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *FolderMutation) SortOrder() (r int, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortOrder returns the old "sort_order" field's value of the Folder entity.
+// If the Folder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FolderMutation) OldSortOrder(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortOrder: %w", err)
+	}
+	return oldValue.SortOrder, nil
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *FolderMutation) AddSortOrder(i int) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *FolderMutation) AddedSortOrder() (r int, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *FolderMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -1939,7 +1997,7 @@ func (m *FolderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *FolderMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.parent != nil {
 		fields = append(fields, folder.FieldParentID)
 	}
@@ -1948,6 +2006,9 @@ func (m *FolderMutation) Fields() []string {
 	}
 	if m.description != nil {
 		fields = append(fields, folder.FieldDescription)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, folder.FieldSortOrder)
 	}
 	if m.created_at != nil {
 		fields = append(fields, folder.FieldCreatedAt)
@@ -1966,6 +2027,8 @@ func (m *FolderMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case folder.FieldDescription:
 		return m.Description()
+	case folder.FieldSortOrder:
+		return m.SortOrder()
 	case folder.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -1983,6 +2046,8 @@ func (m *FolderMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldName(ctx)
 	case folder.FieldDescription:
 		return m.OldDescription(ctx)
+	case folder.FieldSortOrder:
+		return m.OldSortOrder(ctx)
 	case folder.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -2015,6 +2080,13 @@ func (m *FolderMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetDescription(v)
 		return nil
+	case folder.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
+		return nil
 	case folder.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -2029,13 +2101,21 @@ func (m *FolderMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *FolderMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addsort_order != nil {
+		fields = append(fields, folder.FieldSortOrder)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *FolderMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case folder.FieldSortOrder:
+		return m.AddedSortOrder()
+	}
 	return nil, false
 }
 
@@ -2044,6 +2124,13 @@ func (m *FolderMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *FolderMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case folder.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Folder numeric field %s", name)
 }
@@ -2088,6 +2175,9 @@ func (m *FolderMutation) ResetField(name string) error {
 		return nil
 	case folder.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case folder.FieldSortOrder:
+		m.ResetSortOrder()
 		return nil
 	case folder.FieldCreatedAt:
 		m.ResetCreatedAt()

@@ -21,6 +21,7 @@ func (Folder) Fields() []ent.Field {
 		field.UUID("parent_id", uuid.UUID{}).Optional().Nillable(),
 		field.String("name").NotEmpty(),
 		field.String("description").Default(""),
+		field.Int("sort_order").Default(0),
 		field.Time("created_at").Default(time.Now).Immutable(),
 	}
 }

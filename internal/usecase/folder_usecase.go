@@ -22,6 +22,9 @@ type FolderUsecase interface {
 	DeleteFolder(ctx context.Context, id string) error
 	// MoveFolder re-parents a folder. `newParentID` empty string = move to root.
 	MoveFolder(ctx context.Context, folderID, newParentID string) error
+	// ReorderFolder moves folder among siblings of parentID (empty = roots).
+	// insertBeforeID empty = append at end; otherwise insert before that sibling.
+	ReorderFolder(ctx context.Context, folderID, parentID, insertBeforeID string) error
 }
 
 type folderUsecaseImpl struct {
@@ -199,4 +202,51 @@ func (u *folderUsecaseImpl) MoveFolder(ctx context.Context, folderID, newParentI
 		return apperror.NewWithErrorDetail(constant.ErrFolderChildNameConflict, nil)
 	}
 	return u.folders.MoveToParent(ctx, folderID, &np)
+}
+
+func parentsEqualFolder(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.TrimSpace(*a) == strings.TrimSpace(*b)
+}
+
+func (u *folderUsecaseImpl) ReorderFolder(ctx context.Context, folderID, parentID, insertBeforeID string) error {
+	folderID = strings.TrimSpace(folderID)
+	if folderID == "" {
+		return errors.New("empty folder id")
+	}
+	moving, err := u.folders.GetByID(ctx, folderID)
+	if err != nil {
+		return err
+	}
+	pid := strings.TrimSpace(parentID)
+	var targetParent *string
+	if pid == "" {
+		targetParent = nil
+	} else {
+		if _, err := u.folders.GetByID(ctx, pid); err != nil {
+			return err
+		}
+		targetParent = &pid
+	}
+	ib := strings.TrimSpace(insertBeforeID)
+	if ib != "" {
+		before, err := u.folders.GetByID(ctx, ib)
+		if err != nil {
+			return err
+		}
+		if !parentsEqualFolder(before.ParentID, targetParent) {
+			return errors.New("insertBefore must be a sibling under the target parent")
+		}
+	}
+	if !parentsEqualFolder(moving.ParentID, targetParent) {
+		if err := u.MoveFolder(ctx, folderID, pid); err != nil {
+			return err
+		}
+	}
+	return u.folders.ReorderFolderSibling(ctx, folderID, pid, ib)
 }

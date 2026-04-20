@@ -8,6 +8,7 @@ type FolderItem struct {
 	ParentID    *string   `json:"parent_id,omitempty"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
+	SortOrder   int       `json:"sort_order"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

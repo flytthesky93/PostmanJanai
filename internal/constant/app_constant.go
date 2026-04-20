@@ -8,7 +8,7 @@ const (
 
 	// DBSchemaUserVersion — expected SQLite PRAGMA user_version after schema/data matches current Ent code.
 	// When bumping: add a branch in dbmanage.migrateOneStep (data); backup runs before Schema.Create.
-	DBSchemaUserVersion = 4
+	DBSchemaUserVersion = 5
 
 	// HTTPClientTimeout — total time for one request (including reading the response body).
 	HTTPClientTimeoutSeconds = 60

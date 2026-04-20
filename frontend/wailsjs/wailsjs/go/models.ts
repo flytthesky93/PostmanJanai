@@ -146,6 +146,7 @@ export namespace entity {
 	    parent_id?: string;
 	    name: string;
 	    description: string;
+	    sort_order: number;
 	    // Go type: time
 	    created_at: any;
 	
@@ -159,6 +160,7 @@ export namespace entity {
 	        this.parent_id = source["parent_id"];
 	        this.name = source["name"];
 	        this.description = source["description"];
+	        this.sort_order = source["sort_order"];
 	        this.created_at = this.convertValues(source["created_at"], null);
 	    }
 	

@@ -67,3 +67,10 @@ func (h *FolderHandler) MoveFolder(folderID, newParentID string) error {
 	ctx := h.getContext()
 	return h.uc.MoveFolder(ctx, folderID, newParentID)
 }
+
+// ReorderFolder moves a folder among siblings under parentID (empty = roots).
+// insertBeforeID empty = append at end; otherwise insert before that sibling id.
+func (h *FolderHandler) ReorderFolder(folderID, parentID, insertBeforeID string) error {
+	ctx := h.getContext()
+	return h.uc.ReorderFolder(ctx, folderID, parentID, insertBeforeID)
+}

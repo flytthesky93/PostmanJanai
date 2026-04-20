@@ -72,6 +72,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Default: ""},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "parent_id", Type: field.TypeUUID, Nullable: true},
 	}
@@ -83,7 +84,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "folders_folders_children",
-				Columns:    []*schema.Column{FoldersColumns[4]},
+				Columns:    []*schema.Column{FoldersColumns[5]},
 				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -92,7 +93,7 @@ var (
 			{
 				Name:    "folder_parent_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{FoldersColumns[4], FoldersColumns[1]},
+				Columns: []*schema.Column{FoldersColumns[5], FoldersColumns[1]},
 			},
 		},
 	}

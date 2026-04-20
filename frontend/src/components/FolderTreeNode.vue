@@ -130,27 +130,13 @@ const inlineRenameRequest = ref({ id: /** @type {string|null} */(null), name: ''
 /** Guard against re-entering submit via both Enter and blur. */
 const inlineSubmitting = ref(false)
 
-/** Delayed single-click lets us distinguish from double-click without
- * mutating expand state on the first click of a dblclick sequence. */
+/** Delayed single-click for request rows only (double-click = inline rename). */
 const CLICK_DOUBLE_WINDOW_MS = 220
-let folderRowSingleClickTimer = null
 let requestRowSingleClickTimer = null
 
 function onFolderRowClick(f) {
   if (inlineRenameFolder.value.id === f.id) return
-  if (folderRowSingleClickTimer) return
-  folderRowSingleClickTimer = setTimeout(() => {
-    folderRowSingleClickTimer = null
-    toggleChildExpand(f.id)
-  }, CLICK_DOUBLE_WINDOW_MS)
-}
-
-function onFolderRowDblClick(f) {
-  if (folderRowSingleClickTimer) {
-    clearTimeout(folderRowSingleClickTimer)
-    folderRowSingleClickTimer = null
-  }
-  startInlineFolderRename(f)
+  toggleChildExpand(f.id)
 }
 
 function onRequestRowClick(r) {
@@ -261,6 +247,58 @@ async function submitInlineRequestRename() {
 const PMJ_FOLDER = 'pmj/folder'
 const PMJ_REQUEST = 'pmj/request'
 
+/** Top ~38% of row = same level as this folder (parent = current node's folderId). Bottom = inside folder. */
+const DND_SIBLING_RATIO = 0.38
+
+/** While dragging, highlights drop target + mode for visual feedback */
+const dndHover = ref(/** @type {{ folderId: string, mode: 'sibling' | 'into' } | null} */ (null))
+
+/** Drop gaps between sibling folders: `before-<id>` or `append` */
+const folderReorderGapHover = ref(/** @type {string|null} */ (null))
+
+function dndModeFromPointer(el, e) {
+  const r = el.getBoundingClientRect()
+  const ratio = (e.clientY - r.top) / Math.max(r.height, 1)
+  return ratio < DND_SIBLING_RATIO ? 'sibling' : 'into'
+}
+
+function clearDndHover() {
+  dndHover.value = null
+  folderReorderGapHover.value = null
+}
+
+function onFolderReorderGapDragOver(insertBeforeId, e) {
+  e.preventDefault()
+  try {
+    e.dataTransfer.dropEffect = 'move'
+  } catch {
+    /* ignore */
+  }
+  folderReorderGapHover.value = insertBeforeId == null ? 'append' : `before-${insertBeforeId}`
+}
+
+function onFolderReorderGapDragLeave(e) {
+  const rel = e.relatedTarget
+  if (rel && e.currentTarget.contains(rel)) return
+  folderReorderGapHover.value = null
+}
+
+async function onFolderReorderGapDrop(e, insertBeforeId) {
+  e.preventDefault()
+  e.stopPropagation()
+  folderReorderGapHover.value = null
+  const fromF = e.dataTransfer.getData(PMJ_FOLDER)
+  if (!fromF) return
+  try {
+    const ib = insertBeforeId == null ? '' : insertBeforeId
+    await FolderAPI.ReorderFolder(fromF, props.folderId, ib)
+    emit('tree-changed')
+    await load()
+  } catch (err) {
+    emit('console', `[Folders] ${err?.message || err}`)
+  }
+}
+
 function onDragStartFolder(f, e) {
   if (!f?.id) return
   closeFolderRowMenu()
@@ -277,32 +315,60 @@ function onDragStartRequest(r, e) {
   e.dataTransfer.effectAllowed = 'move'
 }
 
-function onDragOverFolder(e) {
+function onFolderDropRowDragOver(f, e) {
   e.preventDefault()
   try {
     e.dataTransfer.dropEffect = 'move'
   } catch {
     /* ignore */
   }
+  const mode = dndModeFromPointer(e.currentTarget, e)
+  dndHover.value = { folderId: f.id, mode }
 }
 
-async function onDropOnFolder(targetFolder, e) {
+function onFolderDropRowDragLeave(f, e) {
+  const wrap = e.currentTarget
+  const rel = e.relatedTarget
+  if (rel && wrap.contains(rel)) return
+  if (dndHover.value?.folderId === f.id) clearDndHover()
+}
+
+async function onFolderDropRowDrop(f, e) {
   e.preventDefault()
+  const mode = dndHover.value?.folderId === f.id
+    ? dndHover.value.mode
+    : dndModeFromPointer(e.currentTarget, e)
+  clearDndHover()
+
   const fromF = e.dataTransfer.getData(PMJ_FOLDER)
   const fromR = e.dataTransfer.getData(PMJ_REQUEST)
   if (!fromF && !fromR) return
+
   try {
     if (fromF) {
-      if (fromF === targetFolder.id) return
-      await FolderAPI.MoveFolder(fromF, targetFolder.id)
+      if (mode === 'sibling') {
+        if (fromF === f.id) return
+        await FolderAPI.MoveFolder(fromF, props.folderId)
+      } else {
+        if (fromF === f.id) return
+        await FolderAPI.MoveFolder(fromF, f.id)
+      }
     } else if (fromR) {
-      await SavedRequestAPI.MoveRequest(fromR, targetFolder.id)
+      if (mode === 'sibling') {
+        await SavedRequestAPI.MoveRequest(fromR, props.folderId)
+      } else {
+        await SavedRequestAPI.MoveRequest(fromR, f.id)
+      }
     }
     emit('tree-changed')
     await load()
   } catch (err) {
     emit('console', `[Folders] ${err?.message || err}`)
   }
+}
+
+function onFolderDropRowDragEnd() {
+  clearDndHover()
 }
 
 const folderModal = ref({
@@ -495,10 +561,12 @@ function onDocumentPointerDownFolderMenu(e) {
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDownFolderMenu, false)
+  document.addEventListener('dragend', clearDndHover, false)
 })
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDownFolderMenu, false)
+  document.removeEventListener('dragend', clearDndHover, false)
 })
 
 /** Dùng mousedown thay vì click để không đóng modal khi kéo chọn text rồi thả ở overlay */
@@ -734,52 +802,92 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
     <!-- Subfolders: click hàng (trừ ⋮) để thu/mở; hiệu ứng folder-tree-slide -->
     <div v-for="f in childFolders" :key="f.id" class="mb-0.5">
       <div
-        role="button"
-        tabindex="0"
-        :data-subfolder-row="f.id"
-        draggable="true"
-        class="flex cursor-pointer items-center gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
-        :class="{ 'pmj-reveal-flash': flashChildFolderId === f.id }"
-        :title="f.name"
-        @dragstart="onDragStartFolder(f, $event)"
-        @dragover="onDragOverFolder"
-        @drop="onDropOnFolder(f, $event)"
+        class="min-h-[8px] flex-shrink-0 cursor-pointer rounded transition-colors"
+        :class="{ 'bg-orange-500/40': folderReorderGapHover === `before-${f.id}` }"
+        title="Drop folder to reorder — click toggles this folder"
+        @click="onFolderRowClick(f)"
+        @dragover.prevent="onFolderReorderGapDragOver(f.id, $event)"
+        @dragleave="onFolderReorderGapDragLeave"
+        @drop="onFolderReorderGapDrop($event, f.id)"
+      />
+      <div
+        data-folder-drop-row
+        class="relative flex min-h-[40px] flex-col rounded border border-transparent transition-colors"
+        :class="{
+          'border-t-2 border-orange-500 bg-orange-500/15':
+            dndHover?.folderId === f.id && dndHover?.mode === 'sibling',
+          'ring-1 ring-orange-500/60 bg-orange-500/15':
+            dndHover?.folderId === f.id && dndHover?.mode === 'into',
+          'pmj-reveal-flash': flashChildFolderId === f.id
+        }"
+        :title="
+          dndHover?.folderId === f.id
+            ? dndHover.mode === 'sibling'
+              ? 'Drop: same level as this folder (sibling under parent)'
+              : 'Drop: move inside this folder'
+            : f.name
+        "
+        @dragover.capture.prevent="onFolderDropRowDragOver(f, $event)"
+        @dragleave="onFolderDropRowDragLeave(f, $event)"
+        @drop.capture="onFolderDropRowDrop(f, $event)"
       >
         <div
-          class="flex min-w-0 flex-1 items-center gap-1"
-          @click="onFolderRowClick(f)"
-          @dblclick="onFolderRowDblClick(f)"
-          @keydown.enter.prevent="inlineRenameFolder.id === f.id ? undefined : toggleChildExpand(f.id)"
+          v-if="dndHover?.folderId === f.id"
+          class="flex shrink-0 justify-between gap-1 border-b border-orange-500/25 px-1 py-0.5 text-[9px] leading-tight text-orange-300/95"
         >
-          <span class="text-gray-500 shrink-0">📁</span>
-          <input
-            v-if="inlineRenameFolder.id === f.id"
-            :data-inline-folder-input="f.id"
-            v-model="inlineRenameFolder.name"
-            type="text"
-            class="min-w-0 flex-1 rounded border border-orange-500/50 bg-gray-900 px-1 py-0.5 text-sm text-gray-200 outline-none"
-            @click.stop
-            @keydown.enter.prevent="submitInlineFolderRename"
-            @keydown.escape.prevent="cancelInlineFolderRename"
-            @blur="submitInlineFolderRename"
-          />
-          <span v-else class="min-w-0 flex-1 truncate pr-1 text-gray-200">{{ f.name }}</span>
+          <span
+            :class="
+              dndHover.mode === 'sibling' ? 'font-semibold text-orange-100' : 'opacity-35'
+            "
+            >▲ Same level</span>
+          <span
+            :class="dndHover.mode === 'into' ? 'font-semibold text-orange-100' : 'opacity-35'"
+            >▼ Inside</span>
         </div>
-        <button
-          type="button"
-          draggable="false"
-          data-folder-tree-menu
-          class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
-          style="min-width: 28px; line-height: 1"
-          :aria-expanded="folderMenuOpenId === f.id"
-          aria-haspopup="menu"
-          :aria-label="'Folder actions ' + (f.name || '')"
-          @click.stop="toggleFolderRowMenu(f, $event)"
-          @dblclick.stop
-          @dragstart.stop
+        <div
+          role="button"
+          tabindex="0"
+          :data-subfolder-row="f.id"
+          draggable="true"
+          class="flex min-h-[36px] flex-1 cursor-pointer items-stretch gap-1 rounded p-2 text-sm transition-colors hover:bg-gray-800 group"
+          @click="onFolderRowClick(f)"
+          @dragstart="onDragStartFolder(f, $event)"
+          @dragend="onFolderDropRowDragEnd"
         >
-          ⋮
-        </button>
+          <div
+            class="flex min-w-0 flex-1 items-center gap-1"
+            @keydown.enter.prevent="inlineRenameFolder.id === f.id ? undefined : toggleChildExpand(f.id)"
+          >
+            <span class="text-gray-500 shrink-0">📁</span>
+            <input
+              v-if="inlineRenameFolder.id === f.id"
+              :data-inline-folder-input="f.id"
+              v-model="inlineRenameFolder.name"
+              type="text"
+              class="min-w-0 flex-1 rounded border border-orange-500/50 bg-gray-900 px-1 py-0.5 text-sm text-gray-200 outline-none"
+              @click.stop
+              @keydown.enter.prevent="submitInlineFolderRename"
+              @keydown.escape.prevent="cancelInlineFolderRename"
+              @blur="submitInlineFolderRename"
+            />
+            <span v-else class="min-w-0 flex-1 truncate pr-1 text-gray-200">{{ f.name }}</span>
+          </div>
+          <button
+            type="button"
+            draggable="false"
+            data-folder-tree-menu
+            class="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white opacity-70 group-hover:opacity-100"
+            style="min-width: 28px; line-height: 1"
+            :aria-expanded="folderMenuOpenId === f.id"
+            aria-haspopup="menu"
+            :aria-label="'Folder actions ' + (f.name || '')"
+            @click.stop="toggleFolderRowMenu(f, $event)"
+            @dblclick.stop
+            @dragstart.stop
+          >
+            ⋮
+          </button>
+        </div>
       </div>
       <Transition name="folder-tree-slide">
         <div v-show="isChildExpanded(f.id)" class="ml-1 border-l border-gray-700/80 pl-2.5">
@@ -788,10 +896,22 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
             :depth="depth + 1"
             @open-saved-request="(id) => emit('open-saved-request', id)"
             @console="(m) => emit('console', m)"
+            @saved-request="emit('saved-request')"
+            @tree-changed="emit('tree-changed')"
           />
         </div>
       </Transition>
     </div>
+
+    <div
+      v-if="childFolders.length > 0"
+      class="min-h-[8px] flex-shrink-0 rounded transition-colors"
+      :class="{ 'bg-orange-500/40': folderReorderGapHover === 'append' }"
+      title="Drop folder to move to end of list"
+      @dragover.prevent="onFolderReorderGapDragOver(null, $event)"
+      @dragleave="onFolderReorderGapDragLeave"
+      @drop="onFolderReorderGapDrop($event, null)"
+    />
 
     <!-- Requests: ⋮ → Rename / Delete -->
     <div

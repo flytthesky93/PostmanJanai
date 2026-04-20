@@ -13,6 +13,8 @@ export function ListRootFolders():Promise<Array<entity.FolderItem>>;
 
 export function MoveFolder(arg1:string,arg2:string):Promise<void>;
 
+export function ReorderFolder(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function SetContext(arg1:context.Context):Promise<void>;
 
 export function UpdateFolder(arg1:string,arg2:string,arg3:string):Promise<void>;

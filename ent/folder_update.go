@@ -78,6 +78,27 @@ func (_u *FolderUpdate) SetNillableDescription(v *string) *FolderUpdate {
 	return _u
 }
 
+// SetSortOrder sets the "sort_order" field.
+func (_u *FolderUpdate) SetSortOrder(v int) *FolderUpdate {
+	_u.mutation.ResetSortOrder()
+	_u.mutation.SetSortOrder(v)
+	return _u
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_u *FolderUpdate) SetNillableSortOrder(v *int) *FolderUpdate {
+	if v != nil {
+		_u.SetSortOrder(*v)
+	}
+	return _u
+}
+
+// AddSortOrder adds value to the "sort_order" field.
+func (_u *FolderUpdate) AddSortOrder(v int) *FolderUpdate {
+	_u.mutation.AddSortOrder(v)
+	return _u
+}
+
 // AddChildIDs adds the "children" edge to the Folder entity by IDs.
 func (_u *FolderUpdate) AddChildIDs(ids ...uuid.UUID) *FolderUpdate {
 	_u.mutation.AddChildIDs(ids...)
@@ -256,6 +277,12 @@ func (_u *FolderUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(folder.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SortOrder(); ok {
+		_spec.SetField(folder.FieldSortOrder, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSortOrder(); ok {
+		_spec.AddField(folder.FieldSortOrder, field.TypeInt, value)
 	}
 	if _u.mutation.ChildrenCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -489,6 +516,27 @@ func (_u *FolderUpdateOne) SetNillableDescription(v *string) *FolderUpdateOne {
 	return _u
 }
 
+// SetSortOrder sets the "sort_order" field.
+func (_u *FolderUpdateOne) SetSortOrder(v int) *FolderUpdateOne {
+	_u.mutation.ResetSortOrder()
+	_u.mutation.SetSortOrder(v)
+	return _u
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_u *FolderUpdateOne) SetNillableSortOrder(v *int) *FolderUpdateOne {
+	if v != nil {
+		_u.SetSortOrder(*v)
+	}
+	return _u
+}
+
+// AddSortOrder adds value to the "sort_order" field.
+func (_u *FolderUpdateOne) AddSortOrder(v int) *FolderUpdateOne {
+	_u.mutation.AddSortOrder(v)
+	return _u
+}
+
 // AddChildIDs adds the "children" edge to the Folder entity by IDs.
 func (_u *FolderUpdateOne) AddChildIDs(ids ...uuid.UUID) *FolderUpdateOne {
 	_u.mutation.AddChildIDs(ids...)
@@ -697,6 +745,12 @@ func (_u *FolderUpdateOne) sqlSave(ctx context.Context) (_node *Folder, err erro
 	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(folder.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SortOrder(); ok {
+		_spec.SetField(folder.FieldSortOrder, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSortOrder(); ok {
+		_spec.AddField(folder.FieldSortOrder, field.TypeInt, value)
 	}
 	if _u.mutation.ChildrenCleared() {
 		edge := &sqlgraph.EdgeSpec{

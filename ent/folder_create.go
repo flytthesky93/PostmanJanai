@@ -57,6 +57,20 @@ func (_c *FolderCreate) SetNillableDescription(v *string) *FolderCreate {
 	return _c
 }
 
+// SetSortOrder sets the "sort_order" field.
+func (_c *FolderCreate) SetSortOrder(v int) *FolderCreate {
+	_c.mutation.SetSortOrder(v)
+	return _c
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_c *FolderCreate) SetNillableSortOrder(v *int) *FolderCreate {
+	if v != nil {
+		_c.SetSortOrder(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *FolderCreate) SetCreatedAt(v time.Time) *FolderCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -174,6 +188,10 @@ func (_c *FolderCreate) defaults() {
 		v := folder.DefaultDescription
 		_c.mutation.SetDescription(v)
 	}
+	if _, ok := _c.mutation.SortOrder(); !ok {
+		v := folder.DefaultSortOrder
+		_c.mutation.SetSortOrder(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := folder.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -196,6 +214,9 @@ func (_c *FolderCreate) check() error {
 	}
 	if _, ok := _c.mutation.Description(); !ok {
 		return &ValidationError{Name: "description", err: errors.New(`ent: missing required field "Folder.description"`)}
+	}
+	if _, ok := _c.mutation.SortOrder(); !ok {
+		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "Folder.sort_order"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Folder.created_at"`)}
@@ -242,6 +263,10 @@ func (_c *FolderCreate) createSpec() (*Folder, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(folder.FieldDescription, field.TypeString, value)
 		_node.Description = value
+	}
+	if value, ok := _c.mutation.SortOrder(); ok {
+		_spec.SetField(folder.FieldSortOrder, field.TypeInt, value)
+		_node.SortOrder = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(folder.FieldCreatedAt, field.TypeTime, value)
