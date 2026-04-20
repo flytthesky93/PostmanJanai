@@ -22,7 +22,8 @@ Build a desktop API client (Postman-like) focused on:
 | **1** | **Done**   | Closed **2026-04-17**: runner thật (`HTTPExecutor` + `HTTPHandler`), editor request/response/console, history persist + list; gắn **root folder context** khi gửi (`root_folder_id`); import request từ cURL. Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **2** | **Done**   | Closed **2026-04**: CRUD **folder** (cây lồng) + **saved request** (`folder_id`), UI sidebar **Folders** + cây đệ quy (`FolderCatalog` / `FolderTreeNode`), Wails `FolderHandler` + `SavedRequestHandler`, bump **DB v3** (workspace/collection → folder). |
 | **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
-| **4–5** | Not started | — |
+| **4** | In progress | **Item #1 done (2026-04-20):** **Import collection** Postman v2.1 / v2.0 / OpenAPI 3.x (JSON+YAML) / Insomnia v4 → map vào folder tree + tạo Environment tùy chọn. Xem mục Phase 4 + backlog bên dưới. |
+| **5** | Not started | — |
 
 ---
 
@@ -96,12 +97,19 @@ Scope:
 
 - Multi-tab request editing.
 - Search/filter for **folders** / requests and history.
-- Import/export project JSON (then evolve to Postman collection import).
+- ~~Import/export project JSON (then evolve to Postman collection import).~~ **Import done (2026-04-20)** — Postman v2.1 / v2.0, OpenAPI 3.x (JSON + YAML), Insomnia v4; auto-detect format; map vào **folder tree mới** (root folder tự rename khi trùng); sibling trùng tên tự `" (n)"`; tùy chọn tạo Environment mới từ collection variables (optional activate). Export project JSON còn pending.
 - Code snippet generation (curl/fetch).
 
 Done when:
 
 - Workflow is fast enough for daily API development.
+
+**Delivered so far (Phase 4 partial — 2026-04-20):**
+
+- **Backend:** `internal/service/{collection_importer,postman_v21_importer,postman_v20_importer,openapi_importer,insomnia_importer}.go` + tests; usecase `internal/usecase/import_usecase.go` (persist tree + unique sibling name); Wails `delivery/ImportHandler` (`PickCollectionFile`, `PreviewCollectionFile`, `ImportCollectionFile`).
+- **Frontend:** `ImportCollectionModal.vue` (preview: format, counts, warnings, env opt-in) + nút **Import** trên sidebar Folders; refresh tree + auto-select root mới sau import.
+- **Constraints/limits:** file ≤ `constant.MaxImportFileBytes` (25 MB); parser rejects Swagger 2.0 và file không nhận dạng được.
+- **Không đổi schema:** không bump `DBSchemaUserVersion` (tái sử dụng `folders` + `requests` + `environments` hiện có).
 
 ### Phase 5 - Quality and Packaging
 
@@ -146,9 +154,9 @@ Phase **3** đã đóng. Ưu tiên tiếp theo gắn **Phase 4** (productivity) 
 | ~~**1**~~ | ~~History chi tiết (UI)~~ | **Done (Phase 3).** |
 | ~~**2**~~ | ~~Environments + resolve `{{var}}`~~ | **Done (Phase 3).** |
 | ~~**3**~~ | ~~Auth Bearer / Basic / API Key~~ | **Done (Phase 3).** |
-| **1** | **Import collection** (Postman/OpenAPI) — map vào **folder tree** | Phase 4; sau khi CRUD folder/request đã ổn định. |
+| ~~**1**~~ | ~~**Import collection** (Postman/OpenAPI) — map vào **folder tree**~~ | **Done (Phase 4 item #1 — 2026-04-20).** |
 | **2** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Hiện bump v3 **drop** domain — chỉ làm khi có yêu cầu upgrade không mất data. |
 | **3** | **Polish UI folder tree:** expand/collapse, kéo-thả, đổi tên inline | UX nâng cao (Phase 4 / polish). |
-| **4** | **Phase 4 khác:** multi-tab, search/filter, export project JSON, snippet curl/fetch | Theo mục Phase 4 trong roadmap. |
+| **4** | **Phase 4 khác:** multi-tab, search/filter, **export** project JSON, snippet curl/fetch | Theo mục Phase 4 trong roadmap. |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL.

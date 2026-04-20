@@ -202,9 +202,9 @@ erDiagram
 
 ---
 
-## Tiến độ đã triển khai (cập nhật 2026-04-19)
+## Tiến độ đã triển khai (cập nhật 2026-04-20)
 
-- **Roadmap:** Phase **0–3** **đã đóng** — xem [roadmap.md](roadmap.md).
+- **Roadmap:** Phase **0–3** **đã đóng**, **Phase 4 đang chạy** (item #1 **Import collection** đã xong) — xem [roadmap.md](roadmap.md).
 
 ### Đã xong (Phase 1 + Phase 2)
 
@@ -224,11 +224,24 @@ erDiagram
 - [x] **History:** persist snapshot **đã resolve** (URL/body/headers như gửi thật)
 - [x] **UI:** modal / flow **history chi tiết** (xem request/response đã lưu); editor **`{{var}}`** (chip, popover, caret nhảy khối trên CodeMirror + `EnvVarMirrorField`)
 
-### Chưa làm / backlog (chủ yếu Phase 4+)
+### Đã xong (Phase 4 — một phần)
 
-- [ ] **Import collection** (Postman/OpenAPI) — map vào folder tree
+- [x] **Import collection** → folder tree (2026-04-20):
+  - **Formats:** Postman Collection v2.1, Postman Collection v2.0 (legacy), OpenAPI 3.x (JSON + YAML), Insomnia v4 export (JSON). Auto-detect qua `internal/service/collection_importer.go` (probe JSON keys: `info.schema`, `openapi`, `_type: export`).
+  - **Parsers (service):** `postman_v21_importer.go`, `postman_v20_importer.go`, `openapi_importer.go` (YAML → generic tree → JSON re-serialize để giữ `json.RawMessage`), `insomnia_importer.go` — mỗi file có bộ test `*_test.go` tương ứng.
+  - **DTO trung gian:** `internal/entity/import_collection.go` — `ImportedCollection` / `ImportedItem` / `ImportedFolder` / `ImportedRequest` / `ImportedVariable` / `ImportOptions` / `ImportResult` (format-agnostic).
+  - **Usecase:** `internal/usecase/import_usecase.go` — persist tree theo DFS, tạo **root folder mới luôn** (tên collection, auto rename khi trùng root), sibling trùng tên tự `" (n)"` qua `pickUniqueSiblingName`; tùy chọn tạo environment mới từ `variables` (optional activate).
+  - **Delivery Wails:** `internal/delivery/import_handler.go` — `PickCollectionFile`, `PreviewCollectionFile`, `ImportCollectionFile`; wired trong `main.go` (OnStartup).
+  - **Limits / errors:** cap file `constant.MaxImportFileBytes` (25 MB); error codes `IMP_701..IMP_707` trong `internal/constant/error_constant.go`.
+  - **Frontend:** `frontend/src/components/ImportCollectionModal.vue` (preview tên, format, số folder/request, variables, warnings; option tạo + activate env) + nút **Import** trên sidebar Folders (`Sidebar.vue`); refresh folder tree + env list và toast sau khi import.
+  - **DB impact:** **không** đổi schema — tái sử dụng bảng `folders` / `requests` / `request_*` / `environments` / `environment_variables` hiện có; `DBSchemaUserVersion` vẫn `3`.
+
+### Chưa làm / backlog (Phase 4+)
+
+- [ ] **Export** collection/project (JSON) — đối xứng với import
+- [ ] Multi-tab request editor, search/filter folder+history, snippet curl/fetch
 - [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path là **drop**
-- [ ] **Polish** cây folder (expand/collapse, DnD, …)
+- [ ] **Polish** cây folder (expand/collapse, DnD, rename inline)
 
 ---
 
@@ -243,11 +256,12 @@ erDiagram
 - [x] **Folder + saved request:** repository, usecase, Wails, UI cây
 - [x] **Environments** + **environment_variables** (usecase + UI + `EnvironmentHandler`)
 - [x] **Active env duy nhất** + **resolve `{{var}}`** trước gửi request
-- [ ] Import **collection** (file / clipboard) vào folder tree
+- [x] Import **collection** (file) vào folder tree — Postman v2.1/v2.0, OpenAPI 3.x (JSON+YAML), Insomnia v4 (2026-04-20)
+- [ ] **Export** collection/project (file)
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-19). **Phase 3 đã xong:** env + `{{var}}` + auth + history chi tiết. Tiếp theo: **Phase 4** (import collection, multi-tab, search, export JSON, snippet, …) và polish cây folder; tùy chọn migrate v2→v3 giữ dữ liệu.
+Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-20). **Phase 3 đã xong** + **Phase 4 item #1 (Import collection) xong**. Tiếp theo (Phase 4 còn lại): **Export** collection/project, **multi-tab** request, **search/filter** folder+history, **snippet** curl/fetch, polish cây folder (expand/collapse, DnD, rename inline); tùy chọn migrate v2→v3 giữ dữ liệu.

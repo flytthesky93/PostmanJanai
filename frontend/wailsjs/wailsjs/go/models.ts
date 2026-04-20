@@ -432,6 +432,218 @@ export namespace entity {
 		    return a;
 		}
 	}
+	export class ImportOptions {
+	    create_environment: boolean;
+	    activate_environment: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.create_environment = source["create_environment"];
+	        this.activate_environment = source["activate_environment"];
+	    }
+	}
+	export class ImportResult {
+	    root_folder_id: string;
+	    root_folder_name: string;
+	    folders_created: number;
+	    requests_created: number;
+	    environment_id?: string;
+	    environment_name?: string;
+	    format_label: string;
+	    warnings?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root_folder_id = source["root_folder_id"];
+	        this.root_folder_name = source["root_folder_name"];
+	        this.folders_created = source["folders_created"];
+	        this.requests_created = source["requests_created"];
+	        this.environment_id = source["environment_id"];
+	        this.environment_name = source["environment_name"];
+	        this.format_label = source["format_label"];
+	        this.warnings = source["warnings"];
+	    }
+	}
+	export class ImportedRequest {
+	    name: string;
+	    method: string;
+	    url: string;
+	    body_mode?: string;
+	    raw_body?: string;
+	    headers?: KeyValue[];
+	    query_params?: KeyValue[];
+	    form_fields?: KeyValue[];
+	    multipart_parts?: MultipartPart[];
+	    auth?: RequestAuth;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportedRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.body_mode = source["body_mode"];
+	        this.raw_body = source["raw_body"];
+	        this.headers = this.convertValues(source["headers"], KeyValue);
+	        this.query_params = this.convertValues(source["query_params"], KeyValue);
+	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
+	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
+	        this.auth = this.convertValues(source["auth"], RequestAuth);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ImportedFolder {
+	    name: string;
+	    description?: string;
+	    items?: ImportedItem[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportedFolder(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.items = this.convertValues(source["items"], ImportedItem);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ImportedItem {
+	    folder?: ImportedFolder;
+	    request?: ImportedRequest;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportedItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.folder = this.convertValues(source["folder"], ImportedFolder);
+	        this.request = this.convertValues(source["request"], ImportedRequest);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ImportedVariable {
+	    key: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportedVariable(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
+	    }
+	}
+	export class ImportedCollection {
+	    name: string;
+	    description?: string;
+	    variables?: ImportedVariable[];
+	    root_items?: ImportedItem[];
+	    format_label: string;
+	    warnings?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportedCollection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.variables = this.convertValues(source["variables"], ImportedVariable);
+	        this.root_items = this.convertValues(source["root_items"], ImportedItem);
+	        this.format_label = source["format_label"];
+	        this.warnings = source["warnings"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	
+	
 	
 	
 	

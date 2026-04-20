@@ -29,4 +29,13 @@ var (
 	ErrEnvironmentNotFound      = apperror.ErrDetail{Code: "ENV_601", Message: "Environment not found"}
 	ErrEnvironmentNameConflict = apperror.ErrDetail{Code: "ENV_602", Message: "An environment with this name already exists"}
 	ErrEnvironmentDuplicateVariableKey = apperror.ErrDetail{Code: "ENV_603", Message: "Duplicate variable key in the same environment"}
+
+	// Import collection
+	ErrImportFileOpen       = apperror.ErrDetail{Code: "IMP_701", Message: "Could not open the selected file"}
+	ErrImportFileTooLarge   = apperror.ErrDetail{Code: "IMP_702", Message: "Collection file exceeds the maximum allowed size"}
+	ErrImportFileEmpty      = apperror.ErrDetail{Code: "IMP_703", Message: "Collection file is empty"}
+	ErrImportFormatUnknown  = apperror.ErrDetail{Code: "IMP_704", Message: "Unsupported or unrecognized collection format"}
+	ErrImportParseFailed    = apperror.ErrDetail{Code: "IMP_705", Message: "Failed to parse collection"}
+	ErrImportEmptyTree      = apperror.ErrDetail{Code: "IMP_706", Message: "The collection does not contain any requests"}
+	ErrImportPersistFailed  = apperror.ErrDetail{Code: "IMP_707", Message: "Failed to save the imported collection"}
 )

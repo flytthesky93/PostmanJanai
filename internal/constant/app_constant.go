@@ -14,4 +14,8 @@ const (
 	HTTPClientTimeoutSeconds = 60
 	// HTTPMaxResponseBodyBytes — max response body read size (avoid OOM).
 	HTTPMaxResponseBodyBytes = 10 << 20
+
+	// MaxImportFileBytes — safety cap when importing Postman / OpenAPI / Insomnia files.
+	// Large enough for realistic collections, small enough to reject accidental multi-GB inputs.
+	MaxImportFileBytes = 25 << 20
 )

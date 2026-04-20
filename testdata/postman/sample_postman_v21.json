@@ -1,0 +1,274 @@
+{
+  "info": {
+    "_postman_id": "c1f7b5de-0000-4aaa-9bbb-112233445566",
+    "name": "PostmanJanai Sample Collection",
+    "description": "Sample collection for exercising the import feature. Contains nested folders, multiple body modes, auth, headers, query params and collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://api.example.com" },
+    { "key": "access_token", "value": "demo-token-123" },
+    { "key": "user_id", "value": "42" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Public, unauthenticated endpoints.",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ping",
+              "host": ["{{base_url}}"],
+              "path": ["ping"]
+            },
+            "auth": { "type": "noauth" }
+          }
+        },
+        {
+          "name": "Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/version?verbose=1",
+              "host": ["{{base_url}}"],
+              "path": ["version"],
+              "query": [
+                { "key": "verbose", "value": "1" }
+              ]
+            },
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints.",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Debug", "value": "1", "disabled": true }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users?page=1&per_page=20",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "per_page", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get user by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create user (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ada Lovelace\",\n  \"email\": \"ada@example.com\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Update user (JSON)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"editor\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete user",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Login / token endpoints — demonstrates different auth modes.",
+      "item": [
+        {
+          "name": "Login (form-urlencoded)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "ada" },
+                { "key": "password", "value": "s3cret" },
+                { "key": "remember", "value": "true", "disabled": true }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "auth": { "type": "noauth" }
+          }
+        },
+        {
+          "name": "Basic auth ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "admin", "type": "string" },
+                { "key": "password", "value": "password", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/basic-ping",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "basic-ping"]
+            }
+          }
+        },
+        {
+          "name": "API key (header)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Api-Key", "type": "string" },
+                { "key": "value", "value": "{{access_token}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/apikey-ping",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "apikey-ping"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "description": "Multipart upload demo.",
+      "item": [
+        {
+          "name": "Upload avatar (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "user_id", "value": "{{user_id}}", "type": "text" },
+                { "key": "caption", "value": "Profile picture", "type": "text" },
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/avatar",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "avatar"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Nested",
+      "description": "Folder lồng nhiều cấp để test cây.",
+      "item": [
+        {
+          "name": "Level 1",
+          "item": [
+            {
+              "name": "Level 2",
+              "item": [
+                {
+                  "name": "Deep ping",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{base_url}}/deep/ping",
+                      "host": ["{{base_url}}"],
+                      "path": ["deep", "ping"]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

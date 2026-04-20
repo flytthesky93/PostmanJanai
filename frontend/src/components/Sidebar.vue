@@ -10,6 +10,7 @@ import {
 import { ImportFromCurl } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import HistoryDetailModal from './HistoryDetailModal.vue'
 import FolderTreeNode from './FolderTreeNode.vue'
+import ImportCollectionModal from './ImportCollectionModal.vue'
 
 const props = defineProps({
   /** Selected root folder id (UUID) — history + tree scope */
@@ -74,6 +75,38 @@ const closeHistoryDetail = () => {
 
 const curlModalOpen = ref(false)
 const curlText = ref('curl -X GET "https://httpbin.org/get?hello=world"')
+
+const importModalOpen = ref(false)
+
+const openImportCollectionModal = () => {
+  importModalOpen.value = true
+}
+
+const closeImportCollectionModal = () => {
+  importModalOpen.value = false
+}
+
+/** After a successful import, refresh the Folders panel and auto-select the new root folder. */
+const onCollectionImported = async (result) => {
+  try {
+    await loadRootFolders()
+  } catch (error) {
+    console.error('[Import] Refresh failed:', error)
+  }
+  if (result?.root_folder_id) {
+    emit('update:activeRootFolderId', result.root_folder_id)
+  }
+  if (result?.environment_id) {
+    try {
+      await loadEnvironments()
+    } catch (error) {
+      console.error('[Import] Env refresh failed:', error)
+    }
+    emit('environments-changed')
+  }
+  const label = result?.root_folder_name || 'collection'
+  showToast('success', `Imported "${label}" (${result?.requests_created ?? 0} requests)`)
+}
 
 /** Environments tab */
 const envItems = ref([])
@@ -796,15 +829,26 @@ defineExpose({
             </div>
           </div>
           <div class="flex shrink-0 flex-wrap items-center justify-between gap-1 border-t border-gray-800 bg-[#1c1c1c] px-2 py-1">
-            <button
-              type="button"
-              class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-gray-200 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
-              aria-label="Import from cURL"
-              title="Import as ad-hoc request (not tied to a saved item)"
-              @click="openCurlImportModal"
-            >
-              Import cURL
-            </button>
+            <div class="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-gray-200 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
+                aria-label="Import collection"
+                title="Import Postman / OpenAPI / Insomnia collection into a new root folder"
+                @click="openImportCollectionModal"
+              >
+                Import
+              </button>
+              <button
+                type="button"
+                class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-gray-200 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
+                aria-label="Import from cURL"
+                title="Import as ad-hoc request (not tied to a saved item)"
+                @click="openCurlImportModal"
+              >
+                cURL
+              </button>
+            </div>
             <button
               type="button"
               class="rounded border border-gray-600 bg-[#2a2a2a] px-2 py-0.5 text-[10px] font-semibold text-orange-500 transition-colors hover:border-orange-500/50 hover:bg-gray-800"
@@ -1165,6 +1209,13 @@ defineExpose({
         </div>
       </div>
     </Teleport>
+
+    <ImportCollectionModal
+      :open="importModalOpen"
+      @close="closeImportCollectionModal"
+      @imported="onCollectionImported"
+      @console="(msg) => emit('console', msg)"
+    />
 
     <div v-if="toast.show" class="pointer-events-none fixed bottom-4 right-4 z-50">
       <div
