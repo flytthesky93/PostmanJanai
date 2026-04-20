@@ -226,6 +226,16 @@ erDiagram
 
 ### Đã xong (Phase 4 — một phần)
 
+- [x] **Multi-tab request editor** (2026-04-20):
+  - **Store:** `frontend/src/stores/tabsStore.js` — reactive singleton (không dùng Pinia). Giữ `tabs: TabState[]` + `activeTabId`; mỗi `TabState` = `{ id, snapshot: RequestSnapshot, baseline: RequestSnapshot, response, loading }`.
+  - **Actions:** `openSavedRequest(dto)` (nếu đã mở → activate + refresh snapshot, nếu chưa → tạo tab mới), `openBlank()`, `openAdhocFromPayload(curlPayload)` (tái dùng tab blank hiện tại nếu có), `activateTab(id)`, `closeTab(id)` (auto chọn tab kế cận; tự tạo blank khi đóng tab cuối), `updateActiveSnapshot(snap)`, `markActiveBaseline()`, `promoteActiveToSaved(dto)`, per-tab `setTabResponse(id,*)` / `setTabLoading(id,*)` (đảm bảo response hạ cánh đúng tab kể cả khi user switch tab giữa send).
+  - **Persist:** key `pmj.tabs.v1` trong `localStorage`, debounce 200ms; lưu `tabs[i].{id,snapshot,baseline}` + `activeTabId`; **không** persist `response`/`loading` (transient). Trần `MAX_TABS = 20`.
+  - **Dirty tracking:** `canonicalForDiff()` strip `activeTab` + `bodyRawEditor` (UI-only) → so sánh JSON giữa `snapshot` và `baseline`. `baseline` được commit khi: tab vừa tạo, mở saved request mới, save/update thành công (qua event `baseline-committed` / `promote-to-saved` từ RequestPanel).
+  - **RequestPanel:** thêm `snapshot()` / `hydrate(snap)` qua `defineExpose`; watcher deep debounced 80ms trên toàn bộ reactive state → emit `snapshot-change`. Có cờ `hydrating` + `suppressSnapshotUpdate` (App.vue side) để không ghi đè baseline khi programmatically nạp lại. `saveSavedRequest` emit thêm `baseline-committed`; `submitSaveAdhoc` emit `promote-to-saved(created)`.
+  - **UI:** `RequestTabBar.vue` — tab strip có method badge (color theo verb), dirty dot, close button (hover / middle-click), nút `+`, scroll ngang khi nhiều tab, active indicator cam.
+  - **Persistence behaviour:** mở lại app → tabs khôi phục kèm nội dung form; **response bị xoá** (ý đồ: kết quả là ephemeral). Nếu user đang dirty, dirty dot vẫn hiện sau restart.
+  - **Không đổi backend / schema:** hoàn toàn frontend-side; không thêm Wails handler, không bump `DBSchemaUserVersion`.
+
 - [x] **Import collection** → folder tree (2026-04-20):
   - **Formats:** Postman Collection v2.1, Postman Collection v2.0 (legacy), OpenAPI 3.x (JSON + YAML), Insomnia v4 export (JSON). Auto-detect qua `internal/service/collection_importer.go` (probe JSON keys: `info.schema`, `openapi`, `_type: export`).
   - **Parsers (service):** `postman_v21_importer.go`, `postman_v20_importer.go`, `openapi_importer.go` (YAML → generic tree → JSON re-serialize để giữ `json.RawMessage`), `insomnia_importer.go` — mỗi file có bộ test `*_test.go` tương ứng.
@@ -238,10 +248,11 @@ erDiagram
 
 ### Chưa làm / backlog (Phase 4+)
 
+- [ ] **Search / filter** folder + request + history (LIKE + debounce UI)
 - [ ] **Export** collection/project (JSON) — đối xứng với import
-- [ ] Multi-tab request editor, search/filter folder+history, snippet curl/fetch
+- [ ] **Snippet** curl / fetch (pure Go, input là payload đã resolve `{{var}}`)
+- [ ] **Polish** cây folder (expand/collapse bền, DnD, rename inline) — cần API `MoveFolder` / `MoveRequest`
 - [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path là **drop**
-- [ ] **Polish** cây folder (expand/collapse, DnD, rename inline)
 
 ---
 
@@ -257,11 +268,14 @@ erDiagram
 - [x] **Environments** + **environment_variables** (usecase + UI + `EnvironmentHandler`)
 - [x] **Active env duy nhất** + **resolve `{{var}}`** trước gửi request
 - [x] Import **collection** (file) vào folder tree — Postman v2.1/v2.0, OpenAPI 3.x (JSON+YAML), Insomnia v4 (2026-04-20)
+- [x] **Multi-tab** request editor + persist `localStorage` (2026-04-20)
 - [ ] **Export** collection/project (file)
+- [ ] **Search / filter** folder + request + history
+- [ ] **Snippet** curl / fetch
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-20). **Phase 3 đã xong** + **Phase 4 item #1 (Import collection) xong**. Tiếp theo (Phase 4 còn lại): **Export** collection/project, **multi-tab** request, **search/filter** folder+history, **snippet** curl/fetch, polish cây folder (expand/collapse, DnD, rename inline); tùy chọn migrate v2→v3 giữ dữ liệu.
+Bảng ưu tiên: [roadmap.md](roadmap.md) (mục **Đề xuất bước tiếp theo**, cập nhật 2026-04-20). **Phase 3 đã xong** + **Phase 4 items #1 (Import collection) và #2 (Multi-tab) đã xong**. Tiếp theo: **search / filter** (item #3), **export** project JSON (#4), **snippet** curl/fetch (#5), polish cây folder DnD + rename inline (#6); tùy chọn migrate v2→v3 giữ dữ liệu.

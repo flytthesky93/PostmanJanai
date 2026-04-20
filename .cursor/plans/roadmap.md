@@ -22,7 +22,7 @@ Build a desktop API client (Postman-like) focused on:
 | **1** | **Done**   | Closed **2026-04-17**: runner thật (`HTTPExecutor` + `HTTPHandler`), editor request/response/console, history persist + list; gắn **root folder context** khi gửi (`root_folder_id`); import request từ cURL. Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **2** | **Done**   | Closed **2026-04**: CRUD **folder** (cây lồng) + **saved request** (`folder_id`), UI sidebar **Folders** + cây đệ quy (`FolderCatalog` / `FolderTreeNode`), Wails `FolderHandler` + `SavedRequestHandler`, bump **DB v3** (workspace/collection → folder). |
 | **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
-| **4** | In progress | **Item #1 done (2026-04-20):** **Import collection** Postman v2.1 / v2.0 / OpenAPI 3.x (JSON+YAML) / Insomnia v4 → map vào folder tree + tạo Environment tùy chọn. Xem mục Phase 4 + backlog bên dưới. |
+| **4** | In progress | **Item #1 done (2026-04-20):** Import collection (Postman v2.1/v2.0, OpenAPI 3.x, Insomnia v4). **Item #2 done (2026-04-20):** Multi-tab request editor (tab strip + dirty dot + persist qua `localStorage`). Xem mục Phase 4 + backlog bên dưới. |
 | **5** | Not started | — |
 
 ---
@@ -95,7 +95,7 @@ Done when:
 
 Scope:
 
-- Multi-tab request editing.
+- ~~Multi-tab request editing.~~ **Done (2026-04-20)** — tabs lưu state riêng (URL/method/headers/body/form/multipart/auth/response/loading), **dirty dot** cho tab chưa lưu, **tab strip** có close + `+`, khôi phục tabs qua `localStorage` (`pmj.tabs.v1`), trần 20 tab; tái dùng tab rỗng khi Import cURL; khi "Save…" ad-hoc thành công → tab tự promote thành saved.
 - Search/filter for **folders** / requests and history.
 - ~~Import/export project JSON (then evolve to Postman collection import).~~ **Import done (2026-04-20)** — Postman v2.1 / v2.0, OpenAPI 3.x (JSON + YAML), Insomnia v4; auto-detect format; map vào **folder tree mới** (root folder tự rename khi trùng); sibling trùng tên tự `" (n)"`; tùy chọn tạo Environment mới từ collection variables (optional activate). Export project JSON còn pending.
 - Code snippet generation (curl/fetch).
@@ -106,10 +106,11 @@ Done when:
 
 **Delivered so far (Phase 4 partial — 2026-04-20):**
 
-- **Backend:** `internal/service/{collection_importer,postman_v21_importer,postman_v20_importer,openapi_importer,insomnia_importer}.go` + tests; usecase `internal/usecase/import_usecase.go` (persist tree + unique sibling name); Wails `delivery/ImportHandler` (`PickCollectionFile`, `PreviewCollectionFile`, `ImportCollectionFile`).
-- **Frontend:** `ImportCollectionModal.vue` (preview: format, counts, warnings, env opt-in) + nút **Import** trên sidebar Folders; refresh tree + auto-select root mới sau import.
-- **Constraints/limits:** file ≤ `constant.MaxImportFileBytes` (25 MB); parser rejects Swagger 2.0 và file không nhận dạng được.
-- **Không đổi schema:** không bump `DBSchemaUserVersion` (tái sử dụng `folders` + `requests` + `environments` hiện có).
+- **Item #1 — Import collection (Backend):** `internal/service/{collection_importer,postman_v21_importer,postman_v20_importer,openapi_importer,insomnia_importer}.go` + tests; usecase `internal/usecase/import_usecase.go` (persist tree + unique sibling name); Wails `delivery/ImportHandler` (`PickCollectionFile`, `PreviewCollectionFile`, `ImportCollectionFile`).
+- **Item #1 — Import collection (Frontend):** `ImportCollectionModal.vue` (preview: format, counts, warnings, env opt-in) + nút **Import** trên sidebar Folders; refresh tree + auto-select root mới sau import.
+- **Item #1 — Constraints/limits:** file ≤ `constant.MaxImportFileBytes` (25 MB); parser rejects Swagger 2.0 và file không nhận dạng được.
+- **Item #2 — Multi-tab editor:** ref-store `frontend/src/stores/tabsStore.js` (`tabs[]`, `activeTabId`, actions `openSavedRequest` / `openBlank` / `openAdhocFromPayload` / `activateTab` / `closeTab` / per-tab response+loading setters, persist 200ms debounce vào `localStorage`); `RequestTabBar.vue` (tab strip, dirty dot dựa trên diff snapshot↔baseline, close + `+`); `RequestPanel.vue` expose `snapshot()` / `hydrate(snap)` + emit `snapshot-change` (debounced deep watch) / `baseline-committed` / `promote-to-saved`; `App.vue` rehydrate panel sau mỗi lần switch tab, response/loading thành computed theo active tab, per-tab setters đảm bảo response hạ cánh đúng tab kể cả khi user chuyển tab giữa chừng.
+- **Không đổi schema:** không bump `DBSchemaUserVersion` (tái sử dụng `folders` + `requests` + `environments` hiện có; tab state **chỉ lưu browser-side** qua `localStorage`).
 
 ### Phase 5 - Quality and Packaging
 
@@ -155,8 +156,11 @@ Phase **3** đã đóng. Ưu tiên tiếp theo gắn **Phase 4** (productivity) 
 | ~~**2**~~ | ~~Environments + resolve `{{var}}`~~ | **Done (Phase 3).** |
 | ~~**3**~~ | ~~Auth Bearer / Basic / API Key~~ | **Done (Phase 3).** |
 | ~~**1**~~ | ~~**Import collection** (Postman/OpenAPI) — map vào **folder tree**~~ | **Done (Phase 4 item #1 — 2026-04-20).** |
-| **2** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Hiện bump v3 **drop** domain — chỉ làm khi có yêu cầu upgrade không mất data. |
-| **3** | **Polish UI folder tree:** expand/collapse, kéo-thả, đổi tên inline | UX nâng cao (Phase 4 / polish). |
-| **4** | **Phase 4 khác:** multi-tab, search/filter, **export** project JSON, snippet curl/fetch | Theo mục Phase 4 trong roadmap. |
+| ~~**2**~~ | ~~**Multi-tab request editor**~~ | **Done (Phase 4 item #2 — 2026-04-20).** |
+| **3** | **Search / filter** (folders, requests, history) | Collection lớn dần → cần tìm nhanh; repo `LIKE` + debounce UI. |
+| **4** | **Export** collection / project JSON (đối xứng Import) | Tái dùng DTO `ImportedCollection`, build ngược từ DB. |
+| **5** | **Snippet** curl / fetch (pure Go) | Panel nhỏ trong editor, input là payload đã resolve `{{var}}`. |
+| **6** | **Polish cây folder:** expand/collapse bền, kéo-thả, rename inline | Thêm API `MoveFolder` / `MoveRequest` + DnD UI. |
+| **7** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Hiện bump v3 **drop** domain — chỉ làm khi có yêu cầu upgrade không mất data. |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL.

@@ -1,16 +1,22 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import RequestPanel from './components/RequestPanel.vue'
+import RequestTabBar from './components/RequestTabBar.vue'
 import ResponsePanel from './components/ResponsePanel.vue'
 import ConsolePanel from './components/ConsolePanel.vue'
 import EnvironmentDetailPanel from './components/EnvironmentDetailPanel.vue'
 import { Execute } from '../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import { Get as GetSavedRequest } from '../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as EnvAPI from '../wailsjs/wailsjs/go/delivery/EnvironmentHandler'
+import { useTabsStore } from './stores/tabsStore'
 
-const responseResult = ref(null)
-const loading = ref(false)
+const tabsStore = useTabsStore()
+const { tabsMeta, activeTab, state: tabsState } = tabsStore
+
+/** Response + loading are derived per-active-tab. */
+const responseResult = computed(() => activeTab.value?.response || null)
+const loading = computed(() => !!activeTab.value?.loading)
 
 /** 'request' | 'environment' — environment replaces request + response columns */
 const mainWorkspaceMode = ref('request')
@@ -228,11 +234,69 @@ function onRequestConsole(msg) {
 const sidebarRef = ref(null)
 const requestPanelRef = ref(null)
 
+/** True while we are programmatically hydrating the panel — ignore snapshot-change echoes. */
+let suppressSnapshotUpdate = false
+
+async function hydrateActiveTabIntoPanel() {
+  const t = activeTab.value
+  if (!t || !requestPanelRef.value?.hydrate) return
+  suppressSnapshotUpdate = true
+  try {
+    requestPanelRef.value.hydrate(t.snapshot)
+  } finally {
+    // release one microtask later so any trailing watcher from hydrate does not overwrite baseline
+    await nextTick()
+    setTimeout(() => {
+      suppressSnapshotUpdate = false
+    }, 120)
+  }
+}
+
+function onPanelSnapshotChange(snapshot) {
+  if (suppressSnapshotUpdate) return
+  tabsStore.updateActiveSnapshot(snapshot)
+}
+
+function onPanelBaselineCommitted() {
+  tabsStore.markActiveBaseline()
+}
+
+function onPanelPromoteToSaved(dto) {
+  tabsStore.promoteActiveToSaved(dto)
+}
+
+function captureCurrentPanelSnapshot() {
+  if (!requestPanelRef.value?.snapshot) return
+  tabsStore.updateActiveSnapshot(requestPanelRef.value.snapshot())
+}
+
+function onTabActivate(id) {
+  if (id === tabsState.activeTabId) return
+  captureCurrentPanelSnapshot()
+  tabsStore.activateTab(id)
+}
+
+function onTabClose(id) {
+  tabsStore.closeTab(id)
+}
+
+function onTabNew() {
+  captureCurrentPanelSnapshot()
+  tabsStore.openBlank()
+}
+
 async function onOpenSavedRequest(id) {
   if (!id) return
   try {
+    captureCurrentPanelSnapshot()
     const dto = await GetSavedRequest(id)
-    requestPanelRef.value?.loadFromSavedRequest?.(dto)
+    const prevActiveId = tabsState.activeTabId
+    tabsStore.openSavedRequest(dto)
+    // If target tab was already the active one, watch won't fire — hydrate manually.
+    if (tabsState.activeTabId === prevActiveId) {
+      await nextTick()
+      await hydrateActiveTabIntoPanel()
+    }
   } catch (e) {
     const msg = e?.message || String(e)
     pushConsole(`[Library] Could not open saved request: ${msg}`)
@@ -247,28 +311,33 @@ async function onSavedRequestUpdated() {
   }
 }
 
-/** Sidebar Import cURL → ad-hoc editor state */
-function onApplyCurlImport(payload) {
-  requestPanelRef.value?.applyImportPayload?.(payload)
+/** Sidebar Import cURL → open or reuse an ad-hoc tab. */
+async function onApplyCurlImport(payload) {
+  captureCurrentPanelSnapshot()
+  const prevActiveId = tabsState.activeTabId
+  tabsStore.openAdhocFromPayload(payload)
+  if (tabsState.activeTabId === prevActiveId) {
+    await nextTick()
+    await hydrateActiveTabIntoPanel()
+  }
 }
 
 const onExecuteRequest = async (payload) => {
-  loading.value = true
-  responseResult.value = null
+  const execTabId = tabsState.activeTabId
+  tabsStore.setTabLoading(execTabId, true)
+  tabsStore.setTabResponse(execTabId, null)
   try {
     const res = await Execute(payload)
     if (res?.error_message) {
       pushConsole(`[HTTP] ${res.error_message}`)
     }
-    responseResult.value = res
-      ? { ...res, error_message: '' }
-      : null
+    tabsStore.setTabResponse(execTabId, res ? { ...res, error_message: '' } : null)
   } catch (e) {
     const msg = e?.message || String(e)
     pushConsole(`[HTTP] ${msg}`)
-    responseResult.value = null
+    tabsStore.setTabResponse(execTabId, null)
   } finally {
-    loading.value = false
+    tabsStore.setTabLoading(execTabId, false)
     try {
       await sidebarRef.value?.refreshHistory?.()
     } catch {
@@ -276,6 +345,23 @@ const onExecuteRequest = async (payload) => {
     }
   }
 }
+
+// Restore tabs on mount, then hydrate the active one into the panel.
+onMounted(async () => {
+  tabsStore.restore()
+  await nextTick()
+  await hydrateActiveTabIntoPanel()
+})
+
+// If active tab changes for any reason (programmatic), keep the panel in sync.
+watch(
+  () => tabsState.activeTabId,
+  async (newId, oldId) => {
+    if (newId === oldId) return
+    await nextTick()
+    await hydrateActiveTabIntoPanel()
+  }
+)
 </script>
 
 <template>
@@ -342,6 +428,13 @@ const onExecuteRequest = async (payload) => {
             </option>
           </select>
         </div>
+        <RequestTabBar
+          :tabs="tabsMeta"
+          :active-tab-id="tabsState.activeTabId"
+          @activate="onTabActivate"
+          @close="onTabClose"
+          @new="onTabNew"
+        />
         <div class="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
           <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-[#2a2a2a]">
             <RequestPanel
@@ -353,6 +446,9 @@ const onExecuteRequest = async (payload) => {
               @console="onRequestConsole"
               @saved-request="onSavedRequestUpdated"
               @patch-active-env-value="onPatchActiveEnvValue"
+              @snapshot-change="onPanelSnapshotChange"
+              @baseline-committed="onPanelBaselineCommitted"
+              @promote-to-saved="onPanelPromoteToSaved"
             />
           </div>
           <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

@@ -16,7 +16,15 @@ const props = defineProps({
   activeEnvValues: { type: Object, default: () => ({}) }
 })
 
-const emit = defineEmits(['send', 'console', 'saved-request', 'patch-active-env-value'])
+const emit = defineEmits([
+  'send',
+  'console',
+  'saved-request',
+  'patch-active-env-value',
+  'snapshot-change',
+  'baseline-committed',
+  'promote-to-saved'
+])
 
 const url = ref('')
 const method = ref('GET')
@@ -325,6 +333,7 @@ async function submitSaveAdhoc() {
     closeSaveAdhocModal()
     if (created) {
       loadFromSavedRequest(created)
+      emit('promote-to-saved', created)
     }
     emit('console', `[Saved] "${name}" added to library.`)
     emit('saved-request')
@@ -542,6 +551,7 @@ async function saveSavedRequest() {
     await SavedRequestAPI.Update(buildSavedRequestFull())
     emit('console', `[Saved] "${(savedRequestLabel.value || '').trim() || 'Request'}" updated.`)
     emit('saved-request')
+    emit('baseline-committed')
   } catch (e) {
     emit('console', `[Saved] ${e?.message || String(e)}`)
   }
@@ -567,7 +577,128 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown, true)
 })
 
-defineExpose({ loadFromSavedRequest, applySavedRequestDto, saveSavedRequest, applyImportPayload })
+/** Guard snapshot-change emissions while we are nạp lại state từ bên ngoài (hydrate). */
+let hydrating = false
+let snapshotEmitTimer = null
+
+function captureSnapshot() {
+  return {
+    url: url.value,
+    method: method.value,
+    body: body.value,
+    bodyMode: bodyMode.value,
+    bodyRawEditor: bodyRawEditor.value,
+    queryParams: queryParams.value.map((p) => ({ key: p.key || '', value: p.value || '' })),
+    headers: headers.value.map((h) => {
+      const row = { key: h.key || '', value: h.value || '' }
+      if (h.locked) row.locked = true
+      return row
+    }),
+    formFields: formFields.value.map((f) => ({ key: f.key || '', value: f.value || '' })),
+    multipartParts: multipartParts.value.map((p) => ({
+      key: p.key || '',
+      kind: p.kind === 'file' ? 'file' : 'text',
+      value: p.value || '',
+      file_path: p.file_path || ''
+    })),
+    activeTab: activeTab.value,
+    authType: authType.value,
+    authBearerToken: authBearerToken.value,
+    authUsername: authUsername.value,
+    authPassword: authPassword.value,
+    authApiKey: authApiKey.value,
+    authApiKeyName: authApiKeyName.value,
+    authApiKeyIn: authApiKeyIn.value,
+    savedRequestId: savedRequestId.value,
+    savedFolderId: savedFolderId.value,
+    savedRequestLabel: savedRequestLabel.value
+  }
+}
+
+function hydrate(snap) {
+  if (!snap) return
+  hydrating = true
+  try {
+    method.value = (snap.method || 'GET').toUpperCase()
+    url.value = snap.url || ''
+    body.value = snap.body || ''
+    bodyMode.value = snap.bodyMode || 'none'
+    bodyRawEditor.value = !!snap.bodyRawEditor
+    queryParams.value = Array.isArray(snap.queryParams) && snap.queryParams.length
+      ? snap.queryParams.map((p) => ({ key: p.key || '', value: p.value || '' }))
+      : [{ key: '', value: '' }]
+    const rawHeaders = Array.isArray(snap.headers) && snap.headers.length
+      ? snap.headers.map((h) => {
+          const row = { key: h.key || '', value: h.value || '' }
+          if (h.locked) row.locked = true
+          return row
+        })
+      : [{ key: '', value: '' }]
+    if (bodyMode.value === 'form_urlencoded') {
+      headers.value = [formUrlencodedLockedHeader(), ...stripContentTypeHeaders(rawHeaders)]
+    } else {
+      headers.value = rawHeaders.filter((h) => !h.locked)
+      if (headers.value.length === 0) headers.value.push({ key: '', value: '' })
+    }
+    formFields.value = Array.isArray(snap.formFields) && snap.formFields.length
+      ? snap.formFields.map((f) => ({ key: f.key || '', value: f.value || '' }))
+      : [{ key: '', value: '' }]
+    multipartParts.value = Array.isArray(snap.multipartParts) && snap.multipartParts.length
+      ? snap.multipartParts.map((p) => ({
+          key: p.key || '',
+          kind: p.kind === 'file' ? 'file' : 'text',
+          value: p.value || '',
+          file_path: p.file_path || ''
+        }))
+      : [{ key: '', kind: 'text', value: '', file_path: '' }]
+    activeTab.value = snap.activeTab || 'params'
+    authType.value = (snap.authType || 'none').toLowerCase()
+    authBearerToken.value = snap.authBearerToken || ''
+    authUsername.value = snap.authUsername || ''
+    authPassword.value = snap.authPassword || ''
+    authApiKey.value = snap.authApiKey || ''
+    authApiKeyName.value = snap.authApiKeyName || ''
+    authApiKeyIn.value = snap.authApiKeyIn === 'query' ? 'query' : 'header'
+    savedRequestId.value = snap.savedRequestId || null
+    savedFolderId.value = snap.savedFolderId || null
+    savedRequestLabel.value = snap.savedRequestLabel || ''
+  } finally {
+    // release hydrating flag next tick so the deep watcher settles first
+    setTimeout(() => {
+      hydrating = false
+    }, 0)
+  }
+}
+
+function scheduleSnapshotEmit() {
+  if (hydrating) return
+  if (snapshotEmitTimer) clearTimeout(snapshotEmitTimer)
+  snapshotEmitTimer = setTimeout(() => {
+    snapshotEmitTimer = null
+    emit('snapshot-change', captureSnapshot())
+  }, 80)
+}
+
+watch(
+  [
+    url, method, body, bodyMode, bodyRawEditor,
+    queryParams, headers, formFields, multipartParts, activeTab,
+    authType, authBearerToken, authUsername, authPassword,
+    authApiKey, authApiKeyName, authApiKeyIn,
+    savedRequestId, savedFolderId, savedRequestLabel
+  ],
+  scheduleSnapshotEmit,
+  { deep: true }
+)
+
+defineExpose({
+  loadFromSavedRequest,
+  applySavedRequestDto,
+  saveSavedRequest,
+  applyImportPayload,
+  snapshot: captureSnapshot,
+  hydrate
+})
 
 const formatJsonBody = () => {
   const raw = (liveRawOrXmlBodyText() ?? '').trim()

@@ -3,7 +3,11 @@ package repository
 import (
 	"PostmanJanai/ent"
 	"PostmanJanai/ent/folder"
+	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestformfield"
+	"PostmanJanai/ent/requestheader"
+	"PostmanJanai/ent/requestqueryparam"
 	"PostmanJanai/internal/entity"
 	"context"
 	"strings"
@@ -121,24 +125,102 @@ func (r *folderRepo) ListChildren(ctx context.Context, parentID string) ([]*enti
 	return out, nil
 }
 
+// DeleteByID removes a folder and its entire subtree (child folders + saved requests
+// + per-request child rows) in a single transaction. History rows that reference any
+// of the deleted folders / requests are preserved but their FK columns
+// (root_folder_id, request_id) are nulled out — we want the snapshot to remain viewable
+// even when the owning folder/request is gone.
 func (r *folderRepo) DeleteByID(ctx context.Context, id string) error {
 	uid, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
 		return err
 	}
-	subs, err := r.client.Folder.Query().Where(folder.ParentIDEQ(uid)).IDs(ctx)
+	folderIDs, err := r.collectSubtreeIDs(ctx, uid)
 	if err != nil {
 		return err
 	}
-	for _, sid := range subs {
-		if err := r.DeleteByID(ctx, sid.String()); err != nil {
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	requestIDs, err := tx.Request.Query().Where(request.FolderIDIn(folderIDs...)).IDs(ctx)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if len(requestIDs) > 0 {
+		if _, err := tx.History.Update().
+			Where(history.RequestIDIn(requestIDs...)).
+			ClearRequestID().
+			Save(ctx); err != nil {
+			_ = tx.Rollback()
 			return err
 		}
 	}
-	if _, err := r.client.Request.Delete().Where(request.FolderIDEQ(uid)).Exec(ctx); err != nil {
+	if _, err := tx.History.Update().
+		Where(history.RootFolderIDIn(folderIDs...)).
+		ClearRootFolderID().
+		Save(ctx); err != nil {
+		_ = tx.Rollback()
 		return err
 	}
-	return r.client.Folder.DeleteOneID(uid).Exec(ctx)
+
+	if len(requestIDs) > 0 {
+		if _, err := tx.RequestHeader.Delete().Where(requestheader.RequestIDIn(requestIDs...)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if _, err := tx.RequestQueryParam.Delete().Where(requestqueryparam.RequestIDIn(requestIDs...)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if _, err := tx.RequestFormField.Delete().Where(requestformfield.RequestIDIn(requestIDs...)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if _, err := tx.Request.Delete().Where(request.IDIn(requestIDs...)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	// Bottom-up delete so children are removed before their parents.
+	for i := len(folderIDs) - 1; i >= 0; i-- {
+		if _, err := tx.Folder.Delete().Where(folder.IDEQ(folderIDs[i])).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// collectSubtreeIDs returns every folder UUID in the subtree rooted at `root`,
+// ordered top-down (root first, deepest last). The caller deletes in reverse order.
+func (r *folderRepo) collectSubtreeIDs(ctx context.Context, root uuid.UUID) ([]uuid.UUID, error) {
+	out := []uuid.UUID{root}
+	queue := []uuid.UUID{root}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		children, err := r.client.Folder.Query().
+			Where(folder.ParentIDEQ(cur)).
+			IDs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, children...)
+		queue = append(queue, children...)
+	}
+	return out, nil
 }
 
 func (r *folderRepo) RootNameTaken(ctx context.Context, name string, excludeID *string) (bool, error) {
