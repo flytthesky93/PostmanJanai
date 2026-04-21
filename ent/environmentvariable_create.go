@@ -48,6 +48,20 @@ func (_c *EnvironmentVariableCreate) SetNillableValue(v *string) *EnvironmentVar
 	return _c
 }
 
+// SetKind sets the "kind" field.
+func (_c *EnvironmentVariableCreate) SetKind(v string) *EnvironmentVariableCreate {
+	_c.mutation.SetKind(v)
+	return _c
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_c *EnvironmentVariableCreate) SetNillableKind(v *string) *EnvironmentVariableCreate {
+	if v != nil {
+		_c.SetKind(*v)
+	}
+	return _c
+}
+
 // SetEnabled sets the "enabled" field.
 func (_c *EnvironmentVariableCreate) SetEnabled(v bool) *EnvironmentVariableCreate {
 	_c.mutation.SetEnabled(v)
@@ -162,6 +176,10 @@ func (_c *EnvironmentVariableCreate) defaults() {
 		v := environmentvariable.DefaultValue
 		_c.mutation.SetValue(v)
 	}
+	if _, ok := _c.mutation.Kind(); !ok {
+		v := environmentvariable.DefaultKind
+		_c.mutation.SetKind(v)
+	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		v := environmentvariable.DefaultEnabled
 		_c.mutation.SetEnabled(v)
@@ -199,6 +217,9 @@ func (_c *EnvironmentVariableCreate) check() error {
 	}
 	if _, ok := _c.mutation.Value(); !ok {
 		return &ValidationError{Name: "value", err: errors.New(`ent: missing required field "EnvironmentVariable.value"`)}
+	}
+	if _, ok := _c.mutation.Kind(); !ok {
+		return &ValidationError{Name: "kind", err: errors.New(`ent: missing required field "EnvironmentVariable.kind"`)}
 	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`ent: missing required field "EnvironmentVariable.enabled"`)}
@@ -257,6 +278,10 @@ func (_c *EnvironmentVariableCreate) createSpec() (*EnvironmentVariable, *sqlgra
 	if value, ok := _c.mutation.Value(); ok {
 		_spec.SetField(environmentvariable.FieldValue, field.TypeString, value)
 		_node.Value = value
+	}
+	if value, ok := _c.mutation.Kind(); ok {
+		_spec.SetField(environmentvariable.FieldKind, field.TypeString, value)
+		_node.Kind = value
 	}
 	if value, ok := _c.mutation.Enabled(); ok {
 		_spec.SetField(environmentvariable.FieldEnabled, field.TypeBool, value)

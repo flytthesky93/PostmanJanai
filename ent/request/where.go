@@ -91,6 +91,11 @@ func AuthJSON(v string) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldAuthJSON, v))
 }
 
+// InsecureSkipVerify applies equality check predicate on the "insecure_skip_verify" field. It's identical to InsecureSkipVerifyEQ.
+func InsecureSkipVerify(v bool) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldInsecureSkipVerify, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldCreatedAt, v))
@@ -529,6 +534,16 @@ func AuthJSONEqualFold(v string) predicate.Request {
 // AuthJSONContainsFold applies the ContainsFold predicate on the "auth_json" field.
 func AuthJSONContainsFold(v string) predicate.Request {
 	return predicate.Request(sql.FieldContainsFold(FieldAuthJSON, v))
+}
+
+// InsecureSkipVerifyEQ applies the EQ predicate on the "insecure_skip_verify" field.
+func InsecureSkipVerifyEQ(v bool) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldInsecureSkipVerify, v))
+}
+
+// InsecureSkipVerifyNEQ applies the NEQ predicate on the "insecure_skip_verify" field.
+func InsecureSkipVerifyNEQ(v bool) predicate.Request {
+	return predicate.Request(sql.FieldNEQ(FieldInsecureSkipVerify, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

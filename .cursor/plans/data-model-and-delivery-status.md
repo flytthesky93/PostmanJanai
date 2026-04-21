@@ -7,8 +7,8 @@
 
 **Roadmap** (mục tiêu, phase 0–9, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
 
-> **Phase 6–9 (planned, 2026-04-21):**
-> - **Phase 6 — Networking & Security:** proxy (system/manual) + custom CA pool + insecure skip verify (per-request) + secret-type env var. DB bump **v5 → v6** (`trusted_cas`, `settings`, `environment_variables.kind`).
+> **Phase 6–9 (snapshot 2026-04-21):**
+> - **Phase 6 — Networking & Security:** **Done (2026-04-21).** proxy (`none/system/manual` + `NO_PROXY`) + custom CA pool (`trusted_cas` PEM trong DB) + `insecure_skip_verify` (per-request, lưu trên `requests`) + secret env var (`kind` + AES-GCM `enc:v1:` + redact history/snippet) + Wails `SettingsHandler` + tab **Settings**. DB bump **v5 → v6**.
 > - **Phase 7 — UX Polish:** Dashboard khi không còn tab + cho đóng tab cuối, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts. **Không** bump DB.
 > - **Phase 8 — Runner & Chaining:** capture rules (JSONPath/regex → env var) + assertion rules (status/header/json-path) + Collection Runner theo folder + env. DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
 > - **Phase 9 — Scripting (bắt buộc):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v7 → v8** (`requests.pre_request_script`, `requests.post_response_script`).
@@ -69,6 +69,7 @@ Mỗi request đã lưu thuộc **đúng một** folder.
 | `body_mode` | TEXT | NOT NULL — enum logic app: `none`, `raw`, `xml`, `form_urlencoded`, `multipart`, … |
 | `raw_body` | TEXT | NULL |
 | `auth_json` | TEXT | NULL — JSON cấu hình auth (`none` / `bearer` / `basic` / `apikey`), optional |
+| `insecure_skip_verify` | BOOLEAN | NOT NULL, default `false` — khi `true`, request đã lưu gửi HTTPS với `InsecureSkipVerify` (badge **insec** trên tab + history) |
 | `created_at` | DATETIME | NOT NULL |
 | `updated_at` | DATETIME | NOT NULL |
 
@@ -158,13 +159,35 @@ Mỗi request đã lưu thuộc **đúng một** folder.
 | `id` | TEXT | PK, UUID |
 | `environment_id` | TEXT | NOT NULL, FK → `environments.id` CASCADE |
 | `key` | TEXT | NOT NULL |
-| `value` | TEXT | NOT NULL |
+| `value` | TEXT | NOT NULL — nếu `kind=secret` thì value trong DB là ciphertext có prefix `enc:v1:` (AES-GCM) |
+| `kind` | TEXT | NOT NULL, default `plain` — `plain` \| `secret` |
 | `enabled` | BOOLEAN | NOT NULL, default true |
 | `sort_order` | INTEGER | NOT NULL, default 0 |
 | `created_at` | DATETIME | NOT NULL |
 | `updated_at` | DATETIME | NOT NULL |
 
 - **UNIQUE** (`environment_id`, `key`).
+
+### `settings` (key/value — Phase 6)
+
+Bảng nhỏ dạng “feature flags / config” cho proxy (và có thể mở rộng sau).
+
+| Cột | Kiểu | Ràng buộc |
+|-----|------|-----------|
+| `key` | TEXT | PK |
+| `value` | TEXT | NOT NULL |
+
+**Keys hiện dùng (proxy):** `proxy.mode`, `proxy.url`, `proxy.username`, `proxy.password` (ciphertext), `proxy.no_proxy`.
+
+### `trusted_cas` (custom CA PEM — Phase 6)
+
+| Cột | Kiểu | Ràng buộc |
+|-----|------|-----------|
+| `id` | UUID | PK |
+| `label` | TEXT | NOT NULL |
+| `pem_content` | TEXT | NOT NULL |
+| `enabled` | BOOLEAN | NOT NULL, default true |
+| `created_at` | DATETIME | NOT NULL |
 
 ---
 
@@ -180,13 +203,15 @@ erDiagram
   requests ||--o{ request_form_fields : has
   requests ||--o{ histories : optional
   environments ||--o{ environment_variables : has
+  settings
+  trusted_cas
 ```
 
 ---
 
 ## Migration & phiên bản DB
 
-- **`PRAGMA user_version` hiện tại (code):** **`5`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
+- **`PRAGMA user_version` hiện tại (code):** **`6`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
 - **Luồng migrate:** backup DB (nếu non-empty) → `MigrateDataBetweenVersions` → `ent.Client.Schema.Create` → set `user_version`.
 - **Các bước đã định nghĩa:**
   - `0 → 1`: placeholder.
@@ -194,6 +219,7 @@ erDiagram
   - `2 → 3`: drop lại toàn bộ bảng domain có trong `dropLegacyTablesForUUIDSchema` (thêm `folders`), rồi `Schema.Create` — **mô hình mới folder + `requests.folder_id` + `histories.root_folder_id`**. **Không** có export/import tự động từ v2: dữ liệu cũ mất sau migrate (có file backup trong `AppDir/backups/` nếu backup chạy).
   - `3 → 4`: additive (Ent `Schema.Create`) — ví dụ `requests.auth_json`.
   - `4 → 5`: `ALTER TABLE folders ADD COLUMN sort_order …` + backfill theo tên trong `internal/dbmanage/data_migrate.go` (`backfillFolderSortOrder`).
+  - `5 → 6`: additive — `CREATE TABLE settings`, `CREATE TABLE trusted_cas`, `ALTER TABLE environment_variables ADD COLUMN kind …`, `ALTER TABLE requests ADD COLUMN insecure_skip_verify …` (chi tiết trong `internal/dbmanage/data_migrate.go`).
 - Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm — **backlog**).
 
 ---
@@ -201,7 +227,7 @@ erDiagram
 ## Trạng thái (schema)
 
 - **Schema Ent** khớp các bảng trên (folder, request, history, environment, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
-- **Wails:** `FolderHandler` (gồm `MoveFolder`, **`ReorderFolder`**), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`** — binding trong `frontend/wailsjs/`.
+- **Wails:** `FolderHandler` (gồm `MoveFolder`, **`ReorderFolder`**), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, **`SettingsHandler` (Phase 6)**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`** — binding trong `frontend/wailsjs/`.
 
 ---
 
@@ -213,9 +239,20 @@ erDiagram
 
 ---
 
-## Tiến độ đã triển khai (cập nhật 2026-04-20)
+## Tiến độ đã triển khai (cập nhật 2026-04-21)
 
 - **Roadmap:** Phase **0–3** **đã đóng**; **Phase 4** **đã đóng** theo scope productivity (Import, Multi-tab, Search, export Postman v2.1, snippets, cây folder đầy đủ kể cả reorder + polish UX) — chi tiết [roadmap.md](roadmap.md).
+- **Phase 5** **đã đóng** (2026-04-21) — quality gate baseline (tests + smoke E2E Go + CI + release/manual docs).
+- **Phase 6** **đã đóng** (2026-04-21) — networking/security: proxy + custom CA + per-request insecure TLS + secret env + redact + Settings UI — **DB v6**.
+
+### Đã xong (Phase 6 — networking & security, 2026-04-21)
+
+- [x] **DB v6** — `settings`, `trusted_cas`, `environment_variables.kind`, `requests.insecure_skip_verify` + migrate `5→6` + test migration
+- [x] **Crypto** — `SecretCipher` AES-GCM (`enc:v1:`) cho proxy password + secret env values
+- [x] **HTTP transport** — `HTTPTransportFactory` (system proxy / manual proxy + basic-auth proxy / NO_PROXY + custom CA pool + per-request TLS insecure)
+- [x] **Redact** — `RedactHTTPExecuteInput` + history persist dùng snapshot đã redact; snippets dùng payload redact
+- [x] **Wails** — `SettingsHandler` (`Get/SetProxy`, `TestProxy`, CRUD CA, `PickCACertFile`, `ReadTextFile`)
+- [x] **Frontend** — tab **Settings**; env var `kind=secret` UI; toggle insecure TLS + badge tab/history
 
 ### Nhật ký công việc 2026-04-20 (bổ sung trong ngày)
 
@@ -262,7 +299,7 @@ erDiagram
   - **Delivery Wails:** `internal/delivery/import_handler.go` — `PickCollectionFile`, `PreviewCollectionFile`, `ImportCollectionFile`; wired trong `main.go` (OnStartup).
   - **Limits / errors:** cap file `constant.MaxImportFileBytes` (25 MB); error codes `IMP_701..IMP_707` trong `internal/constant/error_constant.go`.
   - **Frontend:** `frontend/src/components/ImportCollectionModal.vue` (preview tên, format, số folder/request, variables, warnings; option tạo + activate env) + nút **Import** trên sidebar Folders (`Sidebar.vue`); refresh folder tree + env list và toast sau khi import.
-  - **DB impact (lúc triển khai):** tái sử dụng bảng `folders` / `requests` / …; các bump sau (`auth_json`, `sort_order`) xem mục **Migration & phiên bản DB** (hiện **v5**).
+  - **DB impact (lúc triển khai):** tái sử dụng bảng `folders` / `requests` / …; các bump sau (`auth_json`, `sort_order`, Phase 6…) xem mục **Migration & phiên bản DB** (hiện **v6**).
 
 - [x] **Inline rename folder + saved request** (2026-04-20 — Phase 4 item #6.2; cập nhật UX cùng ngày):
   - **Folder:** chỉ **⋮ → Rename** → input inline (nested + root); **không** double-click folder; **Enter** / **Esc** / **blur** như trước.
@@ -317,12 +354,14 @@ erDiagram
 - [x] **Export** Postman Collection v2.1 (file) — 2026-04-20
 - [x] **Snippet** curl / fetch / axios / httpie — 2026-04-20
 - [x] **DnD** move folder/request + **reorder** + **DB v5** `sort_order` — 2026-04-20
+- [x] **Phase 5** quality gate — tests + smoke E2E + CI + release/manual docs — 2026-04-21
+- [x] **Phase 6** networking & security — proxy + custom CA + insecure TLS + secret env + Settings UI — **DB v6** — 2026-04-21
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-**Phase 5** (quality, test, packaging) — **đang triển khai (2026-04-21)**; scope chi tiết + DoD xem [roadmap.md §Phase 5](roadmap.md). 4 nhóm đo được: (1) test bù lấp `dbmanage` / `repository` / `usecase` / import-export round-trip; (2) smoke E2E Go (httptest + ent SQLite tạm); (3) CI tối thiểu (`.github/workflows/ci.yml`); (4) [release-checklist.md](release-checklist.md) + [manual-test-plan.md](manual-test-plan.md). Windows x64 là platform chính thức v1; macOS/Linux best-effort, unsigned.
+**Phase 7** (UX polish & productivity) — ưu tiên tiếp theo sau Phase 6; scope + DoD xem [roadmap.md §Phase 7](roadmap.md).
 
-**Backlog ngoài Phase 5:** export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); code signing Windows; notarize macOS.
+**Backlog ngoài Phase 7–9:** export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); code signing Windows; notarize macOS.

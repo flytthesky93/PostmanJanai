@@ -6,6 +6,7 @@ import RequestTabBar from './components/RequestTabBar.vue'
 import ResponsePanel from './components/ResponsePanel.vue'
 import ConsolePanel from './components/ConsolePanel.vue'
 import EnvironmentDetailPanel from './components/EnvironmentDetailPanel.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import { Execute } from '../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import { Get as GetSavedRequest } from '../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as EnvAPI from '../wailsjs/wailsjs/go/delivery/EnvironmentHandler'
@@ -18,9 +19,11 @@ const { tabsMeta, activeTab, state: tabsState } = tabsStore
 const responseResult = computed(() => activeTab.value?.response || null)
 const loading = computed(() => !!activeTab.value?.loading)
 
-/** 'request' | 'environment' — environment replaces request + response columns */
+/** 'request' | 'environment' | 'settings' */
 const mainWorkspaceMode = ref('request')
 const selectedEnvironmentId = ref(null)
+/** When opening Settings from request/env, restore this mode when closing. */
+const workspaceBeforeSettings = ref(null)
 
 /** @type {import('vue').Ref<Array<Record<string, unknown>>>} */
 const environmentSummaries = ref([])
@@ -171,9 +174,20 @@ function onOpenEnvironment(id) {
   selectedEnvironmentId.value = String(id)
 }
 
+function onToggleSettings() {
+  if (mainWorkspaceMode.value === 'settings') {
+    mainWorkspaceMode.value = workspaceBeforeSettings.value || 'request'
+    workspaceBeforeSettings.value = null
+    return
+  }
+  workspaceBeforeSettings.value = mainWorkspaceMode.value
+  mainWorkspaceMode.value = 'settings'
+}
+
 function onMainWorkspaceRequest() {
   mainWorkspaceMode.value = 'request'
   selectedEnvironmentId.value = null
+  workspaceBeforeSettings.value = null
 }
 
 async function onEnvironmentChanged() {
@@ -412,23 +426,49 @@ watch(
       class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       style="min-width: 0; min-height: 0; height: 100%"
     >
-      <template v-if="mainWorkspaceMode === 'request'">
+      <template v-if="mainWorkspaceMode === 'request' || mainWorkspaceMode === 'settings'">
         <div
           class="flex shrink-0 flex-wrap items-center gap-3 border-b border-[#2a2a2a] bg-[#252525] px-4 py-2"
         >
-          <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Active environment</span>
-          <select
-            v-model="activeEnvDropdown"
-            class="max-w-[220px] min-w-0 flex-1 rounded border border-gray-600 bg-[#1a1a1a] px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
-            aria-label="Active environment"
-            @change="onActiveEnvDropdownChange"
+          <div class="flex min-w-0 flex-1 items-center gap-3">
+            <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Active environment</span>
+            <select
+              v-model="activeEnvDropdown"
+              class="max-w-[220px] min-w-0 flex-1 rounded border border-gray-600 bg-[#1a1a1a] px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+              aria-label="Active environment"
+              @change="onActiveEnvDropdownChange"
+            >
+              <option value="">No environment</option>
+              <option v-for="e in envList" :key="e.id" :value="e.id">
+                {{ e.name }}
+              </option>
+            </select>
+          </div>
+          <button
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded border text-gray-300 hover:border-orange-500 hover:text-orange-200"
+            :class="
+              mainWorkspaceMode === 'settings'
+                ? 'border-orange-500/60 bg-orange-500/10 text-orange-200'
+                : 'border-gray-600 bg-[#1a1a1a]'
+            "
+            :title="mainWorkspaceMode === 'settings' ? 'Close settings' : 'App settings'"
+            :aria-label="mainWorkspaceMode === 'settings' ? 'Close settings' : 'App settings'"
+            @click="onToggleSettings"
           >
-            <option value="">No environment</option>
-            <option v-for="e in envList" :key="e.id" :value="e.id">
-              {{ e.name }}
-            </option>
-          </select>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="h-5 w-5" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.632 6.632 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.37.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.544-.56.942-1.11.942h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.37-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.632 6.632 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.49l1.217.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.213-1.281Z"
+              />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+          </button>
         </div>
+      </template>
+
+      <template v-if="mainWorkspaceMode === 'request'">
         <RequestTabBar
           :tabs="tabsMeta"
           :active-tab-id="tabsState.activeTabId"
@@ -462,8 +502,14 @@ watch(
           </div>
         </div>
       </template>
+      <SettingsPanel
+        v-else-if="mainWorkspaceMode === 'settings'"
+        class="min-h-0 flex-1"
+        :active="true"
+        @console="onRequestConsole"
+      />
       <EnvironmentDetailPanel
-        v-else
+        v-else-if="mainWorkspaceMode === 'environment'"
         :environment-id="selectedEnvironmentId"
         @console="onRequestConsole"
         @saved="onEnvironmentChanged"

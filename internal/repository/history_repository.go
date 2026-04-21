@@ -3,6 +3,7 @@ package repository
 import (
 	"PostmanJanai/ent"
 	"PostmanJanai/ent/history"
+	"PostmanJanai/ent/request"
 	"PostmanJanai/internal/entity"
 	"context"
 	"strings"
@@ -86,6 +87,26 @@ func (r *historyRepo) ListSummaries(ctx context.Context, rootFolderID *string) (
 	if err != nil {
 		return nil, err
 	}
+	reqIDs := make([]uuid.UUID, 0)
+	for _, row := range rows {
+		if row.RequestID != nil {
+			reqIDs = append(reqIDs, *row.RequestID)
+		}
+	}
+	insecureByReq := map[uuid.UUID]bool{}
+	if len(reqIDs) > 0 {
+		reqRows, err := r.client.Request.Query().
+			Where(request.IDIn(reqIDs...)).
+			Select(request.FieldID, request.FieldInsecureSkipVerify).
+			All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, rr := range reqRows {
+			insecureByReq[rr.ID] = rr.InsecureSkipVerify
+		}
+	}
+
 	out := make([]entity.HistorySummary, 0, len(rows))
 	for _, row := range rows {
 		var rf *string
@@ -94,14 +115,22 @@ func (r *historyRepo) ListSummaries(ctx context.Context, rootFolderID *string) (
 			rf = &s
 		}
 		var rq *string
+		var rqUUID *uuid.UUID
 		if row.RequestID != nil {
 			s := row.RequestID.String()
 			rq = &s
+			id := *row.RequestID
+			rqUUID = &id
+		}
+		insec := false
+		if rqUUID != nil {
+			insec = insecureByReq[*rqUUID]
 		}
 		out = append(out, entity.HistorySummary{
 			ID:                row.ID.String(),
 			RootFolderID:      rf,
 			RequestID:         rq,
+			InsecureTLS:       insec,
 			Method:            row.Method,
 			URL:               row.URL,
 			StatusCode:        row.StatusCode,
@@ -122,6 +151,13 @@ func (r *historyRepo) GetByID(ctx context.Context, id string) (*entity.HistoryIt
 	if err != nil {
 		return nil, err
 	}
+	insec := false
+	if row.RequestID != nil {
+		reqRow, err := r.client.Request.Get(ctx, *row.RequestID)
+		if err == nil && reqRow != nil {
+			insec = reqRow.InsecureSkipVerify
+		}
+	}
 	var rf *string
 	if row.RootFolderID != nil {
 		s := row.RootFolderID.String()
@@ -136,6 +172,7 @@ func (r *historyRepo) GetByID(ctx context.Context, id string) (*entity.HistoryIt
 		ID:                  row.ID.String(),
 		RootFolderID:        rf,
 		RequestID:           rq,
+		InsecureTLS:         insec,
 		Method:              row.Method,
 		URL:                 row.URL,
 		StatusCode:          row.StatusCode,

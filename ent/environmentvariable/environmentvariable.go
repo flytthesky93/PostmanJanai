@@ -21,6 +21,8 @@ const (
 	FieldKey = "key"
 	// FieldValue holds the string denoting the value field in the database.
 	FieldValue = "value"
+	// FieldKind holds the string denoting the kind field in the database.
+	FieldKind = "kind"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
 	// FieldSortOrder holds the string denoting the sort_order field in the database.
@@ -48,6 +50,7 @@ var Columns = []string{
 	FieldEnvironmentID,
 	FieldKey,
 	FieldValue,
+	FieldKind,
 	FieldEnabled,
 	FieldSortOrder,
 	FieldCreatedAt,
@@ -69,6 +72,8 @@ var (
 	KeyValidator func(string) error
 	// DefaultValue holds the default value on creation for the "value" field.
 	DefaultValue string
+	// DefaultKind holds the default value on creation for the "kind" field.
+	DefaultKind string
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
 	DefaultEnabled bool
 	// DefaultSortOrder holds the default value on creation for the "sort_order" field.
@@ -104,6 +109,11 @@ func ByKey(opts ...sql.OrderTermOption) OrderOption {
 // ByValue orders the results by the value field.
 func ByValue(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldValue, opts...).ToFunc()
+}
+
+// ByKind orders the results by the kind field.
+func ByKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKind, opts...).ToFunc()
 }
 
 // ByEnabled orders the results by the enabled field.

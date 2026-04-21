@@ -21,88 +21,38 @@ import (
 
 // HTTPExecutor performs real HTTP requests via net/http (Phase 1).
 type HTTPExecutor struct {
-	Client  *http.Client
-	MaxBody int64
+	Transport *HTTPTransportFactory
+	MaxBody   int64
 }
 
-func NewHTTPExecutor() *HTTPExecutor {
-	t := time.Duration(constant.HTTPClientTimeoutSeconds) * time.Second
+func NewHTTPExecutor(tf *HTTPTransportFactory) *HTTPExecutor {
 	return &HTTPExecutor{
-		Client: &http.Client{
-			Timeout: t,
-		},
-		MaxBody: int64(constant.HTTPMaxResponseBodyBytes),
+		Transport: tf,
+		MaxBody:   int64(constant.HTTPMaxResponseBodyBytes),
 	}
+}
+
+func (e *HTTPExecutor) httpClient(ctx context.Context, insecure bool) (*http.Client, error) {
+	t := time.Duration(constant.HTTPClientTimeoutSeconds) * time.Second
+	if e.Transport == nil {
+		return &http.Client{Timeout: t}, nil
+	}
+	tr, err := e.Transport.Build(ctx, insecure)
+	if err != nil {
+		return nil, err
+	}
+	return &http.Client{
+		Timeout:   t,
+		Transport: tr,
+	}, nil
 }
 
 // Execute runs one HTTP request. Validation errors return (nil, err).
 // After sending, transport errors (timeout, TLS, …) return *HTTPExecuteResult with ErrorMessage set and err == nil.
 func (e *HTTPExecutor) Execute(ctx context.Context, in *entity.HTTPExecuteInput) (*entity.HTTPExecuteResult, error) {
-	if in == nil {
-		return nil, apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("nil input"))
-	}
-	method := strings.TrimSpace(strings.ToUpper(in.Method))
-	if method == "" {
-		method = http.MethodGet
-	}
-	raw := strings.TrimSpace(in.URL)
-	if raw == "" {
-		return nil, apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("empty url"))
-	}
-	u, err := url.Parse(raw)
+	req, finalURL, mode, err := buildHTTPRequestForExecute(ctx, in, e)
 	if err != nil {
-		return nil, apperror.NewWithErrorDetail(constant.ErrInvalidURL, err)
-	}
-	if u.Scheme == "" || u.Host == "" {
-		return nil, apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("URL must include scheme and host"))
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("only http and https are supported"))
-	}
-	q := u.Query()
-	for _, p := range in.QueryParams {
-		k := strings.TrimSpace(p.Key)
-		if k != "" {
-			q.Add(k, p.Value)
-		}
-	}
-	u.RawQuery = q.Encode()
-	finalURL := u.String()
-
-	mode := entity.BodyMode(strings.TrimSpace(in.BodyMode))
-	if mode == "" {
-		if strings.TrimSpace(in.Body) != "" {
-			mode = entity.BodyModeRaw
-		} else {
-			mode = entity.BodyModeNone
-		}
-	}
-
-	bodyReader, contentTypeOverride, execErr := e.buildRequestBody(mode, in)
-	if execErr != nil {
-		return nil, execErr
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, finalURL, bodyReader)
-	if err != nil {
-		return nil, apperror.NewWithErrorDetail(constant.ErrInvalidURL, err)
-	}
-
-	for _, h := range in.Headers {
-		k := strings.TrimSpace(h.Key)
-		if k == "" {
-			continue
-		}
-		if contentTypeOverride != "" && strings.EqualFold(k, "Content-Type") {
-			continue
-		}
-		req.Header.Add(k, h.Value)
-	}
-	if contentTypeOverride != "" {
-		req.Header.Set("Content-Type", contentTypeOverride)
-	}
-	if req.Header.Get("User-Agent") == "" {
-		req.Header.Set("User-Agent", constant.AppName+"/1.0")
+		return nil, err
 	}
 
 	out := &entity.HTTPExecuteResult{
@@ -111,8 +61,13 @@ func (e *HTTPExecutor) Execute(ctx context.Context, in *entity.HTTPExecuteInput)
 		RequestBodySnapshot:    requestBodySnapshot(mode, in),
 	}
 
+	client, err := e.httpClient(ctx, in.InsecureSkipVerify)
+	if err != nil {
+		return nil, apperror.NewWithErrorDetail(constant.ErrInternal, err)
+	}
+
 	start := time.Now()
-	resp, err := e.Client.Do(req)
+	resp, err := client.Do(req)
 	out.DurationMs = time.Since(start).Milliseconds()
 
 	if err != nil {
@@ -147,6 +102,101 @@ func (e *HTTPExecutor) Execute(ctx context.Context, in *entity.HTTPExecuteInput)
 		out.ResponseSizeBytes = int64(len(data))
 	}
 	return out, nil
+}
+
+// HTTPRequestSnapshotsForHistory builds the same FinalURL + header/body snapshots as a real Send,
+// but does not perform I/O. Use the redacted *HTTPExecuteInput (after RedactHTTPExecuteInput)
+// so persisted history matches what the UI should display for secrets.
+func HTTPRequestSnapshotsForHistory(ctx context.Context, in *entity.HTTPExecuteInput) (finalURL string, hdrs []entity.KeyValue, body string, err error) {
+	req, finalURL, mode, err := buildHTTPRequestForExecute(ctx, in, nil)
+	if err != nil {
+		return "", nil, "", err
+	}
+	return finalURL, headerSnapshotForHistory(req.Header), requestBodySnapshot(mode, in), nil
+}
+
+func buildHTTPRequestForExecute(ctx context.Context, in *entity.HTTPExecuteInput, e *HTTPExecutor) (*http.Request, string, entity.BodyMode, error) {
+	if in == nil {
+		return nil, "", "", apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("nil input"))
+	}
+	method := strings.TrimSpace(strings.ToUpper(in.Method))
+	if method == "" {
+		method = http.MethodGet
+	}
+	raw := strings.TrimSpace(in.URL)
+	if raw == "" {
+		return nil, "", "", apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("empty url"))
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, "", "", apperror.NewWithErrorDetail(constant.ErrInvalidURL, err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return nil, "", "", apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("URL must include scheme and host"))
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, "", "", apperror.NewWithErrorDetail(constant.ErrInvalidURL, errors.New("only http and https are supported"))
+	}
+	q := u.Query()
+	for _, p := range in.QueryParams {
+		k := strings.TrimSpace(p.Key)
+		if k != "" {
+			q.Add(k, p.Value)
+		}
+	}
+	u.RawQuery = q.Encode()
+	finalURL := u.String()
+
+	mode := entity.BodyMode(strings.TrimSpace(in.BodyMode))
+	if mode == "" {
+		if strings.TrimSpace(in.Body) != "" {
+			mode = entity.BodyModeRaw
+		} else {
+			mode = entity.BodyModeNone
+		}
+	}
+
+	var bodyReader io.Reader
+	var contentTypeOverride string
+	var execErr error
+	if e != nil {
+		bodyReader, contentTypeOverride, execErr = e.buildRequestBody(mode, in)
+	} else {
+		bodyReader, contentTypeOverride, execErr = buildRequestBodyStandalone(mode, in)
+	}
+	if execErr != nil {
+		return nil, "", "", execErr
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, finalURL, bodyReader)
+	if err != nil {
+		return nil, "", "", apperror.NewWithErrorDetail(constant.ErrInvalidURL, err)
+	}
+
+	for _, h := range in.Headers {
+		k := strings.TrimSpace(h.Key)
+		if k == "" {
+			continue
+		}
+		if contentTypeOverride != "" && strings.EqualFold(k, "Content-Type") {
+			continue
+		}
+		req.Header.Add(k, h.Value)
+	}
+	if contentTypeOverride != "" {
+		req.Header.Set("Content-Type", contentTypeOverride)
+	}
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", constant.AppName+"/1.0")
+	}
+
+	return req, finalURL, mode, nil
+}
+
+func buildRequestBodyStandalone(mode entity.BodyMode, in *entity.HTTPExecuteInput) (io.Reader, string, error) {
+	// Delegate to zero-value HTTPExecutor — buildRequestBody does not depend on executor state.
+	var z HTTPExecutor
+	return z.buildRequestBody(mode, in)
 }
 
 func (e *HTTPExecutor) buildRequestBody(mode entity.BodyMode, in *entity.HTTPExecuteInput) (io.Reader, string, error) {

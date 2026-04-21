@@ -20,10 +20,11 @@ type HTTPHandler struct {
 	executor *service.HTTPExecutor
 	history  repository.HistoryRepository
 	env      repository.EnvironmentRepository
+	saved    repository.RequestRepository
 }
 
-func NewHTTPHandler(ex *service.HTTPExecutor, hist repository.HistoryRepository, env repository.EnvironmentRepository) *HTTPHandler {
-	return &HTTPHandler{executor: ex, history: hist, env: env}
+func NewHTTPHandler(ex *service.HTTPExecutor, hist repository.HistoryRepository, env repository.EnvironmentRepository, saved repository.RequestRepository) *HTTPHandler {
+	return &HTTPHandler{executor: ex, history: hist, env: env, saved: saved}
 }
 
 func (h *HTTPHandler) SetContext(ctx context.Context) {
@@ -57,6 +58,12 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 	resolved := service.CloneSubstituteHTTPExecuteInput(in, vars)
 	service.MergeAuthIntoHeadersAndQuery(resolved)
 
+	if resolved != nil && h.saved != nil && resolved.RequestID != nil && strings.TrimSpace(*resolved.RequestID) != "" {
+		if full, err := h.saved.GetByID(ctx, strings.TrimSpace(*resolved.RequestID)); err == nil && full != nil {
+			resolved.InsecureSkipVerify = resolved.InsecureSkipVerify || full.InsecureSkipVerify
+		}
+	}
+
 	res, err := h.executor.Execute(ctx, resolved)
 	if err != nil {
 		logger.L().ErrorContext(ctx, "HTTP execute validation failed", "error", err)
@@ -67,12 +74,28 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 	} else {
 		logger.L().InfoContext(ctx, "HTTP execute success", "status", res.StatusCode, "duration_ms", res.DurationMs)
 	}
+	secrets := []string{}
+	if h.env != nil {
+		if s, err := h.env.ActiveSecretPlaintexts(ctx); err == nil && s != nil {
+			secrets = s
+		}
+	}
+	histIn := resolved
+	if len(secrets) > 0 {
+		histIn = service.RedactHTTPExecuteInput(resolved, secrets)
+	}
+
+	insecureTLS := false
+	if resolved != nil {
+		insecureTLS = resolved.InsecureSkipVerify
+	}
+
 	// History stores the request as actually sent (resolved), not template placeholders.
-	h.persistHistory(ctx, resolved, res)
+	h.persistHistory(ctx, histIn, res, insecureTLS)
 	return res, nil
 }
 
-func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecuteInput, res *entity.HTTPExecuteResult) {
+func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecuteInput, res *entity.HTTPExecuteResult, insecureTLS bool) {
 	if h.history == nil || res == nil {
 		return
 	}
@@ -84,13 +107,22 @@ func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecute
 		}
 	}
 	urlStr := strings.TrimSpace(res.FinalURL)
+	reqHdrSnap := res.RequestHeadersSnapshot
+	reqBodySnap := res.RequestBodySnapshot
+	if in != nil {
+		if fu, hdrs, body, err := service.HTTPRequestSnapshotsForHistory(ctx, in); err == nil {
+			urlStr = strings.TrimSpace(fu)
+			reqHdrSnap = hdrs
+			reqBodySnap = body
+		}
+	}
 	if urlStr == "" && in != nil {
 		urlStr = strings.TrimSpace(in.URL)
 	}
 
 	var reqHdrJSON *string
-	if len(res.RequestHeadersSnapshot) > 0 {
-		if b, err := json.Marshal(res.RequestHeadersSnapshot); err == nil {
+	if len(reqHdrSnap) > 0 {
+		if b, err := json.Marshal(reqHdrSnap); err == nil {
 			s := string(b)
 			reqHdrJSON = &s
 		}
@@ -104,8 +136,8 @@ func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecute
 	}
 
 	var reqBody *string
-	if res.RequestBodySnapshot != "" {
-		s := res.RequestBodySnapshot
+	if reqBodySnap != "" {
+		s := reqBodySnap
 		reqBody = &s
 	}
 
@@ -133,6 +165,7 @@ func (h *HTTPHandler) persistHistory(ctx context.Context, in *entity.HTTPExecute
 	item := &entity.HistoryItem{
 		Method:              method,
 		URL:                 urlStr,
+		InsecureTLS:         insecureTLS,
 		StatusCode:          res.StatusCode,
 		DurationMs:          &dms,
 		ResponseSizeBytes:   &rsz,

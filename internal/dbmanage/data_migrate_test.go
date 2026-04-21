@@ -10,7 +10,7 @@ import (
 // TestMigrate_NoopWhenFromEqualsTo ensures the migration driver is idempotent for same-version DBs.
 func TestMigrate_NoopWhenFromEqualsTo(t *testing.T) {
 	db, _ := testutil.NewSQLDB(t)
-	if err := MigrateDataBetweenVersions(context.Background(), db, 5, 5); err != nil {
+	if err := MigrateDataBetweenVersions(context.Background(), db, 6, 6); err != nil {
 		t.Fatalf("noop should not error, got %v", err)
 	}
 }
@@ -73,6 +73,65 @@ func TestMigrate_4to5AddsSortOrderAndBackfill(t *testing.T) {
 		if got[id] != w {
 			t.Errorf("sort_order(%s) = %d, want %d", id, got[id], w)
 		}
+	}
+}
+
+// TestMigrate_5to6AddsKindAndInsecureSkipVerify verifies v5→v6 adds additive columns only.
+func TestMigrate_5to6AddsKindAndInsecureSkipVerify(t *testing.T) {
+	db, _ := testutil.NewSQLDB(t)
+
+	stmts := []string{
+		`CREATE TABLE environment_variables (
+			id TEXT PRIMARY KEY,
+			environment_id TEXT NOT NULL,
+			key TEXT NOT NULL,
+			value TEXT NOT NULL DEFAULT '',
+			enabled INTEGER NOT NULL DEFAULT 1,
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`INSERT INTO environment_variables (id, environment_id, key, value) VALUES ('v1', 'e1', 'k', 'abc')`,
+		`CREATE TABLE requests (
+			id TEXT PRIMARY KEY,
+			folder_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			method TEXT NOT NULL DEFAULT 'GET',
+			url TEXT NOT NULL,
+			body_mode TEXT NOT NULL,
+			raw_body TEXT,
+			auth_json TEXT,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`INSERT INTO requests (id, folder_id, name, url, body_mode) VALUES ('r1', 'f1', 'x', 'https://example.com', 'none')`,
+	}
+	for _, q := range stmts {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("seed %q: %v", q, err)
+		}
+	}
+
+	if err := MigrateDataBetweenVersions(context.Background(), db, 5, 6); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	row := db.QueryRow(`SELECT kind FROM environment_variables WHERE id = 'v1'`)
+	var kind string
+	if err := row.Scan(&kind); err != nil {
+		t.Fatalf("scan kind: %v", err)
+	}
+	if kind != "plain" {
+		t.Fatalf("kind = %q, want plain", kind)
+	}
+
+	row2 := db.QueryRow(`SELECT insecure_skip_verify FROM requests WHERE id = 'r1'`)
+	var inv int
+	if err := row2.Scan(&inv); err != nil {
+		t.Fatalf("scan insecure_skip_verify: %v", err)
+	}
+	if inv != 0 {
+		t.Fatalf("insecure_skip_verify = %d, want 0", inv)
 	}
 }
 

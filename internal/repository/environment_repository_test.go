@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"PostmanJanai/internal/entity"
+	"PostmanJanai/internal/service"
 	"PostmanJanai/internal/testutil"
 )
 
@@ -12,7 +13,11 @@ func newEnvRig(t *testing.T) (context.Context, EnvironmentRepository) {
 	t.Helper()
 	ctx := context.Background()
 	client := testutil.NewEntClient(t)
-	return ctx, NewEnvironmentRepository(client)
+	cipher, err := service.NewSecretCipher()
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+	return ctx, NewEnvironmentRepository(client, cipher)
 }
 
 func TestEnvRepo_CreateAndNameTaken(t *testing.T) {

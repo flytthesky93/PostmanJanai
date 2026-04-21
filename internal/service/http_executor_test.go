@@ -22,7 +22,7 @@ func TestHTTPExecutor_GET(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method:   "GET",
 		URL:      srv.URL,
@@ -52,7 +52,7 @@ func TestHTTPExecutor_QueryParams(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method: "GET",
 		URL:    srv.URL + "/path",
@@ -81,7 +81,7 @@ func TestHTTPExecutor_POST_rawJSON(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method:   "POST",
 		URL:      srv.URL,
@@ -114,7 +114,7 @@ func TestHTTPExecutor_POST_xml(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method:   "POST",
 		URL:      srv.URL,
@@ -148,7 +148,7 @@ func TestHTTPExecutor_FormURLEncoded(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method:   "POST",
 		URL:      srv.URL,
@@ -197,7 +197,7 @@ func TestHTTPExecutor_Multipart_textAndFile(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	res, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method:   "POST",
 		URL:      srv.URL,
@@ -222,7 +222,7 @@ func TestHTTPExecutor_Multipart_textAndFile(t *testing.T) {
 }
 
 func TestHTTPExecutor_NilInput(t *testing.T) {
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	_, err := ex.Execute(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error")
@@ -230,7 +230,7 @@ func TestHTTPExecutor_NilInput(t *testing.T) {
 }
 
 func TestHTTPExecutor_InvalidURL(t *testing.T) {
-	ex := NewHTTPExecutor()
+	ex := NewHTTPExecutor(nil)
 	_, err := ex.Execute(context.Background(), &entity.HTTPExecuteInput{
 		Method: "GET",
 		URL:    "not-a-url",

@@ -35,6 +35,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "key", Type: field.TypeString},
 		{Name: "value", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "kind", Type: field.TypeString, Default: "plain"},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "sort_order", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime},
@@ -49,7 +50,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "environment_variables_environments_environment_variables",
-				Columns:    []*schema.Column{EnvironmentVariablesColumns[7]},
+				Columns:    []*schema.Column{EnvironmentVariablesColumns[8]},
 				RefColumns: []*schema.Column{EnvironmentsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -58,12 +59,12 @@ var (
 			{
 				Name:    "environmentvariable_environment_id_key",
 				Unique:  true,
-				Columns: []*schema.Column{EnvironmentVariablesColumns[7], EnvironmentVariablesColumns[1]},
+				Columns: []*schema.Column{EnvironmentVariablesColumns[8], EnvironmentVariablesColumns[1]},
 			},
 			{
 				Name:    "environmentvariable_environment_id_sort_order",
 				Unique:  false,
-				Columns: []*schema.Column{EnvironmentVariablesColumns[7], EnvironmentVariablesColumns[4]},
+				Columns: []*schema.Column{EnvironmentVariablesColumns[8], EnvironmentVariablesColumns[5]},
 			},
 		},
 	}
@@ -142,6 +143,7 @@ var (
 		{Name: "body_mode", Type: field.TypeString},
 		{Name: "raw_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "auth_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "insecure_skip_verify", Type: field.TypeBool, Default: false},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "folder_id", Type: field.TypeUUID},
@@ -154,7 +156,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "requests_folders_requests",
-				Columns:    []*schema.Column{RequestsColumns[9]},
+				Columns:    []*schema.Column{RequestsColumns[10]},
 				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -163,7 +165,7 @@ var (
 			{
 				Name:    "request_folder_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{RequestsColumns[9], RequestsColumns[1]},
+				Columns: []*schema.Column{RequestsColumns[10], RequestsColumns[1]},
 			},
 		},
 	}
@@ -258,6 +260,40 @@ var (
 			},
 		},
 	}
+	// SettingsColumns holds the columns for the "settings" table.
+	SettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "key", Type: field.TypeString, Unique: true},
+		{Name: "value", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SettingsTable holds the schema information for the "settings" table.
+	SettingsTable = &schema.Table{
+		Name:       "settings",
+		Columns:    SettingsColumns,
+		PrimaryKey: []*schema.Column{SettingsColumns[0]},
+	}
+	// TrustedCasColumns holds the columns for the "trusted_cas" table.
+	TrustedCasColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "label", Type: field.TypeString},
+		{Name: "pem_content", Type: field.TypeString, Size: 2147483647},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// TrustedCasTable holds the schema information for the "trusted_cas" table.
+	TrustedCasTable = &schema.Table{
+		Name:       "trusted_cas",
+		Columns:    TrustedCasColumns,
+		PrimaryKey: []*schema.Column{TrustedCasColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "trustedca_label",
+				Unique:  false,
+				Columns: []*schema.Column{TrustedCasColumns[1]},
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		EnvironmentsTable,
@@ -268,6 +304,8 @@ var (
 		RequestFormFieldsTable,
 		RequestHeadersTable,
 		RequestQueryParamsTable,
+		SettingsTable,
+		TrustedCasTable,
 	}
 )
 

@@ -4,7 +4,9 @@ import (
 	"PostmanJanai/ent"
 	"PostmanJanai/ent/environment"
 	"PostmanJanai/ent/environmentvariable"
+	"PostmanJanai/internal/constant"
 	"PostmanJanai/internal/entity"
+	"PostmanJanai/internal/service"
 	"context"
 	"strings"
 
@@ -25,14 +27,43 @@ type EnvironmentRepository interface {
 	GetActiveSummary(ctx context.Context) (*entity.EnvironmentSummary, error)
 	// ActiveVariableMap returns enabled key → value for the currently active environment (empty map if none).
 	ActiveVariableMap(ctx context.Context) (map[string]string, error)
+	// ActiveSecretPlaintexts returns decrypted plaintext values of **enabled secret** variables
+	// in the active environment — used to redact them from history / snippets.
+	ActiveSecretPlaintexts(ctx context.Context) ([]string, error)
 }
 
 type environmentRepo struct {
 	client *ent.Client
+	cipher *service.SecretCipher
 }
 
-func NewEnvironmentRepository(client *ent.Client) EnvironmentRepository {
-	return &environmentRepo{client: client}
+func NewEnvironmentRepository(client *ent.Client, cipher *service.SecretCipher) EnvironmentRepository {
+	return &environmentRepo{client: client, cipher: cipher}
+}
+
+func normalizeEnvVarKind(k string) string {
+	s := strings.ToLower(strings.TrimSpace(k))
+	if s == constant.EnvVarKindSecret {
+		return constant.EnvVarKindSecret
+	}
+	return constant.EnvVarKindPlain
+}
+
+func (r *environmentRepo) decryptStoredValue(stored string) (string, error) {
+	if r.cipher == nil {
+		return stored, nil
+	}
+	return r.cipher.Decrypt(stored)
+}
+
+func (r *environmentRepo) encryptForStore(kind, plain string) (string, error) {
+	if kind != constant.EnvVarKindSecret {
+		return plain, nil
+	}
+	if r.cipher == nil {
+		return plain, nil
+	}
+	return r.cipher.Encrypt(plain)
 }
 
 func entEnvToSummary(e *ent.Environment) entity.EnvironmentSummary {
@@ -77,10 +108,16 @@ func (r *environmentRepo) GetFull(ctx context.Context, id string) (*entity.Envir
 	sum := entEnvToSummary(e)
 	vars := make([]entity.EnvironmentVariableRow, 0, len(e.Edges.EnvironmentVariables))
 	for _, v := range e.Edges.EnvironmentVariables {
+		kind := normalizeEnvVarKind(v.Kind)
+		val := v.Value
+		if dec, err := r.decryptStoredValue(val); err == nil {
+			val = dec
+		}
 		vars = append(vars, entity.EnvironmentVariableRow{
 			ID:        v.ID.String(),
 			Key:       v.Key,
-			Value:     v.Value,
+			Value:     val,
+			Kind:      kind,
 			Enabled:   v.Enabled,
 			SortOrder: v.SortOrder,
 		})
@@ -172,10 +209,17 @@ func (r *environmentRepo) SaveVariables(ctx context.Context, envID string, rows 
 		if so == 0 {
 			so = i
 		}
+		kind := normalizeEnvVarKind(row.Kind)
+		stored, encErr := r.encryptForStore(kind, row.Value)
+		if encErr != nil {
+			_ = tx.Rollback()
+			return encErr
+		}
 		_, err = tx.EnvironmentVariable.Create().
 			SetEnvironmentID(uid).
 			SetKey(k).
-			SetValue(row.Value).
+			SetValue(stored).
+			SetKind(kind).
 			SetEnabled(row.Enabled).
 			SetSortOrder(so).
 			Save(ctx)
@@ -262,7 +306,48 @@ func (r *environmentRepo) ActiveVariableMap(ctx context.Context) (map[string]str
 		if k == "" {
 			continue
 		}
-		m[k] = v.Value
+		val := v.Value
+		if dec, err := r.decryptStoredValue(val); err == nil {
+			val = dec
+		}
+		m[k] = val
 	}
 	return m, nil
+}
+
+func (r *environmentRepo) ActiveSecretPlaintexts(ctx context.Context) ([]string, error) {
+	sum, err := r.GetActiveSummary(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if sum == nil {
+		return nil, nil
+	}
+	uid, err := uuid.Parse(strings.TrimSpace(sum.ID))
+	if err != nil {
+		return nil, nil
+	}
+	list, err := r.client.EnvironmentVariable.Query().
+		Where(
+			environmentvariable.EnvironmentIDEQ(uid),
+			environmentvariable.Enabled(true),
+			environmentvariable.KindEQ(constant.EnvVarKindSecret),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, v := range list {
+		plain, err := r.decryptStoredValue(v.Value)
+		if err != nil {
+			continue
+		}
+		t := strings.TrimSpace(plain)
+		if t == "" {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out, nil
 }

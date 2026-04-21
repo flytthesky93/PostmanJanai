@@ -116,6 +116,13 @@ func (u *environmentUsecaseImpl) SaveVariables(ctx context.Context, envID string
 		if k == "" {
 			continue
 		}
+		kind := strings.ToLower(strings.TrimSpace(row.Kind))
+		if kind == "" {
+			kind = constant.EnvVarKindPlain
+		}
+		if kind != constant.EnvVarKindPlain && kind != constant.EnvVarKindSecret {
+			return apperror.NewWithErrorDetail(constant.ErrInternal, nil)
+		}
 		kl := strings.ToLower(k)
 		if _, ok := seen[kl]; ok {
 			return apperror.NewWithErrorDetail(constant.ErrEnvironmentDuplicateVariableKey, nil)

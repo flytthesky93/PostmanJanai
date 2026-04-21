@@ -49,6 +49,10 @@ type HTTPExecuteInput struct {
 
 	// Optional auth (Bearer / Basic / API Key); merged after {{var}} resolution.
 	Auth *RequestAuth `json:"auth,omitempty"`
+
+	// InsecureSkipVerify disables TLS certificate verification for this send only
+	// (mirrors saved request flag when executing a saved request).
+	InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
 }
 
 // HTTPExecuteResult is the outcome of HTTP execution (HTTP response or network/timeout error).

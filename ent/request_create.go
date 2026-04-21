@@ -92,6 +92,20 @@ func (_c *RequestCreate) SetNillableAuthJSON(v *string) *RequestCreate {
 	return _c
 }
 
+// SetInsecureSkipVerify sets the "insecure_skip_verify" field.
+func (_c *RequestCreate) SetInsecureSkipVerify(v bool) *RequestCreate {
+	_c.mutation.SetInsecureSkipVerify(v)
+	return _c
+}
+
+// SetNillableInsecureSkipVerify sets the "insecure_skip_verify" field if the given value is not nil.
+func (_c *RequestCreate) SetNillableInsecureSkipVerify(v *bool) *RequestCreate {
+	if v != nil {
+		_c.SetInsecureSkipVerify(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *RequestCreate) SetCreatedAt(v time.Time) *RequestCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -238,6 +252,10 @@ func (_c *RequestCreate) defaults() {
 		v := request.DefaultMethod
 		_c.mutation.SetMethod(v)
 	}
+	if _, ok := _c.mutation.InsecureSkipVerify(); !ok {
+		v := request.DefaultInsecureSkipVerify
+		_c.mutation.SetInsecureSkipVerify(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := request.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -283,6 +301,9 @@ func (_c *RequestCreate) check() error {
 		if err := request.BodyModeValidator(v); err != nil {
 			return &ValidationError{Name: "body_mode", err: fmt.Errorf(`ent: validator failed for field "Request.body_mode": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.InsecureSkipVerify(); !ok {
+		return &ValidationError{Name: "insecure_skip_verify", err: errors.New(`ent: missing required field "Request.insecure_skip_verify"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Request.created_at"`)}
@@ -351,6 +372,10 @@ func (_c *RequestCreate) createSpec() (*Request, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AuthJSON(); ok {
 		_spec.SetField(request.FieldAuthJSON, field.TypeString, value)
 		_node.AuthJSON = &value
+	}
+	if value, ok := _c.mutation.InsecureSkipVerify(); ok {
+		_spec.SetField(request.FieldInsecureSkipVerify, field.TypeBool, value)
+		_node.InsecureSkipVerify = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(request.FieldCreatedAt, field.TypeTime, value)

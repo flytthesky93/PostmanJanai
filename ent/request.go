@@ -33,6 +33,8 @@ type Request struct {
 	RawBody *string `json:"raw_body,omitempty"`
 	// AuthJSON holds the value of the "auth_json" field.
 	AuthJSON *string `json:"auth_json,omitempty"`
+	// InsecureSkipVerify holds the value of the "insecure_skip_verify" field.
+	InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -112,6 +114,8 @@ func (*Request) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case request.FieldInsecureSkipVerify:
+			values[i] = new(sql.NullBool)
 		case request.FieldName, request.FieldMethod, request.FieldURL, request.FieldBodyMode, request.FieldRawBody, request.FieldAuthJSON:
 			values[i] = new(sql.NullString)
 		case request.FieldCreatedAt, request.FieldUpdatedAt:
@@ -182,6 +186,12 @@ func (_m *Request) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AuthJSON = new(string)
 				*_m.AuthJSON = value.String
+			}
+		case request.FieldInsecureSkipVerify:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field insecure_skip_verify", values[i])
+			} else if value.Valid {
+				_m.InsecureSkipVerify = value.Bool
 			}
 		case request.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -280,6 +290,9 @@ func (_m *Request) String() string {
 		builder.WriteString("auth_json=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("insecure_skip_verify=")
+	builder.WriteString(fmt.Sprintf("%v", _m.InsecureSkipVerify))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

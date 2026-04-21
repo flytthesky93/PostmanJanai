@@ -11,6 +11,8 @@ import (
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
+	"PostmanJanai/ent/setting"
+	"PostmanJanai/ent/trustedca"
 	"context"
 	"errors"
 	"fmt"
@@ -88,6 +90,8 @@ func checkColumn(t, c string) error {
 			requestformfield.Table:    requestformfield.ValidColumn,
 			requestheader.Table:       requestheader.ValidColumn,
 			requestqueryparam.Table:   requestqueryparam.ValidColumn,
+			setting.Table:             setting.ValidColumn,
+			trustedca.Table:           trustedca.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

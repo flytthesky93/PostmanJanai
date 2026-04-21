@@ -71,6 +71,11 @@ func Value(v string) predicate.EnvironmentVariable {
 	return predicate.EnvironmentVariable(sql.FieldEQ(FieldValue, v))
 }
 
+// Kind applies equality check predicate on the "kind" field. It's identical to KindEQ.
+func Kind(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldEQ(FieldKind, v))
+}
+
 // Enabled applies equality check predicate on the "enabled" field. It's identical to EnabledEQ.
 func Enabled(v bool) predicate.EnvironmentVariable {
 	return predicate.EnvironmentVariable(sql.FieldEQ(FieldEnabled, v))
@@ -239,6 +244,71 @@ func ValueEqualFold(v string) predicate.EnvironmentVariable {
 // ValueContainsFold applies the ContainsFold predicate on the "value" field.
 func ValueContainsFold(v string) predicate.EnvironmentVariable {
 	return predicate.EnvironmentVariable(sql.FieldContainsFold(FieldValue, v))
+}
+
+// KindEQ applies the EQ predicate on the "kind" field.
+func KindEQ(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldEQ(FieldKind, v))
+}
+
+// KindNEQ applies the NEQ predicate on the "kind" field.
+func KindNEQ(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldNEQ(FieldKind, v))
+}
+
+// KindIn applies the In predicate on the "kind" field.
+func KindIn(vs ...string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldIn(FieldKind, vs...))
+}
+
+// KindNotIn applies the NotIn predicate on the "kind" field.
+func KindNotIn(vs ...string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldNotIn(FieldKind, vs...))
+}
+
+// KindGT applies the GT predicate on the "kind" field.
+func KindGT(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldGT(FieldKind, v))
+}
+
+// KindGTE applies the GTE predicate on the "kind" field.
+func KindGTE(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldGTE(FieldKind, v))
+}
+
+// KindLT applies the LT predicate on the "kind" field.
+func KindLT(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldLT(FieldKind, v))
+}
+
+// KindLTE applies the LTE predicate on the "kind" field.
+func KindLTE(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldLTE(FieldKind, v))
+}
+
+// KindContains applies the Contains predicate on the "kind" field.
+func KindContains(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldContains(FieldKind, v))
+}
+
+// KindHasPrefix applies the HasPrefix predicate on the "kind" field.
+func KindHasPrefix(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldHasPrefix(FieldKind, v))
+}
+
+// KindHasSuffix applies the HasSuffix predicate on the "kind" field.
+func KindHasSuffix(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldHasSuffix(FieldKind, v))
+}
+
+// KindEqualFold applies the EqualFold predicate on the "kind" field.
+func KindEqualFold(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldEqualFold(FieldKind, v))
+}
+
+// KindContainsFold applies the ContainsFold predicate on the "kind" field.
+func KindContainsFold(v string) predicate.EnvironmentVariable {
+	return predicate.EnvironmentVariable(sql.FieldContainsFold(FieldKind, v))
 }
 
 // EnabledEQ applies the EQ predicate on the "enabled" field.

@@ -19,6 +19,7 @@ export namespace entity {
 	export class EnvVariableInput {
 	    key: string;
 	    value: string;
+	    kind: string;
 	    enabled: boolean;
 	    sort_order: number;
 	
@@ -30,6 +31,7 @@ export namespace entity {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.key = source["key"];
 	        this.value = source["value"];
+	        this.kind = source["kind"];
 	        this.enabled = source["enabled"];
 	        this.sort_order = source["sort_order"];
 	    }
@@ -38,6 +40,7 @@ export namespace entity {
 	    id: string;
 	    key: string;
 	    value: string;
+	    kind: string;
 	    enabled: boolean;
 	    sort_order: number;
 	
@@ -50,6 +53,7 @@ export namespace entity {
 	        this.id = source["id"];
 	        this.key = source["key"];
 	        this.value = source["value"];
+	        this.kind = source["kind"];
 	        this.enabled = source["enabled"];
 	        this.sort_order = source["sort_order"];
 	    }
@@ -250,6 +254,7 @@ export namespace entity {
 	    form_fields?: KeyValue[];
 	    multipart_parts?: MultipartPart[];
 	    auth?: RequestAuth;
+	    insecure_skip_verify?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new HTTPExecuteInput(source);
@@ -268,6 +273,7 @@ export namespace entity {
 	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
 	        this.auth = this.convertValues(source["auth"], RequestAuth);
+	        this.insecure_skip_verify = source["insecure_skip_verify"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -336,6 +342,7 @@ export namespace entity {
 	    id: string;
 	    root_folder_id?: string;
 	    request_id?: string;
+	    insecure_tls?: boolean;
 	    method: string;
 	    url: string;
 	    status_code: number;
@@ -357,6 +364,7 @@ export namespace entity {
 	        this.id = source["id"];
 	        this.root_folder_id = source["root_folder_id"];
 	        this.request_id = source["request_id"];
+	        this.insecure_tls = source["insecure_tls"];
 	        this.method = source["method"];
 	        this.url = source["url"];
 	        this.status_code = source["status_code"];
@@ -391,6 +399,7 @@ export namespace entity {
 	    id: string;
 	    root_folder_id?: string;
 	    request_id?: string;
+	    insecure_tls?: boolean;
 	    method: string;
 	    url: string;
 	    status_code: number;
@@ -408,6 +417,7 @@ export namespace entity {
 	        this.id = source["id"];
 	        this.root_folder_id = source["root_folder_id"];
 	        this.request_id = source["request_id"];
+	        this.insecure_tls = source["insecure_tls"];
 	        this.method = source["method"];
 	        this.url = source["url"];
 	        this.status_code = source["status_code"];
@@ -648,6 +658,46 @@ export namespace entity {
 	
 	
 	
+	export class ProxySettings {
+	    mode: string;
+	    url: string;
+	    username: string;
+	    password: string;
+	    no_proxy: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProxySettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mode = source["mode"];
+	        this.url = source["url"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.no_proxy = source["no_proxy"];
+	    }
+	}
+	export class ProxyTestResult {
+	    ok: boolean;
+	    status_code: number;
+	    duration_ms: number;
+	    error_message?: string;
+	    final_url?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProxyTestResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.status_code = source["status_code"];
+	        this.duration_ms = source["duration_ms"];
+	        this.error_message = source["error_message"];
+	        this.final_url = source["final_url"];
+	    }
+	}
 	
 	export class SavedRequestFull {
 	    id: string;
@@ -662,6 +712,7 @@ export namespace entity {
 	    form_fields?: KeyValue[];
 	    multipart_parts?: MultipartPart[];
 	    auth?: RequestAuth;
+	    insecure_skip_verify?: boolean;
 	    // Go type: time
 	    created_at: any;
 	    // Go type: time
@@ -685,6 +736,7 @@ export namespace entity {
 	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
 	        this.auth = this.convertValues(source["auth"], RequestAuth);
+	        this.insecure_skip_verify = source["insecure_skip_verify"];
 	        this.created_at = this.convertValues(source["created_at"], null);
 	        this.updated_at = this.convertValues(source["updated_at"], null);
 	    }
@@ -833,6 +885,24 @@ export namespace entity {
 		    }
 		    return a;
 		}
+	}
+	export class TrustedCASummary {
+	    id: string;
+	    label: string;
+	    enabled: boolean;
+	    created_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TrustedCASummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.enabled = source["enabled"];
+	        this.created_at = source["created_at"];
+	    }
 	}
 
 }

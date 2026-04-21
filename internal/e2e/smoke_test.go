@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"PostmanJanai/internal/constant"
 	"PostmanJanai/internal/entity"
 	"PostmanJanai/internal/repository"
 	"PostmanJanai/internal/service"
@@ -39,7 +40,11 @@ func TestSmoke_FullUserJourney(t *testing.T) {
 
 	folders := repository.NewFolderRepository(client)
 	reqs := repository.NewRequestRepository(client)
-	envs := repository.NewEnvironmentRepository(client)
+	cipher, err := service.NewSecretCipher()
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+	envs := repository.NewEnvironmentRepository(client, cipher)
 	hist := repository.NewHistoryRepository(client)
 
 	folderUC := usecase.NewFolderUsecase(folders)
@@ -80,7 +85,7 @@ func TestSmoke_FullUserJourney(t *testing.T) {
 	}
 	if err := envUC.SaveVariables(ctx, env.ID, []entity.EnvVariableInput{
 		{Key: "base_url", Value: srv.URL, Enabled: true},
-		{Key: "token", Value: "s3cr3t", Enabled: true},
+		{Key: "token", Value: "s3cr3t", Kind: constant.EnvVarKindSecret, Enabled: true},
 	}); err != nil {
 		t.Fatalf("save vars: %v", err)
 	}
@@ -106,7 +111,7 @@ func TestSmoke_FullUserJourney(t *testing.T) {
 	}
 
 	// --- 4. Execute: env substitute → auth merge → real HTTP → persist history.
-	exec := service.NewHTTPExecutor()
+	exec := service.NewHTTPExecutor(nil)
 	vars, err := envs.ActiveVariableMap(ctx)
 	if err != nil {
 		t.Fatalf("active vars: %v", err)
@@ -124,6 +129,12 @@ func TestSmoke_FullUserJourney(t *testing.T) {
 	}
 	resolved := service.CloneSubstituteHTTPExecuteInput(execIn, vars)
 	service.MergeAuthIntoHeadersAndQuery(resolved)
+
+	secrets, err := envs.ActiveSecretPlaintexts(ctx)
+	if err != nil {
+		t.Fatalf("active secrets: %v", err)
+	}
+	histIn := service.RedactHTTPExecuteInput(resolved, secrets)
 
 	res, err := exec.Execute(ctx, resolved)
 	if err != nil {
@@ -148,18 +159,22 @@ func TestSmoke_FullUserJourney(t *testing.T) {
 	// Persist history the same way HTTPHandler does.
 	dms := int(res.DurationMs)
 	rsz := int(res.ResponseSizeBytes)
+	histURL, hdrSnap, bodySnap, err := service.HTTPRequestSnapshotsForHistory(ctx, histIn)
+	if err != nil {
+		t.Fatalf("history snapshots: %v", err)
+	}
 	var reqHdrJSON *string
-	if b, err := json.Marshal(res.RequestHeadersSnapshot); err == nil {
+	if b, err := json.Marshal(hdrSnap); err == nil {
 		s := string(b)
 		reqHdrJSON = &s
 	}
-	reqBody := res.RequestBodySnapshot
+	reqBody := bodySnap
 	respBody := res.ResponseBody
 	if err := hist.Save(ctx, &entity.HistoryItem{
 		RootFolderID:       &root.ID,
 		RequestID:          &saved.ID,
-		Method:             res.FinalURL,
-		URL:                res.FinalURL,
+		Method:             saved.Method,
+		URL:                histURL,
 		StatusCode:         res.StatusCode,
 		DurationMs:         &dms,
 		ResponseSizeBytes:  &rsz,
@@ -177,8 +192,11 @@ func TestSmoke_FullUserJourney(t *testing.T) {
 		t.Fatalf("history want 1 row, got %d", len(summaries))
 	}
 	full, _ := hist.GetByID(ctx, summaries[0].ID)
-	if full.RequestBody == nil || *full.RequestBody != bodyRaw {
+	if full.RequestBody == nil || *full.RequestBody != bodySnap {
 		t.Fatalf("history request body not persisted: %v", full.RequestBody)
+	}
+	if full.RequestHeadersJSON == nil || strings.Contains(*full.RequestHeadersJSON, "s3cr3t") {
+		t.Fatalf("history headers should redact secret bearer token: %v", full.RequestHeadersJSON)
 	}
 	if full.ResponseBody == nil || !strings.Contains(*full.ResponseBody, `"ok":true`) {
 		t.Fatalf("history response body not persisted: %v", full.ResponseBody)

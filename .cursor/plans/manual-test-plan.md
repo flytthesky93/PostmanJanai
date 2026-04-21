@@ -47,6 +47,10 @@ Quy ước:
    - Mở `<appDir>/logs/app.log` (tail 200 dòng cuối).
    - **Expect**: không có `ERROR`/`panic`/`fatal` trong khi chạy sanity path.
 
+10. **(Tuỳ chọn — nhanh, nếu release có thay đổi Phase 6)** Settings smoke
+   - Mở tab **Settings** → Proxy mode `none` → **Test proxy** tới `https://example.com` → có kết quả (OK hoặc lỗi có message), app không crash.
+   - Environments → tạo biến `x` kind **secret** → Save → reload app → value vẫn là secret (masked), Send dùng `{{x}}` vẫn resolve đúng.
+
 **Sanity path passed bởi:** ________________  **Ngày:** __________
 
 ---
@@ -130,13 +134,31 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
 2. Snippet có substitute `{{var}}` → xem trong curl phải là giá trị thật (không phải `{{var}}`).
 3. Copy-to-clipboard hoạt động.
 
-### I. Migration & backup
+### I. Networking & security (Phase 6)
+
+> Cần môi trường có proxy/SSL inspection thật **hoặc** tự dựng proxy/HTTPS test nội bộ. Nếu không có điều kiện → tick **N/A** + lý do.
+
+1. **Proxy — system**
+   - Set Windows env `HTTP_PROXY`/`HTTPS_PROXY` trỏ tới 1 proxy hợp lệ → trong app Settings chọn **system** → Send `GET https://httpbin.org/get` → 200.
+2. **Proxy — manual + auth (nếu proxy yêu cầu user/pass)**
+   - Settings → manual: điền URL proxy + username + password → **Test proxy** tới `https://example.com` → OK.
+   - Send request ra ngoài qua proxy → 200 (hoặc lỗi có message rõ, không crash).
+3. **NO_PROXY**
+   - Điền `NO_PROXY` khớp host đích (ví dụ `httpbin.org`) → request tới host đó không đi qua proxy (xác minh bằng log proxy hoặc tcpdump nếu có).
+4. **Custom CA**
+   - Import PEM (hoặc pick file) của CA đang sign cert server nội bộ → bật enabled → gọi HTTPS tới host đó → không còn lỗi `x509: certificate signed by unknown authority`.
+5. **Insecure skip verify (per-request)**
+   - Bật toggle trên request → Send tới HTTPS self-signed (môi trường test) → thành công; tab + history row có badge **insec**.
+6. **Secret env var + history redact**
+   - Tạo biến `token` kind **secret**, dùng `Authorization: Bearer {{token}}` → Send → mở History chi tiết: token **không** xuất hiện dạng plaintext (chỉ `***` hoặc không hiện).
+
+### J. Migration & backup
 
 1. Từ DB v4 (lấy từ backup bản release trước) → mở app → `<appDir>/backups/` có file backup mới, app chạy bình thường, folders có `sort_order` backfill đúng (alphabetical trong từng parent).
 2. Từ DB đang ở version target → mở app → không tạo backup mới (tránh spam).
 3. DB bị corrupt (cố tình ghi byte rác): app không panic — phải show error message thân thiện hoặc ít nhất log có stack trace rõ ràng (known limitation: hiện tại có thể fatal; ghi chú vào release note nếu vẫn xảy ra).
 
-### J. Crash / stability
+### K. Crash / stability
 
 1. Chạy app nhiều giờ (> 2h) với 1 vài request định kỳ → memory không leak quá mức (Task Manager: < 500MB).
 2. Đóng app đột ngột (Task Manager kill) → lần mở sau vẫn bình thường.

@@ -28,6 +28,10 @@ type Tx struct {
 	RequestHeader *RequestHeaderClient
 	// RequestQueryParam is the client for interacting with the RequestQueryParam builders.
 	RequestQueryParam *RequestQueryParamClient
+	// Setting is the client for interacting with the Setting builders.
+	Setting *SettingClient
+	// TrustedCA is the client for interacting with the TrustedCA builders.
+	TrustedCA *TrustedCAClient
 
 	// lazily loaded.
 	client     *Client
@@ -167,6 +171,8 @@ func (tx *Tx) init() {
 	tx.RequestFormField = NewRequestFormFieldClient(tx.config)
 	tx.RequestHeader = NewRequestHeaderClient(tx.config)
 	tx.RequestQueryParam = NewRequestQueryParamClient(tx.config)
+	tx.Setting = NewSettingClient(tx.config)
+	tx.TrustedCA = NewTrustedCAClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

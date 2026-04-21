@@ -144,6 +144,20 @@ func (_u *RequestUpdate) ClearAuthJSON() *RequestUpdate {
 	return _u
 }
 
+// SetInsecureSkipVerify sets the "insecure_skip_verify" field.
+func (_u *RequestUpdate) SetInsecureSkipVerify(v bool) *RequestUpdate {
+	_u.mutation.SetInsecureSkipVerify(v)
+	return _u
+}
+
+// SetNillableInsecureSkipVerify sets the "insecure_skip_verify" field if the given value is not nil.
+func (_u *RequestUpdate) SetNillableInsecureSkipVerify(v *bool) *RequestUpdate {
+	if v != nil {
+		_u.SetInsecureSkipVerify(*v)
+	}
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *RequestUpdate) SetUpdatedAt(v time.Time) *RequestUpdate {
 	_u.mutation.SetUpdatedAt(v)
@@ -404,6 +418,9 @@ func (_u *RequestUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AuthJSONCleared() {
 		_spec.ClearField(request.FieldAuthJSON, field.TypeString)
+	}
+	if value, ok := _u.mutation.InsecureSkipVerify(); ok {
+		_spec.SetField(request.FieldInsecureSkipVerify, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)
@@ -747,6 +764,20 @@ func (_u *RequestUpdateOne) ClearAuthJSON() *RequestUpdateOne {
 	return _u
 }
 
+// SetInsecureSkipVerify sets the "insecure_skip_verify" field.
+func (_u *RequestUpdateOne) SetInsecureSkipVerify(v bool) *RequestUpdateOne {
+	_u.mutation.SetInsecureSkipVerify(v)
+	return _u
+}
+
+// SetNillableInsecureSkipVerify sets the "insecure_skip_verify" field if the given value is not nil.
+func (_u *RequestUpdateOne) SetNillableInsecureSkipVerify(v *bool) *RequestUpdateOne {
+	if v != nil {
+		_u.SetInsecureSkipVerify(*v)
+	}
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *RequestUpdateOne) SetUpdatedAt(v time.Time) *RequestUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
@@ -1037,6 +1068,9 @@ func (_u *RequestUpdateOne) sqlSave(ctx context.Context) (_node *Request, err er
 	}
 	if _u.mutation.AuthJSONCleared() {
 		_spec.ClearField(request.FieldAuthJSON, field.TypeString)
+	}
+	if value, ok := _u.mutation.InsecureSkipVerify(); ok {
+		_spec.SetField(request.FieldInsecureSkipVerify, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)

@@ -20,6 +20,7 @@ func (EnvironmentVariable) Fields() []ent.Field {
 		field.UUID("environment_id", uuid.UUID{}),
 		field.String("key").NotEmpty(),
 		field.Text("value").Default(""),
+		field.String("kind").Default("plain"),
 		field.Bool("enabled").Default(true),
 		field.Int("sort_order").Default(0),
 		field.Time("created_at").Default(time.Now).Immutable(),

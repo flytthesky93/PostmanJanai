@@ -105,6 +105,8 @@ const authPassword = ref('')
 const authApiKey = ref('')
 const authApiKeyName = ref('')
 const authApiKeyIn = ref('header')
+/** Dev/corp only: disable TLS certificate verification for this request (persisted on saved requests). */
+const insecureSkipVerify = ref(false)
 
 function buildAuthPayload() {
   const t = (authType.value || 'none').toLowerCase().trim()
@@ -154,6 +156,7 @@ function applyImportPayload(payload) {
 
 function applyInputToForm(payload) {
   if (!payload) return
+  insecureSkipVerify.value = false
   savedRequestId.value = null
   savedFolderId.value = null
   savedRequestLabel.value = ''
@@ -419,6 +422,7 @@ function buildHttpExecutePayload() {
   const payload = {
     method: method.value,
     url: url.value,
+    insecure_skip_verify: !!insecureSkipVerify.value,
     query_params: q,
     headers: h,
     body_mode: bodyMode.value,
@@ -504,6 +508,7 @@ function applySavedRequestDto(dto) {
 
   bodyMode.value = bm
   syncAuthFromPayload(dto.auth)
+  insecureSkipVerify.value = !!dto.insecure_skip_verify
   activeTab.value = bm === 'none' || bm === '' ? 'params' : 'body'
 }
 
@@ -524,6 +529,7 @@ function buildSavedRequestFull() {
     name: (savedRequestLabel.value || '').trim() || 'Untitled',
     method: method.value,
     url: url.value,
+    insecure_skip_verify: !!insecureSkipVerify.value,
     body_mode: bodyMode.value,
     headers: h,
     query_params: q,
@@ -615,6 +621,7 @@ function captureSnapshot() {
     authApiKey: authApiKey.value,
     authApiKeyName: authApiKeyName.value,
     authApiKeyIn: authApiKeyIn.value,
+    insecureSkipVerify: insecureSkipVerify.value,
     savedRequestId: savedRequestId.value,
     savedFolderId: savedFolderId.value,
     savedRequestLabel: savedRequestLabel.value
@@ -665,6 +672,7 @@ function hydrate(snap) {
     authApiKey.value = snap.authApiKey || ''
     authApiKeyName.value = snap.authApiKeyName || ''
     authApiKeyIn.value = snap.authApiKeyIn === 'query' ? 'query' : 'header'
+    insecureSkipVerify.value = !!snap.insecureSkipVerify
     savedRequestId.value = snap.savedRequestId || null
     savedFolderId.value = snap.savedFolderId || null
     savedRequestLabel.value = snap.savedRequestLabel || ''
@@ -691,6 +699,7 @@ watch(
     queryParams, headers, formFields, multipartParts, activeTab,
     authType, authBearerToken, authUsername, authPassword,
     authApiKey, authApiKeyName, authApiKeyIn,
+    insecureSkipVerify,
     savedRequestId, savedFolderId, savedRequestLabel
   ],
   scheduleSnapshotEmit,
@@ -1054,6 +1063,18 @@ const formatXmlBody = () => {
               <option value="query">Query string</option>
             </select>
           </div>
+        </div>
+
+        <div class="mt-4 rounded border border-red-500/25 bg-red-500/5 p-3">
+          <label class="flex cursor-pointer items-start gap-2 text-xs text-red-200">
+            <input v-model="insecureSkipVerify" type="checkbox" class="mt-0.5" />
+            <span>
+              <span class="font-semibold">TLS: skip certificate verification</span>
+              <span class="block text-[11px] text-red-200/80">
+                Only use behind corporate TLS inspection or for local dev. Traffic may be vulnerable to MITM.
+              </span>
+            </span>
+          </label>
         </div>
       </div>
 

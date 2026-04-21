@@ -24,6 +24,7 @@ const MAX_TABS = 20
  * @property {string} authApiKey
  * @property {string} authApiKeyName
  * @property {string} authApiKeyIn - header | query
+ * @property {boolean} insecureSkipVerify
  * @property {string|null} savedRequestId
  * @property {string|null} savedFolderId
  * @property {string} savedRequestLabel
@@ -67,6 +68,7 @@ export function emptySnapshot() {
     authApiKey: '',
     authApiKeyName: '',
     authApiKeyIn: 'header',
+    insecureSkipVerify: false,
     savedRequestId: null,
     savedFolderId: null,
     savedRequestLabel: ''
@@ -137,6 +139,7 @@ export function snapshotFromSavedRequest(dto) {
     s.authApiKeyIn = String(a.api_key_in || 'header').toLowerCase() === 'query' ? 'query' : 'header'
   }
 
+  s.insecureSkipVerify = !!dto.insecure_skip_verify
   s.savedRequestId = dto.id || null
   s.savedFolderId = dto.folder_id || null
   s.savedRequestLabel = dto.name || 'Request'
@@ -189,6 +192,7 @@ export function snapshotFromCurlPayload(payload) {
   }
 
   s.activeTab = bm === 'none' || bm === '' ? 'params' : 'body'
+  s.insecureSkipVerify = false
   s.savedRequestId = null
   s.savedFolderId = null
   s.savedRequestLabel = ''
@@ -430,6 +434,7 @@ const tabsMeta = computed(() =>
     title: deriveTitle(t.snapshot),
     method: t.snapshot?.method || 'GET',
     kind: t.snapshot?.savedRequestId ? 'saved' : 'adhoc',
+    insecureTLS: !!t.snapshot?.insecureSkipVerify,
     dirty: canonicalForDiff(t.snapshot) !== canonicalForDiff(t.baseline),
     savedRequestId: t.snapshot?.savedRequestId || null
   }))

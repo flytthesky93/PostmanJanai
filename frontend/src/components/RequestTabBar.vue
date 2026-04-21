@@ -61,6 +61,11 @@ function onMiddleClose(e, id) {
           :class="methodColor(t.method)"
           style="font-size: 10px; letter-spacing: 0.02em;"
         >{{ t.method }}</span>
+        <span
+          v-if="t.insecureTLS"
+          class="shrink-0 rounded bg-red-500/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-200"
+          title="TLS verification disabled for this request"
+        >insec</span>
         <span class="min-w-0 flex-1 truncate text-left">
           <span
             v-if="t.dirty"

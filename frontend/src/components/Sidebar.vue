@@ -1724,6 +1724,11 @@ defineExpose({
                 style="background: #374151"
                 >{{ h.method }}</span>
               <span
+                v-if="h.insecure_tls"
+                class="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-200"
+                title="TLS verification was disabled for this request"
+                >insec</span>
+              <span
                 class="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold"
                 :class="statusBadgeClass(h.status_code)"
                 >{{ h.status_code }}</span>
@@ -1736,6 +1741,7 @@ defineExpose({
           </div>
         </div>
       </template>
+
     </aside>
 
     <Teleport to="#app">

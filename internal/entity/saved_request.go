@@ -26,6 +26,7 @@ type SavedRequestFull struct {
 	FormFields     []KeyValue      `json:"form_fields,omitempty"`
 	MultipartParts []MultipartPart `json:"multipart_parts,omitempty"`
 	Auth           *RequestAuth    `json:"auth,omitempty"`
+	InsecureSkipVerify bool        `json:"insecure_skip_verify,omitempty"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 }

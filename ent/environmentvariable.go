@@ -25,6 +25,8 @@ type EnvironmentVariable struct {
 	Key string `json:"key,omitempty"`
 	// Value holds the value of the "value" field.
 	Value string `json:"value,omitempty"`
+	// Kind holds the value of the "kind" field.
+	Kind string `json:"kind,omitempty"`
 	// Enabled holds the value of the "enabled" field.
 	Enabled bool `json:"enabled,omitempty"`
 	// SortOrder holds the value of the "sort_order" field.
@@ -68,7 +70,7 @@ func (*EnvironmentVariable) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case environmentvariable.FieldSortOrder:
 			values[i] = new(sql.NullInt64)
-		case environmentvariable.FieldKey, environmentvariable.FieldValue:
+		case environmentvariable.FieldKey, environmentvariable.FieldValue, environmentvariable.FieldKind:
 			values[i] = new(sql.NullString)
 		case environmentvariable.FieldCreatedAt, environmentvariable.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -112,6 +114,12 @@ func (_m *EnvironmentVariable) assignValues(columns []string, values []any) erro
 				return fmt.Errorf("unexpected type %T for field value", values[i])
 			} else if value.Valid {
 				_m.Value = value.String
+			}
+		case environmentvariable.FieldKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field kind", values[i])
+			} else if value.Valid {
+				_m.Kind = value.String
 			}
 		case environmentvariable.FieldEnabled:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -186,6 +194,9 @@ func (_m *EnvironmentVariable) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("value=")
 	builder.WriteString(_m.Value)
+	builder.WriteString(", ")
+	builder.WriteString("kind=")
+	builder.WriteString(_m.Kind)
 	builder.WriteString(", ")
 	builder.WriteString("enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Enabled))

@@ -7,6 +7,7 @@ type HistorySummary struct {
 	ID                string    `json:"id"`
 	RootFolderID      *string   `json:"root_folder_id,omitempty"`
 	RequestID         *string   `json:"request_id,omitempty"`
+	InsecureTLS       bool      `json:"insecure_tls,omitempty"`
 	Method            string    `json:"method"`
 	URL               string    `json:"url"`
 	StatusCode        int       `json:"status_code"`
@@ -19,6 +20,7 @@ type HistoryItem struct {
 	ID                  string    `json:"id"`
 	RootFolderID        *string   `json:"root_folder_id,omitempty"`
 	RequestID           *string   `json:"request_id,omitempty"`
+	InsecureTLS         bool      `json:"insecure_tls,omitempty"`
 	Method              string    `json:"method"`
 	URL                 string    `json:"url"`
 	StatusCode          int       `json:"status_code"`

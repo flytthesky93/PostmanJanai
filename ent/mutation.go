@@ -12,6 +12,8 @@ import (
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
+	"PostmanJanai/ent/setting"
+	"PostmanJanai/ent/trustedca"
 	"context"
 	"errors"
 	"fmt"
@@ -40,6 +42,8 @@ const (
 	TypeRequestFormField    = "RequestFormField"
 	TypeRequestHeader       = "RequestHeader"
 	TypeRequestQueryParam   = "RequestQueryParam"
+	TypeSetting             = "Setting"
+	TypeTrustedCA           = "TrustedCA"
 )
 
 // EnvironmentMutation represents an operation that mutates the Environment nodes in the graph.
@@ -691,6 +695,7 @@ type EnvironmentVariableMutation struct {
 	id                 *uuid.UUID
 	key                *string
 	value              *string
+	kind               *string
 	enabled            *bool
 	sort_order         *int
 	addsort_order      *int
@@ -914,6 +919,42 @@ func (m *EnvironmentVariableMutation) OldValue(ctx context.Context) (v string, e
 // ResetValue resets all changes to the "value" field.
 func (m *EnvironmentVariableMutation) ResetValue() {
 	m.value = nil
+}
+
+// SetKind sets the "kind" field.
+func (m *EnvironmentVariableMutation) SetKind(s string) {
+	m.kind = &s
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *EnvironmentVariableMutation) Kind() (r string, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the EnvironmentVariable entity.
+// If the EnvironmentVariable object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EnvironmentVariableMutation) OldKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *EnvironmentVariableMutation) ResetKind() {
+	m.kind = nil
 }
 
 // SetEnabled sets the "enabled" field.
@@ -1141,7 +1182,7 @@ func (m *EnvironmentVariableMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EnvironmentVariableMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.environment != nil {
 		fields = append(fields, environmentvariable.FieldEnvironmentID)
 	}
@@ -1150,6 +1191,9 @@ func (m *EnvironmentVariableMutation) Fields() []string {
 	}
 	if m.value != nil {
 		fields = append(fields, environmentvariable.FieldValue)
+	}
+	if m.kind != nil {
+		fields = append(fields, environmentvariable.FieldKind)
 	}
 	if m.enabled != nil {
 		fields = append(fields, environmentvariable.FieldEnabled)
@@ -1177,6 +1221,8 @@ func (m *EnvironmentVariableMutation) Field(name string) (ent.Value, bool) {
 		return m.Key()
 	case environmentvariable.FieldValue:
 		return m.Value()
+	case environmentvariable.FieldKind:
+		return m.Kind()
 	case environmentvariable.FieldEnabled:
 		return m.Enabled()
 	case environmentvariable.FieldSortOrder:
@@ -1200,6 +1246,8 @@ func (m *EnvironmentVariableMutation) OldField(ctx context.Context, name string)
 		return m.OldKey(ctx)
 	case environmentvariable.FieldValue:
 		return m.OldValue(ctx)
+	case environmentvariable.FieldKind:
+		return m.OldKind(ctx)
 	case environmentvariable.FieldEnabled:
 		return m.OldEnabled(ctx)
 	case environmentvariable.FieldSortOrder:
@@ -1237,6 +1285,13 @@ func (m *EnvironmentVariableMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetValue(v)
+		return nil
+	case environmentvariable.FieldKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
 		return nil
 	case environmentvariable.FieldEnabled:
 		v, ok := value.(bool)
@@ -1338,6 +1393,9 @@ func (m *EnvironmentVariableMutation) ResetField(name string) error {
 		return nil
 	case environmentvariable.FieldValue:
 		m.ResetValue()
+		return nil
+	case environmentvariable.FieldKind:
+		m.ResetKind()
 		return nil
 	case environmentvariable.FieldEnabled:
 		m.ResetEnabled()
@@ -3637,6 +3695,7 @@ type RequestMutation struct {
 	body_mode                   *string
 	raw_body                    *string
 	auth_json                   *string
+	insecure_skip_verify        *bool
 	created_at                  *time.Time
 	updated_at                  *time.Time
 	clearedFields               map[string]struct{}
@@ -4041,6 +4100,42 @@ func (m *RequestMutation) ResetAuthJSON() {
 	delete(m.clearedFields, request.FieldAuthJSON)
 }
 
+// SetInsecureSkipVerify sets the "insecure_skip_verify" field.
+func (m *RequestMutation) SetInsecureSkipVerify(b bool) {
+	m.insecure_skip_verify = &b
+}
+
+// InsecureSkipVerify returns the value of the "insecure_skip_verify" field in the mutation.
+func (m *RequestMutation) InsecureSkipVerify() (r bool, exists bool) {
+	v := m.insecure_skip_verify
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInsecureSkipVerify returns the old "insecure_skip_verify" field's value of the Request entity.
+// If the Request object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RequestMutation) OldInsecureSkipVerify(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInsecureSkipVerify is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInsecureSkipVerify requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInsecureSkipVerify: %w", err)
+	}
+	return oldValue.InsecureSkipVerify, nil
+}
+
+// ResetInsecureSkipVerify resets all changes to the "insecure_skip_verify" field.
+func (m *RequestMutation) ResetInsecureSkipVerify() {
+	m.insecure_skip_verify = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *RequestMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -4390,7 +4485,7 @@ func (m *RequestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RequestMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.folder != nil {
 		fields = append(fields, request.FieldFolderID)
 	}
@@ -4411,6 +4506,9 @@ func (m *RequestMutation) Fields() []string {
 	}
 	if m.auth_json != nil {
 		fields = append(fields, request.FieldAuthJSON)
+	}
+	if m.insecure_skip_verify != nil {
+		fields = append(fields, request.FieldInsecureSkipVerify)
 	}
 	if m.created_at != nil {
 		fields = append(fields, request.FieldCreatedAt)
@@ -4440,6 +4538,8 @@ func (m *RequestMutation) Field(name string) (ent.Value, bool) {
 		return m.RawBody()
 	case request.FieldAuthJSON:
 		return m.AuthJSON()
+	case request.FieldInsecureSkipVerify:
+		return m.InsecureSkipVerify()
 	case request.FieldCreatedAt:
 		return m.CreatedAt()
 	case request.FieldUpdatedAt:
@@ -4467,6 +4567,8 @@ func (m *RequestMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldRawBody(ctx)
 	case request.FieldAuthJSON:
 		return m.OldAuthJSON(ctx)
+	case request.FieldInsecureSkipVerify:
+		return m.OldInsecureSkipVerify(ctx)
 	case request.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case request.FieldUpdatedAt:
@@ -4528,6 +4630,13 @@ func (m *RequestMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAuthJSON(v)
+		return nil
+	case request.FieldInsecureSkipVerify:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInsecureSkipVerify(v)
 		return nil
 	case request.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -4627,6 +4736,9 @@ func (m *RequestMutation) ResetField(name string) error {
 		return nil
 	case request.FieldAuthJSON:
 		m.ResetAuthJSON()
+		return nil
+	case request.FieldInsecureSkipVerify:
+		m.ResetInsecureSkipVerify()
 		return nil
 	case request.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -6806,4 +6918,938 @@ func (m *RequestQueryParamMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown RequestQueryParam edge %s", name)
+}
+
+// SettingMutation represents an operation that mutates the Setting nodes in the graph.
+type SettingMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	key           *string
+	value         *string
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*Setting, error)
+	predicates    []predicate.Setting
+}
+
+var _ ent.Mutation = (*SettingMutation)(nil)
+
+// settingOption allows management of the mutation configuration using functional options.
+type settingOption func(*SettingMutation)
+
+// newSettingMutation creates new mutation for the Setting entity.
+func newSettingMutation(c config, op Op, opts ...settingOption) *SettingMutation {
+	m := &SettingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSetting,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSettingID sets the ID field of the mutation.
+func withSettingID(id uuid.UUID) settingOption {
+	return func(m *SettingMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Setting
+		)
+		m.oldValue = func(ctx context.Context) (*Setting, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Setting.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSetting sets the old Setting of the mutation.
+func withSetting(node *Setting) settingOption {
+	return func(m *SettingMutation) {
+		m.oldValue = func(context.Context) (*Setting, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SettingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SettingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Setting entities.
+func (m *SettingMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SettingMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SettingMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Setting.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetKey sets the "key" field.
+func (m *SettingMutation) SetKey(s string) {
+	m.key = &s
+}
+
+// Key returns the value of the "key" field in the mutation.
+func (m *SettingMutation) Key() (r string, exists bool) {
+	v := m.key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKey returns the old "key" field's value of the Setting entity.
+// If the Setting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SettingMutation) OldKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKey: %w", err)
+	}
+	return oldValue.Key, nil
+}
+
+// ResetKey resets all changes to the "key" field.
+func (m *SettingMutation) ResetKey() {
+	m.key = nil
+}
+
+// SetValue sets the "value" field.
+func (m *SettingMutation) SetValue(s string) {
+	m.value = &s
+}
+
+// Value returns the value of the "value" field in the mutation.
+func (m *SettingMutation) Value() (r string, exists bool) {
+	v := m.value
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldValue returns the old "value" field's value of the Setting entity.
+// If the Setting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SettingMutation) OldValue(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldValue is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldValue requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldValue: %w", err)
+	}
+	return oldValue.Value, nil
+}
+
+// ResetValue resets all changes to the "value" field.
+func (m *SettingMutation) ResetValue() {
+	m.value = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SettingMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SettingMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Setting entity.
+// If the Setting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SettingMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SettingMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the SettingMutation builder.
+func (m *SettingMutation) Where(ps ...predicate.Setting) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SettingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SettingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Setting, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SettingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SettingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Setting).
+func (m *SettingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SettingMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.key != nil {
+		fields = append(fields, setting.FieldKey)
+	}
+	if m.value != nil {
+		fields = append(fields, setting.FieldValue)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, setting.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SettingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case setting.FieldKey:
+		return m.Key()
+	case setting.FieldValue:
+		return m.Value()
+	case setting.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SettingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case setting.FieldKey:
+		return m.OldKey(ctx)
+	case setting.FieldValue:
+		return m.OldValue(ctx)
+	case setting.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Setting field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SettingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case setting.FieldKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKey(v)
+		return nil
+	case setting.FieldValue:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetValue(v)
+		return nil
+	case setting.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Setting field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SettingMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SettingMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SettingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Setting numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SettingMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SettingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SettingMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Setting nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SettingMutation) ResetField(name string) error {
+	switch name {
+	case setting.FieldKey:
+		m.ResetKey()
+		return nil
+	case setting.FieldValue:
+		m.ResetValue()
+		return nil
+	case setting.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Setting field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SettingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SettingMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SettingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SettingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SettingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SettingMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SettingMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown Setting unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SettingMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown Setting edge %s", name)
+}
+
+// TrustedCAMutation represents an operation that mutates the TrustedCA nodes in the graph.
+type TrustedCAMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	label         *string
+	pem_content   *string
+	enabled       *bool
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*TrustedCA, error)
+	predicates    []predicate.TrustedCA
+}
+
+var _ ent.Mutation = (*TrustedCAMutation)(nil)
+
+// trustedcaOption allows management of the mutation configuration using functional options.
+type trustedcaOption func(*TrustedCAMutation)
+
+// newTrustedCAMutation creates new mutation for the TrustedCA entity.
+func newTrustedCAMutation(c config, op Op, opts ...trustedcaOption) *TrustedCAMutation {
+	m := &TrustedCAMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTrustedCA,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTrustedCAID sets the ID field of the mutation.
+func withTrustedCAID(id uuid.UUID) trustedcaOption {
+	return func(m *TrustedCAMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TrustedCA
+		)
+		m.oldValue = func(ctx context.Context) (*TrustedCA, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TrustedCA.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTrustedCA sets the old TrustedCA of the mutation.
+func withTrustedCA(node *TrustedCA) trustedcaOption {
+	return func(m *TrustedCAMutation) {
+		m.oldValue = func(context.Context) (*TrustedCA, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TrustedCAMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TrustedCAMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of TrustedCA entities.
+func (m *TrustedCAMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TrustedCAMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TrustedCAMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TrustedCA.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetLabel sets the "label" field.
+func (m *TrustedCAMutation) SetLabel(s string) {
+	m.label = &s
+}
+
+// Label returns the value of the "label" field in the mutation.
+func (m *TrustedCAMutation) Label() (r string, exists bool) {
+	v := m.label
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLabel returns the old "label" field's value of the TrustedCA entity.
+// If the TrustedCA object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrustedCAMutation) OldLabel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLabel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLabel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLabel: %w", err)
+	}
+	return oldValue.Label, nil
+}
+
+// ResetLabel resets all changes to the "label" field.
+func (m *TrustedCAMutation) ResetLabel() {
+	m.label = nil
+}
+
+// SetPemContent sets the "pem_content" field.
+func (m *TrustedCAMutation) SetPemContent(s string) {
+	m.pem_content = &s
+}
+
+// PemContent returns the value of the "pem_content" field in the mutation.
+func (m *TrustedCAMutation) PemContent() (r string, exists bool) {
+	v := m.pem_content
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPemContent returns the old "pem_content" field's value of the TrustedCA entity.
+// If the TrustedCA object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrustedCAMutation) OldPemContent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPemContent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPemContent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPemContent: %w", err)
+	}
+	return oldValue.PemContent, nil
+}
+
+// ResetPemContent resets all changes to the "pem_content" field.
+func (m *TrustedCAMutation) ResetPemContent() {
+	m.pem_content = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *TrustedCAMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *TrustedCAMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the TrustedCA entity.
+// If the TrustedCA object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrustedCAMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *TrustedCAMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *TrustedCAMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *TrustedCAMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the TrustedCA entity.
+// If the TrustedCA object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TrustedCAMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *TrustedCAMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the TrustedCAMutation builder.
+func (m *TrustedCAMutation) Where(ps ...predicate.TrustedCA) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TrustedCAMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TrustedCAMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TrustedCA, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TrustedCAMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TrustedCAMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TrustedCA).
+func (m *TrustedCAMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TrustedCAMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.label != nil {
+		fields = append(fields, trustedca.FieldLabel)
+	}
+	if m.pem_content != nil {
+		fields = append(fields, trustedca.FieldPemContent)
+	}
+	if m.enabled != nil {
+		fields = append(fields, trustedca.FieldEnabled)
+	}
+	if m.created_at != nil {
+		fields = append(fields, trustedca.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TrustedCAMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case trustedca.FieldLabel:
+		return m.Label()
+	case trustedca.FieldPemContent:
+		return m.PemContent()
+	case trustedca.FieldEnabled:
+		return m.Enabled()
+	case trustedca.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TrustedCAMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case trustedca.FieldLabel:
+		return m.OldLabel(ctx)
+	case trustedca.FieldPemContent:
+		return m.OldPemContent(ctx)
+	case trustedca.FieldEnabled:
+		return m.OldEnabled(ctx)
+	case trustedca.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown TrustedCA field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrustedCAMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case trustedca.FieldLabel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLabel(v)
+		return nil
+	case trustedca.FieldPemContent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPemContent(v)
+		return nil
+	case trustedca.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	case trustedca.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TrustedCA field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TrustedCAMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TrustedCAMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TrustedCAMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown TrustedCA numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TrustedCAMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TrustedCAMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TrustedCAMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown TrustedCA nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TrustedCAMutation) ResetField(name string) error {
+	switch name {
+	case trustedca.FieldLabel:
+		m.ResetLabel()
+		return nil
+	case trustedca.FieldPemContent:
+		m.ResetPemContent()
+		return nil
+	case trustedca.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	case trustedca.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TrustedCA field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TrustedCAMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TrustedCAMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TrustedCAMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TrustedCAMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TrustedCAMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TrustedCAMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TrustedCAMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown TrustedCA unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TrustedCAMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown TrustedCA edge %s", name)
 }

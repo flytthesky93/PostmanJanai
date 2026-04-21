@@ -79,7 +79,14 @@ func main() {
 	folderRepo := repository.NewFolderRepository(client)
 	savedRequestRepo := repository.NewRequestRepository(client)
 	historyRepo := repository.NewHistoryRepository(client)
-	envRepo := repository.NewEnvironmentRepository(client)
+
+	secretCipher, err := service.NewSecretCipher()
+	if err != nil {
+		log.Fatalf("secret cipher: %v", err)
+	}
+	settingsRepo := repository.NewSettingsRepository(client)
+	trustedCARepo := repository.NewTrustedCARepository(client)
+	envRepo := repository.NewEnvironmentRepository(client, secretCipher)
 
 	folderUc := usecase.NewFolderUsecase(folderRepo)
 	savedRequestUc := usecase.NewRequestUsecase(folderRepo, savedRequestRepo)
@@ -87,6 +94,7 @@ func main() {
 	importUc := usecase.NewImportUsecase(folderRepo, savedRequestRepo, envRepo)
 	searchUc := usecase.NewSearchUsecase(folderRepo, savedRequestRepo)
 	exportUc := usecase.NewExportUsecase(folderRepo, savedRequestRepo)
+	settingsUc := usecase.NewSettingsUsecase(settingsRepo, trustedCARepo, secretCipher)
 
 	appHandler := delivery.NewAppHandler()
 	folderHandler := delivery.NewFolderHandler(folderUc)
@@ -96,8 +104,10 @@ func main() {
 	importHandler := delivery.NewImportHandler(importUc)
 	searchHandler := delivery.NewSearchHandler(searchUc)
 	exportHandler := delivery.NewExportHandler(exportUc)
-	httpExecutor := service.NewHTTPExecutor()
-	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo)
+	settingsHandler := delivery.NewSettingsHandler(settingsUc)
+	tf := &service.HTTPTransportFactory{Settings: settingsRepo, CAs: trustedCARepo, Cipher: secretCipher}
+	httpExecutor := service.NewHTTPExecutor(tf)
+	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo, savedRequestRepo)
 	snippetHandler := delivery.NewSnippetHandler(envRepo)
 
 	err = wails.Run(&options.App{
@@ -127,6 +137,7 @@ func main() {
 			importHandler.SetContext(ctx)
 			searchHandler.SetContext(ctx)
 			exportHandler.SetContext(ctx)
+			settingsHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
 			snippetHandler.SetContext(ctx)
 		},
@@ -139,6 +150,7 @@ func main() {
 			importHandler,
 			searchHandler,
 			exportHandler,
+			settingsHandler,
 			httpHandler,
 			snippetHandler,
 		},

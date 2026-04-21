@@ -195,6 +195,7 @@ func entRequestToFull(row *ent.Request) *entity.SavedRequestFull {
 		Method:    row.Method,
 		URL:       row.URL,
 		BodyMode:  row.BodyMode,
+		InsecureSkipVerify: row.InsecureSkipVerify,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
@@ -267,7 +268,8 @@ func (r *requestRepo) CreateFull(ctx context.Context, in *entity.SavedRequestFul
 		SetName(strings.TrimSpace(in.Name)).
 		SetMethod(strings.TrimSpace(in.Method)).
 		SetURL(strings.TrimSpace(in.URL)).
-		SetBodyMode(strings.TrimSpace(in.BodyMode))
+		SetBodyMode(strings.TrimSpace(in.BodyMode)).
+		SetInsecureSkipVerify(in.InsecureSkipVerify)
 	if strings.TrimSpace(in.BodyMode) == "" {
 		b = b.SetBodyMode("none")
 	}
@@ -318,7 +320,8 @@ func (r *requestRepo) UpdateFull(ctx context.Context, in *entity.SavedRequestFul
 		SetName(strings.TrimSpace(in.Name)).
 		SetMethod(strings.TrimSpace(in.Method)).
 		SetURL(strings.TrimSpace(in.URL)).
-		SetBodyMode(strings.TrimSpace(in.BodyMode))
+		SetBodyMode(strings.TrimSpace(in.BodyMode)).
+		SetInsecureSkipVerify(in.InsecureSkipVerify)
 	if strings.TrimSpace(in.BodyMode) == "" {
 		up = up.SetBodyMode("none")
 	}

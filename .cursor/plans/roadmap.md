@@ -24,7 +24,7 @@ Build a desktop API client (Postman-like) focused on:
 | **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **4** | **Done** (2026-04-20) | **Productivity scope đã đủ để đóng:** #1 Import; #2 Multi-tab; #3 Search/filter; Flow B — export Postman v2.1, snippets, cây folder (expand persist, rename, DnD move + **reorder** + vùng **Same level / Inside** + root drop), **DB v5** `folders.sort_order`. **Polish cùng ngày:** click mở/thu **full hàng** + khe reorder; rename folder **chỉ ⋮** (không double-click). **Backlog tùy chọn (không chặn Phase 4):** export project JSON “native”; migrate v2→v3 giữ dữ liệu. |
 | **5** | **Done** (2026-04-21) | 4 nhóm đo được đã giao: (1) test bù lấp (dbmanage + repository + usecase + import/export round-trip); (2) smoke E2E tầng Go (`internal/e2e/smoke_test.go`); (3) CI tối thiểu `.github/workflows/ci.yml` (go vet + go test -race + vite build) — **xanh trên GitHub Actions 2026-04-21**; (4) `release-checklist.md` + `manual-test-plan.md`. **Windows-first:** v1 official = Windows x64; macOS/Linux best-effort, unsigned. Backlog không nằm trong Phase 5: export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); bug `{{var}}` bị URL-encode khi export Postman v2.1. |
-| **6** | Planned    | **Networking & Security** — proxy config (system/manual) + custom CA + insecure-skip-verify (per-request) + secret-type env var + panel Settings. Mục tiêu: app chạy được sau LAN / SSL inspection cty; token ẩn trong UI/history. |
+| **6** | **Done** (2026-04-21) | **Networking & Security:** proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas` PEM trong DB), `HTTPTransportFactory` + per-request `insecure_skip_verify` trên `requests`, env var `kind=secret` + AES-GCM `enc:v1:` + redact history/snippets, Wails `SettingsHandler` + tab **Settings** UI + test proxy. **DB v6.** |
 | **7** | Planned    | **UX Polish & Productivity** — Dashboard khi không còn tab, cho phép đóng tab cuối; Command palette Ctrl/Cmd+K; variable interpolation preview; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản. |
 | **8** | Planned    | **Collection Runner & Chaining** — per-request capture rules (JSONPath/regex → env var), assertion rules đơn giản (status/header/json-path), Runner chạy tuần tự cây folder theo `sort_order` với env active, report JSON + Markdown. Capture là nền tảng cho Phase 9. |
 | **9** | Planned (bắt buộc) | **Scripting (pre-request & post-response)** — goja (ES5+ subset), sandbox + interrupt timeout, subset `pm.*` API tối thiểu (`pm.environment`, `pm.variables`, `pm.response`, `pm.request`, `pm.test`, `pm.expect`), CodeMirror editor + console panel. Cho phép import script từ Postman v2.1 chạy được ở mức cơ bản. |
@@ -165,7 +165,7 @@ Scope (3 nhóm):
 1. **Proxy configuration**
    - Proxy mode: `none | system | manual`.
      - `system` → dùng `http.ProxyFromEnvironment` (đọc `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`).
-     - `manual` → 1 URL duy nhất dạng `http://user:pass@host:port` (hoặc `socks5://`) + danh sách `NO_PROXY` (comma-separated host/CIDR). Password có thể để trống (dùng basic auth prompt sau — v1 không làm prompt, v1 nhập plaintext trong settings, giữ trong DB).
+     - `manual` → URL proxy (scheme + host + port, **không** embed user/pass trong URL) + ô **username** + **password** riêng (password lưu ciphertext `enc:v1:` trong `settings`) + `NO_PROXY` (comma-separated host; hỗ trợ suffix `.corp.net`).
    - Áp dụng: `HTTPExecutor` build `&http.Transport{Proxy: proxyFn, TLSClientConfig: ...}` 1 lần per request (không share global — để mỗi request có thể override sau này).
 2. **Custom CA + TLS**
    - Danh sách file `.pem` / `.crt` do user import (qua Wails `OpenFileDialog`), lưu **nội dung** vào DB (bảng mới `trusted_cas`) để app portable (copy DB đi máy khác vẫn chạy).
@@ -178,7 +178,7 @@ Scope (3 nhóm):
 
 DB migration:
 
-- **DB v6**: `trusted_cas(id UUID, label TEXT, pem_content TEXT, enabled BOOL, created_at)` + `environment_variables.kind TEXT DEFAULT 'plain'` + `settings(key TEXT PK, value TEXT)` cho proxy mode/URL/no_proxy.
+- **DB v6**: `trusted_cas(id UUID, label TEXT, pem_content TEXT, enabled BOOL, created_at)` + `environment_variables.kind TEXT DEFAULT 'plain'` + `requests.insecure_skip_verify BOOL DEFAULT false` + `settings(key TEXT PK, value TEXT)` cho proxy mode/URL/username/password/no_proxy.
 - `internal/dbmanage/data_migrate.go` thêm nhánh `v5→v6` (chỉ `ALTER TABLE ... ADD COLUMN` + `CREATE TABLE` — không destructive).
 
 UI / Delivery:
@@ -362,15 +362,14 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 
 ## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-21)
 
-Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). Lộ trình tiếp theo đi theo thứ tự:
+Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). Lộ trình tiếp theo đi theo thứ tự:
 
-**Phase 6 → 7 → 8 → 9** (mỗi phase xem section phía trên có đầy đủ Scope / DB migration / Done when / Ngoài scope).
+**Phase 7 → 8 → 9** (mỗi phase xem section phía trên có đầy đủ Scope / DB migration / Done when / Ngoài scope).
 
-1. **Phase 6 — Networking & Security** (ưu tiên cao nhất, blocker để dùng trong cty).
-   - Proxy (system / manual) + Custom CA pool + Insecure skip verify (per-request).
-   - Secret-type env variable + redact history/export.
-   - DB bump **v5 → v6** (`trusted_cas`, `settings`, `environment_variables.kind`).
-2. **Phase 7 — UX Polish & Productivity** (tăng tốc hằng ngày).
+1. ~~**Phase 6 — Networking & Security**~~ **Done (2026-04-21).**
+   - Proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas`), per-request `insecure_skip_verify`, secret env vars + redact history/snippet payloads, Wails `SettingsHandler` + tab **Settings**.
+   - DB **v6** (`trusted_cas`, `settings`, `environment_variables.kind`, `requests.insecure_skip_verify`).
+2. **Phase 7 — UX Polish & Productivity** (ưu tiên tiếp theo — tăng tốc hằng ngày).
    - Dashboard thay tab mặc định + cho đóng tab cuối; Command palette Ctrl+K; variable preview; Duplicate folder/request; Copy as cURL; shortcuts cơ bản.
    - Không bump DB.
 3. **Phase 8 — Collection Runner & Chaining** (biến tool thành automation thật).
@@ -416,7 +415,7 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). Lộ 
 | **7** | **Migrate DB v2 → v3 giữ dữ liệu** (export/import) nếu cần | Backlog tùy chọn — chỉ khi cần upgrade không mất data từ DB rất cũ. |
 | **8** | **Export project JSON native** (đối xứng Import) | Backlog tùy chọn — đã có Export Postman v2.1. |
 | ~~**9**~~ | ~~**Quality gate baseline** (tests + smoke E2E + CI + release/manual docs)~~ | **Done (Phase 5 — 2026-04-21).** |
-| **10** | **Networking & Security** — proxy + custom CA + insecure skip verify + secret var | **Phase 6 (Planned).** Blocker để dùng trong LAN cty. |
+| ~~**10**~~ | ~~**Networking & Security** — proxy + custom CA + insecure skip verify + secret var~~ | **Done (Phase 6 — 2026-04-21).** |
 | **11** | **UX Polish & Productivity** — Dashboard, Ctrl+K palette, preview var, duplicate, copy cURL, shortcuts | **Phase 7 (Planned).** |
 | **12** | **Collection Runner & Chaining** — capture rules + assertion + Runner folder theo env | **Phase 8 (Planned).** |
 | **13** | **Scripting** — goja + `pm.*` subset pre-request & post-response | **Phase 9 (Planned, bắt buộc).** |

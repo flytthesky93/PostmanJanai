@@ -72,6 +72,20 @@ func (_u *EnvironmentVariableUpdate) SetNillableValue(v *string) *EnvironmentVar
 	return _u
 }
 
+// SetKind sets the "kind" field.
+func (_u *EnvironmentVariableUpdate) SetKind(v string) *EnvironmentVariableUpdate {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *EnvironmentVariableUpdate) SetNillableKind(v *string) *EnvironmentVariableUpdate {
+	if v != nil {
+		_u.SetKind(*v)
+	}
+	return _u
+}
+
 // SetEnabled sets the "enabled" field.
 func (_u *EnvironmentVariableUpdate) SetEnabled(v bool) *EnvironmentVariableUpdate {
 	_u.mutation.SetEnabled(v)
@@ -196,6 +210,9 @@ func (_u *EnvironmentVariableUpdate) sqlSave(ctx context.Context) (_node int, er
 	if value, ok := _u.mutation.Value(); ok {
 		_spec.SetField(environmentvariable.FieldValue, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(environmentvariable.FieldKind, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Enabled(); ok {
 		_spec.SetField(environmentvariable.FieldEnabled, field.TypeBool, value)
 	}
@@ -295,6 +312,20 @@ func (_u *EnvironmentVariableUpdateOne) SetValue(v string) *EnvironmentVariableU
 func (_u *EnvironmentVariableUpdateOne) SetNillableValue(v *string) *EnvironmentVariableUpdateOne {
 	if v != nil {
 		_u.SetValue(*v)
+	}
+	return _u
+}
+
+// SetKind sets the "kind" field.
+func (_u *EnvironmentVariableUpdateOne) SetKind(v string) *EnvironmentVariableUpdateOne {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *EnvironmentVariableUpdateOne) SetNillableKind(v *string) *EnvironmentVariableUpdateOne {
+	if v != nil {
+		_u.SetKind(*v)
 	}
 	return _u
 }
@@ -452,6 +483,9 @@ func (_u *EnvironmentVariableUpdateOne) sqlSave(ctx context.Context) (_node *Env
 	}
 	if value, ok := _u.mutation.Value(); ok {
 		_spec.SetField(environmentvariable.FieldValue, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(environmentvariable.FieldKind, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Enabled(); ok {
 		_spec.SetField(environmentvariable.FieldEnabled, field.TypeBool, value)

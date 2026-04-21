@@ -29,6 +29,8 @@ const (
 	FieldRawBody = "raw_body"
 	// FieldAuthJSON holds the string denoting the auth_json field in the database.
 	FieldAuthJSON = "auth_json"
+	// FieldInsecureSkipVerify holds the string denoting the insecure_skip_verify field in the database.
+	FieldInsecureSkipVerify = "insecure_skip_verify"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -92,6 +94,7 @@ var Columns = []string{
 	FieldBodyMode,
 	FieldRawBody,
 	FieldAuthJSON,
+	FieldInsecureSkipVerify,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -115,6 +118,8 @@ var (
 	URLValidator func(string) error
 	// BodyModeValidator is a validator for the "body_mode" field. It is called by the builders before save.
 	BodyModeValidator func(string) error
+	// DefaultInsecureSkipVerify holds the default value on creation for the "insecure_skip_verify" field.
+	DefaultInsecureSkipVerify bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -166,6 +171,11 @@ func ByRawBody(opts ...sql.OrderTermOption) OrderOption {
 // ByAuthJSON orders the results by the auth_json field.
 func ByAuthJSON(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAuthJSON, opts...).ToFunc()
+}
+
+// ByInsecureSkipVerify orders the results by the insecure_skip_verify field.
+func ByInsecureSkipVerify(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldInsecureSkipVerify, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

@@ -17,6 +17,7 @@ type EnvironmentVariableRow struct {
 	ID        string `json:"id"`
 	Key       string `json:"key"`
 	Value     string `json:"value"`
+	Kind      string `json:"kind"` // "plain" | "secret"
 	Enabled   bool   `json:"enabled"`
 	SortOrder int    `json:"sort_order"`
 }
@@ -31,6 +32,7 @@ type EnvironmentFull struct {
 type EnvVariableInput struct {
 	Key       string `json:"key"`
 	Value     string `json:"value"`
+	Kind      string `json:"kind"` // "plain" | "secret" — empty means plain
 	Enabled   bool   `json:"enabled"`
 	SortOrder int    `json:"sort_order"`
 }

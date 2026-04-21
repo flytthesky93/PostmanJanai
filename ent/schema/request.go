@@ -26,6 +26,8 @@ func (Request) Fields() []ent.Field {
 		field.Text("raw_body").Optional().Nillable(),
 		// JSON entity.RequestAuth — optional Bearer / Basic / API Key config.
 		field.Text("auth_json").Optional().Nillable(),
+		// insecure_skip_verify — per-request toggle; Phase 6 DB v6.
+		field.Bool("insecure_skip_verify").Default(false),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}

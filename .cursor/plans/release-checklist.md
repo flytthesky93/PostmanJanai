@@ -44,6 +44,11 @@ Chạy bản binary vừa build, thực hiện `manual-test-plan.md` mục **San
 - [ ] History: click 1 request cũ → payload + response khôi phục đúng.
 - [ ] Không có panic/log ERROR lạ trong `<appDir>/logs/app.log`.
 
+Nếu release này có thay đổi **Phase 6 (networking/security)** (proxy/CA/TLS/insecure/secret env) → thêm tick nhanh:
+
+- [ ] Tab **Settings** mở được; **Test proxy** không làm crash app.
+- [ ] (Tuỳ chọn) proxy/CA theo môi trường có thể test được — xem `manual-test-plan.md` §**I. Networking & security (Phase 6)**.
+
 ## 5. Artifacts & release notes
 
 - [ ] Binary + installer (nếu có) upload lên nơi lưu trữ nội bộ (Drive / S3 / Release draft).

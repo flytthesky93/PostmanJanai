@@ -29,3 +29,9 @@ type RequestHeader func(*sql.Selector)
 
 // RequestQueryParam is the predicate function for requestqueryparam builders.
 type RequestQueryParam func(*sql.Selector)
+
+// Setting is the predicate function for setting builders.
+type Setting func(*sql.Selector)
+
+// TrustedCA is the predicate function for trustedca builders.
+type TrustedCA func(*sql.Selector)

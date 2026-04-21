@@ -55,7 +55,18 @@ func (h *SnippetHandler) RenderSnippet(in *entity.HTTPExecuteInput, kind string)
 		return "", errors.New("nil resolved input")
 	}
 	service.MergeAuthIntoHeadersAndQuery(resolved)
-	return service.RenderSnippet(resolved, kind)
+
+	secrets := []string{}
+	if h.env != nil {
+		if s, err := h.env.ActiveSecretPlaintexts(ctx); err == nil && s != nil {
+			secrets = s
+		}
+	}
+	snipIn := resolved
+	if len(secrets) > 0 {
+		snipIn = service.RedactHTTPExecuteInput(resolved, secrets)
+	}
+	return service.RenderSnippet(snipIn, kind)
 }
 
 // ListSnippetKinds returns supported kind identifiers for the UI dropdown.

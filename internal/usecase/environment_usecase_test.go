@@ -6,6 +6,7 @@ import (
 
 	"PostmanJanai/internal/entity"
 	"PostmanJanai/internal/repository"
+	"PostmanJanai/internal/service"
 	"PostmanJanai/internal/testutil"
 )
 
@@ -13,7 +14,11 @@ func newEnvUC(t *testing.T) (context.Context, EnvironmentUsecase, repository.Env
 	t.Helper()
 	ctx := context.Background()
 	client := testutil.NewEntClient(t)
-	repo := repository.NewEnvironmentRepository(client)
+	cipher, err := service.NewSecretCipher()
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+	repo := repository.NewEnvironmentRepository(client, cipher)
 	return ctx, NewEnvironmentUsecase(repo), repo
 }
 

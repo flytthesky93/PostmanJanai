@@ -12,8 +12,8 @@ const loading = ref(false)
 const savingVars = ref(false)
 /** Display name only (edit via sidebar ⋮ → Edit). */
 const name = ref('')
-/** @type {import('vue').Ref<Array<{ key: string, value: string, enabled: boolean }>>} */
-const variables = ref([{ key: '', value: '', enabled: true }])
+/** @type {import('vue').Ref<Array<{ key: string, value: string, kind: 'plain'|'secret', showSecret?: boolean, enabled: boolean }>>} */
+const variables = ref([{ key: '', value: '', kind: 'plain', enabled: true }])
 
 const deleteOpen = ref(false)
 const deleting = ref(false)
@@ -26,7 +26,7 @@ function showToast(msg) {
 
 function resetForm() {
   name.value = ''
-  variables.value = [{ key: '', value: '', enabled: true }]
+  variables.value = [{ key: '', value: '', kind: 'plain', enabled: true }]
 }
 
 async function load() {
@@ -45,11 +45,13 @@ async function load() {
     name.value = full.name || ''
     const vars = Array.isArray(full.variables) ? full.variables : []
     if (vars.length === 0) {
-      variables.value = [{ key: '', value: '', enabled: true }]
+      variables.value = [{ key: '', value: '', kind: 'plain', enabled: true }]
     } else {
       variables.value = vars.map((v) => ({
         key: v.key || '',
         value: v.value ?? '',
+        kind: (v.kind || 'plain') === 'secret' ? 'secret' : 'plain',
+        showSecret: false,
         enabled: v.enabled !== false
       }))
     }
@@ -71,7 +73,7 @@ watch(
 )
 
 async function addVariableRow() {
-  variables.value.push({ key: '', value: '', enabled: true })
+  variables.value.push({ key: '', value: '', kind: 'plain', enabled: true })
   await nextTick()
   const el = variablesScrollEl.value
   if (!el) return
@@ -84,7 +86,7 @@ async function addVariableRow() {
 
 function removeVariableRow(index) {
   const next = variables.value.filter((_, i) => i !== index)
-  variables.value = next.length ? next : [{ key: '', value: '', enabled: true }]
+  variables.value = next.length ? next : [{ key: '', value: '', kind: 'plain', enabled: true }]
 }
 
 async function saveVariables() {
@@ -105,6 +107,7 @@ async function saveVariables() {
     .map((row, i) => ({
       key: String(row.key || '').trim(),
       value: row.value ?? '',
+      kind: row.kind === 'secret' ? 'secret' : 'plain',
       enabled: row.enabled !== false,
       sort_order: i
     }))
@@ -210,12 +213,32 @@ async function confirmDelete() {
                   class="min-w-[120px] flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1.5 font-mono text-xs text-gray-200 outline-none focus:border-orange-500"
                   placeholder="KEY"
                 />
-                <input
-                  v-model="row.value"
-                  type="text"
-                  class="min-w-[160px] flex-[2] rounded border border-gray-700 bg-gray-900 px-2 py-1.5 font-mono text-xs text-gray-200 outline-none focus:border-orange-500"
-                  placeholder="value"
-                />
+                <select
+                  v-model="row.kind"
+                  class="shrink-0 rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-[11px] text-gray-200 outline-none focus:border-orange-500"
+                  title="Variable kind"
+                >
+                  <option value="plain">plain</option>
+                  <option value="secret">secret</option>
+                </select>
+                <div class="flex min-w-[160px] flex-[2] items-center gap-1">
+                  <input
+                    v-model="row.value"
+                    :type="row.kind === 'secret' && !row.showSecret ? 'password' : 'text'"
+                    class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 font-mono text-xs text-gray-200 outline-none focus:border-orange-500"
+                    placeholder="value"
+                    autocomplete="off"
+                  />
+                  <button
+                    v-if="row.kind === 'secret'"
+                    type="button"
+                    class="shrink-0 rounded border border-gray-700 bg-[#2a2a2a] px-2 py-1 text-[10px] text-gray-300 hover:border-orange-500/50"
+                    :title="row.showSecret ? 'Hide value' : 'Show value'"
+                    @click="row.showSecret = !row.showSecret"
+                  >
+                    {{ row.showSecret ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
                 <button
                   type="button"
                   class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-red-500/15 hover:text-red-400"

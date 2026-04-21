@@ -41,6 +41,15 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 			return err
 		}
 		return backfillFolderSortOrder(db)
+	case 5:
+		// → 6: Phase 6 — Networking & Security (additive columns only; new tables come from Ent Schema.Create)
+		if _, err := db.Exec(`ALTER TABLE environment_variables ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain'`); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`ALTER TABLE requests ADD COLUMN insecure_skip_verify INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -95,6 +104,8 @@ func backfillFolderSortOrder(db *sql.DB) error {
 func dropLegacyTablesForUUIDSchema(db *sql.DB) error {
 	// Thứ tự: bảng phụ / FK trước (an toàn với IF EXISTS)
 	stmts := []string{
+		`DROP TABLE IF EXISTS settings`,
+		`DROP TABLE IF EXISTS trusted_cas`,
 		`DROP TABLE IF EXISTS environment_variables`,
 		`DROP TABLE IF EXISTS environments`,
 		`DROP TABLE IF EXISTS request_form_fields`,

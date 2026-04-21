@@ -12,6 +12,8 @@ import (
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
 	"PostmanJanai/ent/schema"
+	"PostmanJanai/ent/setting"
+	"PostmanJanai/ent/trustedca"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,20 +61,24 @@ func init() {
 	environmentvariableDescValue := environmentvariableFields[3].Descriptor()
 	// environmentvariable.DefaultValue holds the default value on creation for the value field.
 	environmentvariable.DefaultValue = environmentvariableDescValue.Default.(string)
+	// environmentvariableDescKind is the schema descriptor for kind field.
+	environmentvariableDescKind := environmentvariableFields[4].Descriptor()
+	// environmentvariable.DefaultKind holds the default value on creation for the kind field.
+	environmentvariable.DefaultKind = environmentvariableDescKind.Default.(string)
 	// environmentvariableDescEnabled is the schema descriptor for enabled field.
-	environmentvariableDescEnabled := environmentvariableFields[4].Descriptor()
+	environmentvariableDescEnabled := environmentvariableFields[5].Descriptor()
 	// environmentvariable.DefaultEnabled holds the default value on creation for the enabled field.
 	environmentvariable.DefaultEnabled = environmentvariableDescEnabled.Default.(bool)
 	// environmentvariableDescSortOrder is the schema descriptor for sort_order field.
-	environmentvariableDescSortOrder := environmentvariableFields[5].Descriptor()
+	environmentvariableDescSortOrder := environmentvariableFields[6].Descriptor()
 	// environmentvariable.DefaultSortOrder holds the default value on creation for the sort_order field.
 	environmentvariable.DefaultSortOrder = environmentvariableDescSortOrder.Default.(int)
 	// environmentvariableDescCreatedAt is the schema descriptor for created_at field.
-	environmentvariableDescCreatedAt := environmentvariableFields[6].Descriptor()
+	environmentvariableDescCreatedAt := environmentvariableFields[7].Descriptor()
 	// environmentvariable.DefaultCreatedAt holds the default value on creation for the created_at field.
 	environmentvariable.DefaultCreatedAt = environmentvariableDescCreatedAt.Default.(func() time.Time)
 	// environmentvariableDescUpdatedAt is the schema descriptor for updated_at field.
-	environmentvariableDescUpdatedAt := environmentvariableFields[7].Descriptor()
+	environmentvariableDescUpdatedAt := environmentvariableFields[8].Descriptor()
 	// environmentvariable.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	environmentvariable.DefaultUpdatedAt = environmentvariableDescUpdatedAt.Default.(func() time.Time)
 	// environmentvariable.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -139,12 +145,16 @@ func init() {
 	requestDescBodyMode := requestFields[5].Descriptor()
 	// request.BodyModeValidator is a validator for the "body_mode" field. It is called by the builders before save.
 	request.BodyModeValidator = requestDescBodyMode.Validators[0].(func(string) error)
+	// requestDescInsecureSkipVerify is the schema descriptor for insecure_skip_verify field.
+	requestDescInsecureSkipVerify := requestFields[8].Descriptor()
+	// request.DefaultInsecureSkipVerify holds the default value on creation for the insecure_skip_verify field.
+	request.DefaultInsecureSkipVerify = requestDescInsecureSkipVerify.Default.(bool)
 	// requestDescCreatedAt is the schema descriptor for created_at field.
-	requestDescCreatedAt := requestFields[8].Descriptor()
+	requestDescCreatedAt := requestFields[9].Descriptor()
 	// request.DefaultCreatedAt holds the default value on creation for the created_at field.
 	request.DefaultCreatedAt = requestDescCreatedAt.Default.(func() time.Time)
 	// requestDescUpdatedAt is the schema descriptor for updated_at field.
-	requestDescUpdatedAt := requestFields[9].Descriptor()
+	requestDescUpdatedAt := requestFields[10].Descriptor()
 	// request.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	request.DefaultUpdatedAt = requestDescUpdatedAt.Default.(func() time.Time)
 	// request.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -219,4 +229,46 @@ func init() {
 	requestqueryparamDescID := requestqueryparamFields[0].Descriptor()
 	// requestqueryparam.DefaultID holds the default value on creation for the id field.
 	requestqueryparam.DefaultID = requestqueryparamDescID.Default.(func() uuid.UUID)
+	settingFields := schema.Setting{}.Fields()
+	_ = settingFields
+	// settingDescKey is the schema descriptor for key field.
+	settingDescKey := settingFields[1].Descriptor()
+	// setting.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	setting.KeyValidator = settingDescKey.Validators[0].(func(string) error)
+	// settingDescValue is the schema descriptor for value field.
+	settingDescValue := settingFields[2].Descriptor()
+	// setting.DefaultValue holds the default value on creation for the value field.
+	setting.DefaultValue = settingDescValue.Default.(string)
+	// settingDescUpdatedAt is the schema descriptor for updated_at field.
+	settingDescUpdatedAt := settingFields[3].Descriptor()
+	// setting.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	setting.DefaultUpdatedAt = settingDescUpdatedAt.Default.(func() time.Time)
+	// setting.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	setting.UpdateDefaultUpdatedAt = settingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// settingDescID is the schema descriptor for id field.
+	settingDescID := settingFields[0].Descriptor()
+	// setting.DefaultID holds the default value on creation for the id field.
+	setting.DefaultID = settingDescID.Default.(func() uuid.UUID)
+	trustedcaFields := schema.TrustedCA{}.Fields()
+	_ = trustedcaFields
+	// trustedcaDescLabel is the schema descriptor for label field.
+	trustedcaDescLabel := trustedcaFields[1].Descriptor()
+	// trustedca.LabelValidator is a validator for the "label" field. It is called by the builders before save.
+	trustedca.LabelValidator = trustedcaDescLabel.Validators[0].(func(string) error)
+	// trustedcaDescPemContent is the schema descriptor for pem_content field.
+	trustedcaDescPemContent := trustedcaFields[2].Descriptor()
+	// trustedca.PemContentValidator is a validator for the "pem_content" field. It is called by the builders before save.
+	trustedca.PemContentValidator = trustedcaDescPemContent.Validators[0].(func(string) error)
+	// trustedcaDescEnabled is the schema descriptor for enabled field.
+	trustedcaDescEnabled := trustedcaFields[3].Descriptor()
+	// trustedca.DefaultEnabled holds the default value on creation for the enabled field.
+	trustedca.DefaultEnabled = trustedcaDescEnabled.Default.(bool)
+	// trustedcaDescCreatedAt is the schema descriptor for created_at field.
+	trustedcaDescCreatedAt := trustedcaFields[4].Descriptor()
+	// trustedca.DefaultCreatedAt holds the default value on creation for the created_at field.
+	trustedca.DefaultCreatedAt = trustedcaDescCreatedAt.Default.(func() time.Time)
+	// trustedcaDescID is the schema descriptor for id field.
+	trustedcaDescID := trustedcaFields[0].Descriptor()
+	// trustedca.DefaultID holds the default value on creation for the id field.
+	trustedca.DefaultID = trustedcaDescID.Default.(func() uuid.UUID)
 }

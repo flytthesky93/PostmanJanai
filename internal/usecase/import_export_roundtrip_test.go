@@ -10,6 +10,7 @@ import (
 
 	"PostmanJanai/internal/entity"
 	"PostmanJanai/internal/repository"
+	"PostmanJanai/internal/service"
 	"PostmanJanai/internal/testutil"
 )
 
@@ -73,7 +74,11 @@ func TestImportExportImport_RoundTrip(t *testing.T) {
 	client := testutil.NewEntClient(t)
 	folders := repository.NewFolderRepository(client)
 	reqs := repository.NewRequestRepository(client)
-	envs := repository.NewEnvironmentRepository(client)
+	cipher, err := service.NewSecretCipher()
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+	envs := repository.NewEnvironmentRepository(client, cipher)
 
 	importUC := NewImportUsecase(folders, reqs, envs)
 	exportUC := NewExportUsecase(folders, reqs)
