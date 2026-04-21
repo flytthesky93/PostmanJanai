@@ -1,0 +1,54 @@
+name: ci
+
+# Run on every push to main and every PR. The job must stay CPU-light: it intentionally skips
+# the Wails desktop build (requires webkit/webview and is done manually on a Windows dev box
+# via `make build-win-safe`).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: go (vet + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: go vet (internal packages)
+        # Skip the `main` package — it imports Wails which needs gtk/webkit on Linux.
+        run: go vet ./internal/...
+
+      - name: go test (internal packages, race)
+        run: go test ./internal/... -count=1 -race -timeout 120s
+
+  frontend:
+    name: frontend (vite build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: vite build
+        run: npm run build

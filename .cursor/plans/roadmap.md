@@ -23,7 +23,7 @@ Build a desktop API client (Postman-like) focused on:
 | **2** | **Done**   | Closed **2026-04**: CRUD **folder** (cây lồng) + **saved request** (`folder_id`), UI sidebar **Folders** + cây đệ quy (`FolderCatalog` / `FolderTreeNode`), Wails `FolderHandler` + `SavedRequestHandler`, bump **DB v3** (workspace/collection → folder). |
 | **3** | **Done**   | Closed **2026-04-19**: `EnvironmentHandler` + CRUD env/biến + **một env active**; substitute `{{var}}` trước `HTTPExecutor` (URL/body/headers/query/form/multipart/auth); auth **none / bearer / basic / apikey** (header hoặc query), lưu `auth_json` trên request; history lưu **payload đã resolve**; UI history chi tiết (modal snapshot); editor `{{var}}` (chip, popover, caret “atomic” trên CodeMirror + `EnvVarMirrorField`). Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md). |
 | **4** | **Done** (2026-04-20) | **Productivity scope đã đủ để đóng:** #1 Import; #2 Multi-tab; #3 Search/filter; Flow B — export Postman v2.1, snippets, cây folder (expand persist, rename, DnD move + **reorder** + vùng **Same level / Inside** + root drop), **DB v5** `folders.sort_order`. **Polish cùng ngày:** click mở/thu **full hàng** + khe reorder; rename folder **chỉ ⋮** (không double-click). **Backlog tùy chọn (không chặn Phase 4):** export project JSON “native”; migrate v2→v3 giữ dữ liệu. |
-| **5** | Not started | — |
+| **5** | In progress (started 2026-04-21) | Scope đã **chi tiết hoá** thành 4 nhóm đo được: (1) test bù lấp khoảng trống (`dbmanage`, `repository`, `usecase`, import/export round-trip); (2) smoke E2E ở tầng Go (`httptest` + ent SQLite tạm, chạy end-to-end Send → History → Export → Import); (3) CI tối thiểu (`go test ./internal/...` + `go vet` + `npm run build`); (4) release checklist + manual test plan. **Windows-first:** v1 official platform = Windows x64; macOS/Linux là best-effort, unsigned. Backlog tùy chọn (**không nằm trong Phase 5**): export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright). |
 
 ---
 
@@ -126,15 +126,31 @@ Done when:
 
 ### Phase 5 - Quality and Packaging
 
-Scope:
+**Supported platforms (v1 official):** Windows x64. macOS / Linux là best-effort, không ký số, không chặn release.
 
-- Unit tests for critical usecase/repository logic.
-- Basic E2E smoke tests for request flow.
-- Release checklist and packaging hardening.
+Scope (4 nhóm đo được):
+
+1. **Test bù lấp khoảng trống** — tập trung các layer đang 0 test:
+   - `internal/dbmanage`: migration v4→v5 (backfill `sort_order`), `dropLegacyTablesForUUIDSchema`, `user_version` round-trip, `BackupDatabaseIfNonEmpty` (empty vs non-empty).
+   - `internal/repository`: folder (unique `(parent_id,name)`, xoá đệ quy + null hoá FK history, `MoveToParent`, `ReorderFolderSibling`, `SearchByName` truncate), request (`CreateFull`/`GetByID` round-trip đủ headers/query/form/multipart/auth, `UpdateFull` replace, `SearchByNameOrURL`), environment (`SetActive` idempotent, `SaveVariables` replace, `ActiveVariableMap` chỉ enabled), history (`Save`/`ListSummaries` filter theo root).
+   - `internal/usecase`: rule nghiệp vụ (folder name conflict, move vào subtree của chính mình bị chặn, request name conflict, env active duy nhất, duplicate variable key bị reject).
+   - `internal/usecase` (import/export): **round-trip** Postman v2.1 — import → export → import lại → diff tree (folder + request name, method, URL, body).
+2. **Smoke E2E ở tầng Go** (`internal/e2e` hoặc tương đương) — kịch bản đơn:
+   create root folder → tạo env active với `{{base_url}}` → save request dùng `{{base_url}}` → `HTTPExecutor.Execute` bắn vào `httptest.Server` → assert history đúng → export Postman v2.1 → import lại → assert cây giống.
+3. **CI tối thiểu** — GitHub Actions (`.github/workflows/ci.yml`): `go vet ./internal/...` + `go test ./internal/... -count=1` + `npm ci && npm run build` (không build Wails binary trong CI — tốn runner, chạy bằng `build-win-safe` thủ công trên Windows dev box).
+4. **Release checklist + manual test plan** — hai tài liệu tick-được:
+   - `.cursor/plans/release-checklist.md` — quality gate trước khi ghi nhận build là "internal release".
+   - `.cursor/plans/manual-test-plan.md` — kịch bản tay cho tester, gom theo domain (folder, request, env, history, import/export, snippet, DnD/reorder, search).
 
 Done when:
 
-- Stable internal release quality across supported platforms.
+- `go test ./internal/... -count=1` pass trên local (Windows, CGO thường tắt) và `go test ./internal/... -count=1 -race` pass trên CI (Ubuntu có gcc sẵn).
+- Smoke E2E pass.
+- CI xanh.
+- Release checklist tick đủ cho 1 bản Windows x64 build bằng `make build-win-safe`.
+- Manual test plan đã được chạy 1 lần end-to-end trên Windows build đó.
+
+**Ngoài scope (backlog giữ nguyên, không block):** Export project JSON native; migrate v2→v3 giữ dữ liệu; UI E2E (Playwright/WebView2); code signing Windows; notarize macOS.
 
 ## Architecture Direction
 
@@ -158,12 +174,23 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 
 ---
 
-## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-20)
+## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-21)
 
-Phase **4** (productivity) **đã đóng** theo scope đã thống nhất. Ưu tiên tiếp theo:
+Phase **4** (productivity) **đã đóng** theo scope đã thống nhất. Phase **5** (quality & packaging) đang chạy — xem scope chi tiết ở phần **Phase 5** phía trên. Thứ tự thực thi:
 
-1. **Phase 5** — chất lượng & đóng gói: test Go/E2E smoke, checklist release, hardening Wails build.
-2. **Backlog tùy chọn:** export project JSON native; migration v2→v3 giữ dữ liệu (nếu cần).
+1. Test bù lấp khoảng trống (`dbmanage` → `repository` → `usecase` → import/export round-trip).
+2. Smoke E2E tầng Go.
+3. CI tối thiểu (GitHub Actions).
+4. Release checklist + manual test plan.
+5. Chạy manual test plan trên 1 bản Windows build, tick release checklist.
+
+**Backlog ngoài Phase 5 (không chặn release):**
+
+- Export project JSON native.
+- Migration v2→v3 giữ dữ liệu.
+- UI E2E (Playwright).
+- Code signing Windows; notarize macOS.
+- **(minor, phát hiện qua smoke E2E 2026-04-21)** `ExportPostmanV21CollectionJSON` đi qua `url.Parse` + `url.Values.Encode()` khiến `{{var}}` trong URL bị percent-encode thành `%7B%7Bvar%7D%7D`. Postman desktop vẫn import lại được (sau giải mã); smoke test đã workaround bằng `url.PathUnescape` khi so sánh. Cần giữ placeholder raw khi export để Postman hiển thị đúng.
 
 **Bảng hạng mục (lịch sử Phase 3–4 + backlog):**
 

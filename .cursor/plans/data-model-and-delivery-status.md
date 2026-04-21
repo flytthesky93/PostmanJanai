@@ -315,4 +315,6 @@ erDiagram
 
 ## Đề xuất bước tiếp theo
 
-**Phase 5** (quality, test, packaging) — xem [roadmap.md](roadmap.md). **Backlog tùy chọn:** export JSON native; migration giữ dữ liệu từ DB rất cũ.
+**Phase 5** (quality, test, packaging) — **đang triển khai (2026-04-21)**; scope chi tiết + DoD xem [roadmap.md §Phase 5](roadmap.md). 4 nhóm đo được: (1) test bù lấp `dbmanage` / `repository` / `usecase` / import-export round-trip; (2) smoke E2E Go (httptest + ent SQLite tạm); (3) CI tối thiểu (`.github/workflows/ci.yml`); (4) [release-checklist.md](release-checklist.md) + [manual-test-plan.md](manual-test-plan.md). Windows x64 là platform chính thức v1; macOS/Linux best-effort, unsigned.
+
+**Backlog ngoài Phase 5:** export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); code signing Windows; notarize macOS.
