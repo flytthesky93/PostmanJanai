@@ -5,7 +5,15 @@
 - **Cấu trúc DB** (bảng, cột, FK, ERD) và **migration** / `PRAGMA user_version`.
 - **Checklist kỹ thuật** đã / chưa làm — *Tiến độ đã triển khai* và *Todos* ở cuối file.
 
-**Roadmap** (mục tiêu, phase 0–5, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
+**Roadmap** (mục tiêu, phase 0–9, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
+
+> **Phase 6–9 (planned, 2026-04-21):**
+> - **Phase 6 — Networking & Security:** proxy (system/manual) + custom CA pool + insecure skip verify (per-request) + secret-type env var. DB bump **v5 → v6** (`trusted_cas`, `settings`, `environment_variables.kind`).
+> - **Phase 7 — UX Polish:** Dashboard khi không còn tab + cho đóng tab cuối, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts. **Không** bump DB.
+> - **Phase 8 — Runner & Chaining:** capture rules (JSONPath/regex → env var) + assertion rules (status/header/json-path) + Collection Runner theo folder + env. DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
+> - **Phase 9 — Scripting (bắt buộc):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v7 → v8** (`requests.pre_request_script`, `requests.post_response_script`).
+>
+> Xem scope chi tiết + "Done when" trong từng section `Phase 6/7/8/9` của `roadmap.md`.
 
 ---
 
