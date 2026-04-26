@@ -10,6 +10,10 @@ export function Delete(arg1) {
   return window['go']['delivery']['SavedRequestHandler']['Delete'](arg1);
 }
 
+export function Duplicate(arg1) {
+  return window['go']['delivery']['SavedRequestHandler']['Duplicate'](arg1);
+}
+
 export function Get(arg1) {
   return window['go']['delivery']['SavedRequestHandler']['Get'](arg1);
 }

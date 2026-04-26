@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed } from 'vue'
 import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
 import EnvVarMirrorField from './EnvVarMirrorField.vue'
@@ -7,6 +7,8 @@ import SnippetPanel from './SnippetPanel.vue'
 import { PickFileForBody } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
+import { RenderSnippet } from '../../wailsjs/wailsjs/go/delivery/SnippetHandler'
+import { hasVariables, previewVariables } from '../utils/variablePreview'
 
 const props = defineProps({
   /** Selected root folder UUID for history (optional). */
@@ -14,7 +16,9 @@ const props = defineProps({
   /** Keys from active environment (enabled) — {{var}} UI + CodeMirror highlights. */
   declaredEnvKeys: { type: Array, default: () => [] },
   /** key → current value in active env (hover popover). */
-  activeEnvValues: { type: Object, default: () => ({}) }
+  activeEnvValues: { type: Object, default: () => ({}) },
+  /** Full active variable rows, including kind, for masked preview rendering. */
+  activeEnvVariables: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits([
@@ -60,6 +64,26 @@ const envKeysForFields = computed(() =>
 const envValuesForFields = computed(() =>
   props.activeEnvValues && typeof props.activeEnvValues === 'object' ? props.activeEnvValues : {}
 )
+
+const activeVariableRows = computed(() => (Array.isArray(props.activeEnvVariables) ? props.activeEnvVariables : []))
+
+const urlPreview = computed(() => {
+  const raw = url.value || ''
+  if (!hasVariables(raw)) return null
+  return previewVariables(raw, activeVariableRows.value)
+})
+
+const bodyPreview = computed(() => {
+  if (bodyMode.value !== 'raw' && bodyMode.value !== 'xml') return null
+  const raw = liveRawOrXmlBodyText()
+  if (!hasVariables(raw)) return null
+  return previewVariables(raw, activeVariableRows.value)
+})
+
+function previewSnippet(text) {
+  const s = String(text || '')
+  return s.length > 600 ? `${s.slice(0, 600)}...` : s
+}
 
 function forwardPatchEnvValue(p) {
   emit('patch-active-env-value', p)
@@ -460,6 +484,27 @@ const handleSend = () => {
   emit('send', buildHttpExecutePayload())
 }
 
+async function copyAsCurl() {
+  let payload
+  try {
+    payload = buildHttpExecutePayload()
+  } catch (e) {
+    emit('console', `[cURL] ${e?.message || e}`)
+    return
+  }
+  if (!String(payload?.url || '').trim()) {
+    emit('console', '[cURL] URL is required.')
+    return
+  }
+  try {
+    const out = await RenderSnippet(payload, 'curl_bash')
+    await navigator.clipboard.writeText(typeof out === 'string' ? out : String(out ?? ''))
+    emit('console', '[cURL] Copied to clipboard.')
+  } catch (e) {
+    emit('console', `[cURL] ${e?.message || e}`)
+  }
+}
+
 /** Load a persisted request from SavedRequestFull (Wails). */
 function applySavedRequestDto(dto) {
   if (!dto) return
@@ -569,25 +614,13 @@ async function saveSavedRequest() {
   }
 }
 
-/** Lưu request: saved → Update; ad-hoc → hỏi folder + tên */
-function onGlobalKeydown(e) {
-  if (!(e.ctrlKey || e.metaKey)) return
-  if (String(e.key || '').toLowerCase() !== 's') return
-  e.preventDefault()
+function saveCurrentRequest() {
   if (savedRequestId.value) {
     saveSavedRequest()
     return
   }
   openSaveAdhocModal()
 }
-
-onMounted(() => {
-  window.addEventListener('keydown', onGlobalKeydown, true)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onGlobalKeydown, true)
-})
 
 /** Guard snapshot-change emissions while we are nạp lại state từ bên ngoài (hydrate). */
 let hydrating = false
@@ -713,7 +746,9 @@ defineExpose({
   applyImportPayload,
   snapshot: captureSnapshot,
   hydrate,
-  buildHttpExecutePayload
+  buildHttpExecutePayload,
+  sendCurrentRequest: handleSend,
+  saveCurrentRequest
 })
 
 const formatJsonBody = () => {
@@ -779,11 +814,26 @@ const formatXmlBody = () => {
       </button>
       <button
         type="button"
+        class="shrink-0 rounded border border-gray-600 bg-[#2a2a2a] px-3 py-2 text-xs font-semibold text-gray-200 transition-colors hover:border-orange-500/50 hover:text-orange-300"
+        title="Copy this request as cURL"
+        @click="copyAsCurl"
+      >
+        Copy cURL
+      </button>
+      <button
+        type="button"
         class="shrink-0 rounded bg-orange-600 px-6 py-2 text-sm font-bold text-white transition-all hover:bg-orange-700 active:scale-95"
         @click="handleSend"
       >
         Send
       </button>
+    </div>
+
+    <div v-if="urlPreview" class="shrink-0 border-t border-gray-800/60 bg-[#1a1a1a] px-3 py-1.5 text-[11px]">
+      <span class="font-semibold uppercase tracking-wide text-gray-500">Resolved URL</span>
+      <span class="ml-2 font-mono text-gray-300">{{ urlPreview.output }}</span>
+      <span v-if="urlPreview.secretCount" class="ml-2 text-gray-500">secret masked</span>
+      <span v-if="urlPreview.unresolved" class="ml-2 text-yellow-400">{{ urlPreview.unresolved }} unresolved</span>
     </div>
 
     <SnippetPanel :build-payload="buildHttpExecutePayload" @console="(m) => emit('console', m)" />
@@ -1150,6 +1200,14 @@ const formatXmlBody = () => {
               @request-raw-edit="bodyRawEditor = true"
               @patch-env-value="forwardPatchEnvValue"
             />
+            <div v-if="bodyPreview" class="shrink-0 rounded border border-gray-700 bg-[#111] px-2 py-1.5 text-[11px]">
+              <div class="mb-1 flex flex-wrap items-center gap-2">
+                <span class="font-semibold uppercase tracking-wide text-gray-500">Resolved Body</span>
+                <span v-if="bodyPreview.secretCount" class="text-gray-500">secret masked</span>
+                <span v-if="bodyPreview.unresolved" class="text-yellow-400">{{ bodyPreview.unresolved }} unresolved</span>
+              </div>
+              <pre class="max-h-20 overflow-auto whitespace-pre-wrap break-words font-mono text-gray-300">{{ previewSnippet(bodyPreview.output) }}</pre>
+            </div>
           </div>
         </template>
 

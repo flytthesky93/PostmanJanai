@@ -134,3 +134,43 @@ func TestRequestUC_DeleteRequest(t *testing.T) {
 		t.Fatalf("expected empty list, got %d", len(list))
 	}
 }
+
+func TestRequestUC_DuplicateRequestCopiesFullPayload(t *testing.T) {
+	ctx, uc, fuc, _, _ := newRequestUCRig(t)
+	f, _ := fuc.CreateFolder(ctx, &entity.CreateFolderInput{Name: "F"})
+	raw := `{"hello":"world"}`
+	created, err := uc.CreateRequest(ctx, &entity.SavedRequestFull{
+		FolderID:           f.ID,
+		Name:               "Req",
+		Method:             "POST",
+		URL:                "https://e.test",
+		BodyMode:           "raw",
+		RawBody:            &raw,
+		Headers:            []entity.KeyValue{{Key: "X-Test", Value: "yes"}},
+		QueryParams:        []entity.KeyValue{{Key: "q", Value: "1"}},
+		Auth:               &entity.RequestAuth{Type: "bearer", BearerToken: "tok"},
+		InsecureSkipVerify: true,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	dup, err := uc.DuplicateRequest(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("duplicate: %v", err)
+	}
+	if dup.ID == created.ID {
+		t.Fatal("duplicate reused original id")
+	}
+	if dup.Name != "Req (copy)" {
+		t.Fatalf("unexpected duplicate name %q", dup.Name)
+	}
+	if dup.Method != "POST" || dup.URL != "https://e.test" || dup.RawBody == nil || *dup.RawBody != raw {
+		t.Fatalf("payload not copied: %+v", dup)
+	}
+	if len(dup.Headers) != 1 || dup.Headers[0].Key != "X-Test" {
+		t.Fatalf("headers not copied: %+v", dup.Headers)
+	}
+	if dup.Auth == nil || dup.Auth.BearerToken != "tok" || !dup.InsecureSkipVerify {
+		t.Fatalf("auth/tls not copied: %+v", dup)
+	}
+}

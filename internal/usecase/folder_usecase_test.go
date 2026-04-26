@@ -139,3 +139,46 @@ func TestFolderUC_DeleteFolderRemovesSubtree(t *testing.T) {
 		t.Fatalf("roots should be empty, got %+v", list)
 	}
 }
+
+func TestFolderUC_DuplicateFolderCopiesTreeAndRequests(t *testing.T) {
+	ctx := context.Background()
+	client := testutil.NewEntClient(t)
+	folders := repository.NewFolderRepository(client)
+	reqs := repository.NewRequestRepository(client)
+	fuc := NewFolderUsecaseWithRequests(folders, reqs)
+	ruc := NewRequestUsecase(folders, reqs)
+
+	root, _ := fuc.CreateFolder(ctx, &entity.CreateFolderInput{Name: "Root"})
+	child, _ := fuc.CreateFolder(ctx, &entity.CreateFolderInput{Name: "Child", ParentID: &root.ID})
+	if _, err := ruc.CreateRequest(ctx, &entity.SavedRequestFull{
+		FolderID: child.ID,
+		Name:     "Req",
+		Method:   "GET",
+		URL:      "https://e.test",
+		BodyMode: "none",
+	}); err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+
+	dupRoot, err := fuc.DuplicateFolder(ctx, root.ID)
+	if err != nil {
+		t.Fatalf("duplicate folder: %v", err)
+	}
+	if dupRoot.ID == root.ID || dupRoot.Name != "Root (copy)" {
+		t.Fatalf("unexpected duplicate root: %+v", dupRoot)
+	}
+	dupChildren, err := fuc.ListChildFolders(ctx, dupRoot.ID)
+	if err != nil {
+		t.Fatalf("list dup children: %v", err)
+	}
+	if len(dupChildren) != 1 || dupChildren[0].Name != "Child" {
+		t.Fatalf("child tree not copied: %+v", dupChildren)
+	}
+	dupReqs, err := ruc.ListRequestsInFolder(ctx, dupChildren[0].ID)
+	if err != nil {
+		t.Fatalf("list dup requests: %v", err)
+	}
+	if len(dupReqs) != 1 || dupReqs[0].Name != "Req" {
+		t.Fatalf("request not copied: %+v", dupReqs)
+	}
+}

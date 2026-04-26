@@ -10,6 +10,10 @@ export function DeleteFolder(arg1) {
   return window['go']['delivery']['FolderHandler']['DeleteFolder'](arg1);
 }
 
+export function DuplicateFolder(arg1) {
+  return window['go']['delivery']['FolderHandler']['DuplicateFolder'](arg1);
+}
+
 export function ListChildFolders(arg1) {
   return window['go']['delivery']['FolderHandler']['ListChildFolders'](arg1);
 }

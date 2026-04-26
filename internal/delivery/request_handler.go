@@ -58,3 +58,8 @@ func (h *SavedRequestHandler) MoveRequest(requestID, folderID string) error {
 	ctx := h.getContext()
 	return h.uc.MoveRequest(ctx, requestID, folderID)
 }
+
+func (h *SavedRequestHandler) Duplicate(id string) (*entity.SavedRequestFull, error) {
+	ctx := h.getContext()
+	return h.uc.DuplicateRequest(ctx, id)
+}

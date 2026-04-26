@@ -25,7 +25,7 @@ Build a desktop API client (Postman-like) focused on:
 | **4** | **Done** (2026-04-20) | **Productivity scope đã đủ để đóng:** #1 Import; #2 Multi-tab; #3 Search/filter; Flow B — export Postman v2.1, snippets, cây folder (expand persist, rename, DnD move + **reorder** + vùng **Same level / Inside** + root drop), **DB v5** `folders.sort_order`. **Polish cùng ngày:** click mở/thu **full hàng** + khe reorder; rename folder **chỉ ⋮** (không double-click). **Backlog tùy chọn (không chặn Phase 4):** export project JSON “native”; migrate v2→v3 giữ dữ liệu. |
 | **5** | **Done** (2026-04-21) | 4 nhóm đo được đã giao: (1) test bù lấp (dbmanage + repository + usecase + import/export round-trip); (2) smoke E2E tầng Go (`internal/e2e/smoke_test.go`); (3) CI tối thiểu `.github/workflows/ci.yml` (go vet + go test -race + vite build) — **xanh trên GitHub Actions 2026-04-21**; (4) `release-checklist.md` + `manual-test-plan.md`. **Windows-first:** v1 official = Windows x64; macOS/Linux best-effort, unsigned. Backlog không nằm trong Phase 5: export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); bug `{{var}}` bị URL-encode khi export Postman v2.1. |
 | **6** | **Done** (2026-04-21) | **Networking & Security:** proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas` PEM trong DB), `HTTPTransportFactory` + per-request `insecure_skip_verify` trên `requests`, env var `kind=secret` + AES-GCM `enc:v1:` + redact history/snippets, Wails `SettingsHandler` + tab **Settings** UI + test proxy. **DB v6.** |
-| **7** | Planned    | **UX Polish & Productivity** — Dashboard khi không còn tab, cho phép đóng tab cuối; Command palette Ctrl/Cmd+K; variable interpolation preview; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản. |
+| **7** | **Done** (2026-04-26) | **UX Polish & Productivity:** Dashboard khi không còn tab + đóng tab cuối; in-app Help `?`; Command palette Ctrl/Cmd+K; variable interpolation preview có mask secret; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản. Không bump DB. |
 | **8** | Planned    | **Collection Runner & Chaining** — per-request capture rules (JSONPath/regex → env var), assertion rules đơn giản (status/header/json-path), Runner chạy tuần tự cây folder theo `sort_order` với env active, report JSON + Markdown. Capture là nền tảng cho Phase 9. |
 | **9** | Planned (bắt buộc) | **Scripting (pre-request & post-response)** — goja (ES5+ subset), sandbox + interrupt timeout, subset `pm.*` API tối thiểu (`pm.environment`, `pm.variables`, `pm.response`, `pm.request`, `pm.test`, `pm.expect`), CodeMirror editor + console panel. Cho phép import script từ Postman v2.1 chạy được ở mức cơ bản. |
 
@@ -225,15 +225,25 @@ Scope (6 hạng mục):
 6. **Keyboard shortcuts cơ bản**
    - `Ctrl/Cmd+Enter` = Send; `Ctrl/Cmd+S` = Save; `Ctrl/Cmd+T` = New tab; `Ctrl/Cmd+W` = Close tab; `Ctrl/Cmd+Shift+E` = toggle environment menu; `Ctrl/Cmd+K` = palette; `Esc` = close modal hiện tại. Gom vào 1 composable `useKeyboardShortcuts()`.
 
+Delivered (close 2026-04-26):
+
+- Dashboard khi không có tab, quick actions, recent history, stats nhẹ; tab cuối đóng được và trạng thái rỗng được persist.
+- In-app Help modal qua nút `?`, chứa keyboard shortcuts + productivity tips.
+- Command palette `Ctrl/Cmd+K`: commands, folders/requests qua `SearchHandler.SearchTree`, environments, recent history.
+- Variable preview dưới URL/body raw/XML, secret env values hiển thị `***`.
+- Duplicate folder/request qua Wails handlers mới, copy recursive folder tree + saved request payload.
+- Copy as cURL trên request panel, dùng lại `SnippetHandler` kind `curl_bash`.
+- Shortcut: `Ctrl/Cmd+Enter`, `Ctrl/Cmd+S`, `Ctrl/Cmd+T`, `Ctrl/Cmd+W`, `Ctrl/Cmd+K`, `Ctrl/Cmd+Shift+E`, `Esc`.
+
 Done when:
 
-- Đóng hết tab → thấy Dashboard; từ Dashboard click "Recent" mở lại được request cũ trong tab mới.
-- `Ctrl+K` → gõ 3 ký tự tên request → Enter → request mở trong tab.
-- URL `{{base_url}}/users/{{id}}` hiện preview resolved đúng.
-- Duplicate 1 folder 3-cấp-sâu → bản mới y hệt cấu trúc, không đụng bản gốc.
-- Copy as cURL paste vào terminal chạy giống app gửi.
-- Tất cả shortcut pass manual test section 7.
-- Không bump DB version.
+- [x] Đóng hết tab → thấy Dashboard; từ Dashboard click "Recent" mở lại được request cũ trong tab mới.
+- [x] `Ctrl+K` → gõ 3 ký tự tên request → Enter → request mở trong tab.
+- [x] URL `{{base_url}}/users/{{id}}` hiện preview resolved đúng.
+- [x] Duplicate 1 folder 3-cấp-sâu → bản mới y hệt cấu trúc, không đụng bản gốc.
+- [x] Copy as cURL paste vào terminal chạy giống app gửi.
+- [x] Tất cả shortcut pass manual test section 7.
+- [x] Không bump DB version.
 
 Ngoài scope (backlog):
 
@@ -369,7 +379,7 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Pha
 1. ~~**Phase 6 — Networking & Security**~~ **Done (2026-04-21).**
    - Proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas`), per-request `insecure_skip_verify`, secret env vars + redact history/snippet payloads, Wails `SettingsHandler` + tab **Settings**.
    - DB **v6** (`trusted_cas`, `settings`, `environment_variables.kind`, `requests.insecure_skip_verify`).
-2. **Phase 7 — UX Polish & Productivity** (ưu tiên tiếp theo — tăng tốc hằng ngày).
+2. ~~**Phase 7 — UX Polish & Productivity**~~ **Done (2026-04-26).**
    - Dashboard thay tab mặc định + cho đóng tab cuối; Command palette Ctrl+K; variable preview; Duplicate folder/request; Copy as cURL; shortcuts cơ bản.
    - Không bump DB.
 3. **Phase 8 — Collection Runner & Chaining** (biến tool thành automation thật).
@@ -416,7 +426,7 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Pha
 | **8** | **Export project JSON native** (đối xứng Import) | Backlog tùy chọn — đã có Export Postman v2.1. |
 | ~~**9**~~ | ~~**Quality gate baseline** (tests + smoke E2E + CI + release/manual docs)~~ | **Done (Phase 5 — 2026-04-21).** |
 | ~~**10**~~ | ~~**Networking & Security** — proxy + custom CA + insecure skip verify + secret var~~ | **Done (Phase 6 — 2026-04-21).** |
-| **11** | **UX Polish & Productivity** — Dashboard, Ctrl+K palette, preview var, duplicate, copy cURL, shortcuts | **Phase 7 (Planned).** |
+| ~~**11**~~ | ~~**UX Polish & Productivity** — Dashboard, Ctrl+K palette, preview var, duplicate, copy cURL, shortcuts~~ | **Done (Phase 7 — 2026-04-26).** |
 | **12** | **Collection Runner & Chaining** — capture rules + assertion + Runner folder theo env | **Phase 8 (Planned).** |
 | **13** | **Scripting** — goja + `pm.*` subset pre-request & post-response | **Phase 9 (Planned, bắt buộc).** |
 

@@ -335,7 +335,7 @@ function closeTab(id) {
   const wasActive = state.tabs[idx].id === state.activeTabId
   state.tabs.splice(idx, 1)
   if (state.tabs.length === 0) {
-    openBlank()
+    state.activeTabId = null
   } else if (wasActive) {
     const next = state.tabs[Math.min(idx, state.tabs.length - 1)]
     state.activeTabId = next.id
@@ -417,11 +417,6 @@ function restore() {
   } catch {
     state.tabs = []
     state.activeTabId = null
-  }
-  if (state.tabs.length === 0) {
-    const tab = makeTab(null)
-    state.tabs.push(tab)
-    state.activeTabId = tab.id
   }
   state.hydrated = true
 }

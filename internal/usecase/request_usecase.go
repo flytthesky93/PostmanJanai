@@ -6,6 +6,7 @@ import (
 	"PostmanJanai/internal/pkg/apperror"
 	"PostmanJanai/internal/repository"
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ type RequestUsecase interface {
 	GetRequest(ctx context.Context, id string) (*entity.SavedRequestFull, error)
 	ListRequestsInFolder(ctx context.Context, folderID string) ([]*entity.SavedRequestSummary, error)
 	MoveRequest(ctx context.Context, requestID, folderID string) error
+	DuplicateRequest(ctx context.Context, requestID string) (*entity.SavedRequestFull, error)
 }
 
 type requestUsecaseImpl struct {
@@ -143,4 +145,64 @@ func (u *requestUsecaseImpl) MoveRequest(ctx context.Context, requestID, folderI
 		return err
 	}
 	return u.savedR.MoveToFolder(ctx, requestID, folderID)
+}
+
+func (u *requestUsecaseImpl) DuplicateRequest(ctx context.Context, requestID string) (*entity.SavedRequestFull, error) {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return nil, apperror.NewWithErrorDetail(constant.ErrInternal, nil)
+	}
+	original, err := u.savedR.GetByID(ctx, requestID)
+	if err != nil {
+		return nil, err
+	}
+	copyReq := cloneSavedRequestForCreate(original)
+	name, err := u.uniqueRequestCopyName(ctx, original.FolderID, original.Name)
+	if err != nil {
+		return nil, err
+	}
+	copyReq.Name = name
+	return u.CreateRequest(ctx, copyReq)
+}
+
+func (u *requestUsecaseImpl) uniqueRequestCopyName(ctx context.Context, folderID, base string) (string, error) {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "Request"
+	}
+	for i := 1; i < 10000; i++ {
+		name := base + " (copy)"
+		if i > 1 {
+			name = base + " (copy " + strconv.Itoa(i) + ")"
+		}
+		taken, err := u.savedR.ExistsNameInFolder(ctx, folderID, name, nil)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return name, nil
+		}
+	}
+	return "", apperror.NewWithErrorDetail(constant.ErrSavedRequestNameConflict, nil)
+}
+
+func cloneSavedRequestForCreate(in *entity.SavedRequestFull) *entity.SavedRequestFull {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.ID = ""
+	out.Headers = append([]entity.KeyValue(nil), in.Headers...)
+	out.QueryParams = append([]entity.KeyValue(nil), in.QueryParams...)
+	out.FormFields = append([]entity.KeyValue(nil), in.FormFields...)
+	out.MultipartParts = append([]entity.MultipartPart(nil), in.MultipartParts...)
+	if in.RawBody != nil {
+		raw := *in.RawBody
+		out.RawBody = &raw
+	}
+	if in.Auth != nil {
+		auth := *in.Auth
+		out.Auth = &auth
+	}
+	return &out
 }

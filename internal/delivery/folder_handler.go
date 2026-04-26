@@ -74,3 +74,8 @@ func (h *FolderHandler) ReorderFolder(folderID, parentID, insertBeforeID string)
 	ctx := h.getContext()
 	return h.uc.ReorderFolder(ctx, folderID, parentID, insertBeforeID)
 }
+
+func (h *FolderHandler) DuplicateFolder(folderID string) (*entity.FolderItem, error) {
+	ctx := h.getContext()
+	return h.uc.DuplicateFolder(ctx, folderID)
+}

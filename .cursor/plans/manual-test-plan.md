@@ -152,13 +152,41 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
 6. **Secret env var + history redact**
    - Tạo biến `token` kind **secret**, dùng `Authorization: Bearer {{token}}` → Send → mở History chi tiết: token **không** xuất hiện dạng plaintext (chỉ `***` hoặc không hiện).
 
-### J. Migration & backup
+### J. UX polish & productivity (Phase 7)
+
+1. **Dashboard + close last tab**
+   - Mở vài tab request → đóng hết tab.
+   - **Expect**: không tự tạo tab rỗng; Dashboard hiện Recent / Quick actions / Stats; reload app vẫn ở trạng thái Dashboard.
+2. **Dashboard quick actions**
+   - Từ Dashboard bấm New Request, New folder, Import collection, Import cURL, New environment.
+   - **Expect**: mỗi action mở đúng flow hiện có, không làm app crash.
+3. **Command palette**
+   - `Ctrl+K` → gõ một phần tên request → Enter.
+   - **Expect**: request mở trong tab. Gõ tên folder → Enter → sidebar reveal folder. Gõ tên environment → Enter → mở editor env.
+4. **Keyboard shortcuts**
+   - `Ctrl+Enter` gửi request active; `Ctrl+S` save/update; `Ctrl+T` tạo tab; `Ctrl+W` đóng tab; `Esc` đóng palette/settings.
+   - **Expect**: shortcut không phá typing trong input; `Ctrl+W` không đóng cửa sổ app.
+5. **Help modal**
+   - Bấm nút **?** trên thanh top bar.
+   - **Expect**: modal hướng dẫn hiện shortcuts + productivity tips; đóng được bằng Close / click backdrop / `Esc`.
+6. **Variable preview**
+   - Active env có `base_url`, `id`, và `token` kind secret. URL `{{base_url}}/users/{{id}}`, body raw chứa `{{token}}`.
+   - **Expect**: preview resolved đúng; secret hiển thị `***`; biến thiếu báo unresolved.
+7. **Duplicate folder/request**
+   - Duplicate 1 request có headers/query/body/auth/TLS flag.
+   - Duplicate 1 folder có nested folder + request.
+   - **Expect**: bản copy nằm cùng parent, tên dạng `(copy)` / `(copy 2)`, payload và tree được giữ, bản gốc không đổi.
+8. **Copy as cURL**
+   - Với request active có env/auth/body, bấm **Copy cURL** rồi paste vào terminal.
+   - **Expect**: cURL chạy tương đương request trong app; console báo copy thành công.
+
+### K. Migration & backup
 
 1. Từ DB v4 (lấy từ backup bản release trước) → mở app → `<appDir>/backups/` có file backup mới, app chạy bình thường, folders có `sort_order` backfill đúng (alphabetical trong từng parent).
 2. Từ DB đang ở version target → mở app → không tạo backup mới (tránh spam).
 3. DB bị corrupt (cố tình ghi byte rác): app không panic — phải show error message thân thiện hoặc ít nhất log có stack trace rõ ràng (known limitation: hiện tại có thể fatal; ghi chú vào release note nếu vẫn xảy ra).
 
-### K. Crash / stability
+### L. Crash / stability
 
 1. Chạy app nhiều giờ (> 2h) với 1 vài request định kỳ → memory không leak quá mức (Task Manager: < 500MB).
 2. Đóng app đột ngột (Task Manager kill) → lần mở sau vẫn bình thường.

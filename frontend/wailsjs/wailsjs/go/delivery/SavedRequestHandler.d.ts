@@ -7,6 +7,8 @@ export function Create(arg1:entity.SavedRequestFull):Promise<entity.SavedRequest
 
 export function Delete(arg1:string):Promise<void>;
 
+export function Duplicate(arg1:string):Promise<entity.SavedRequestFull>;
+
 export function Get(arg1:string):Promise<entity.SavedRequestFull>;
 
 export function ListByFolder(arg1:string):Promise<Array<entity.SavedRequestSummary>>;

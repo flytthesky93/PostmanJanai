@@ -88,7 +88,7 @@ func main() {
 	trustedCARepo := repository.NewTrustedCARepository(client)
 	envRepo := repository.NewEnvironmentRepository(client, secretCipher)
 
-	folderUc := usecase.NewFolderUsecase(folderRepo)
+	folderUc := usecase.NewFolderUsecaseWithRequests(folderRepo, savedRequestRepo)
 	savedRequestUc := usecase.NewRequestUsecase(folderRepo, savedRequestRepo)
 	envUc := usecase.NewEnvironmentUsecase(envRepo)
 	importUc := usecase.NewImportUsecase(folderRepo, savedRequestRepo, envRepo)

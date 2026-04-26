@@ -7,6 +7,8 @@ export function CreateFolder(arg1:entity.CreateFolderInput):Promise<entity.Folde
 
 export function DeleteFolder(arg1:string):Promise<void>;
 
+export function DuplicateFolder(arg1:string):Promise<entity.FolderItem>;
+
 export function ListChildFolders(arg1:string):Promise<Array<entity.FolderItem>>;
 
 export function ListRootFolders():Promise<Array<entity.FolderItem>>;

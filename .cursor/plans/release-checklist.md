@@ -49,6 +49,12 @@ Nếu release này có thay đổi **Phase 6 (networking/security)** (proxy/CA/T
 - [ ] Tab **Settings** mở được; **Test proxy** không làm crash app.
 - [ ] (Tuỳ chọn) proxy/CA theo môi trường có thể test được — xem `manual-test-plan.md` §**I. Networking & security (Phase 6)**.
 
+Nếu release này có thay đổi **Phase 7 (UX polish/productivity)** → thêm tick nhanh:
+
+- [ ] Đóng tab cuối → Dashboard hiện, reload vẫn không tự tạo tab.
+- [ ] `Ctrl+K` mở palette; tìm request/folder/env hoạt động.
+- [ ] Duplicate request/folder và Copy as cURL hoạt động — xem `manual-test-plan.md` §**J. UX polish & productivity (Phase 7)**.
+
 ## 5. Artifacts & release notes
 
 - [ ] Binary + installer (nếu có) upload lên nơi lưu trữ nội bộ (Drive / S3 / Release draft).

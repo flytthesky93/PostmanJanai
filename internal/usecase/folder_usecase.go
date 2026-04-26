@@ -9,6 +9,7 @@ import (
 	"PostmanJanai/internal/repository"
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,14 +26,20 @@ type FolderUsecase interface {
 	// ReorderFolder moves folder among siblings of parentID (empty = roots).
 	// insertBeforeID empty = append at end; otherwise insert before that sibling.
 	ReorderFolder(ctx context.Context, folderID, parentID, insertBeforeID string) error
+	DuplicateFolder(ctx context.Context, folderID string) (*entity.FolderItem, error)
 }
 
 type folderUsecaseImpl struct {
-	folders repository.FolderRepository
+	folders  repository.FolderRepository
+	requests repository.RequestRepository
 }
 
 func NewFolderUsecase(folders repository.FolderRepository) FolderUsecase {
 	return &folderUsecaseImpl{folders: folders}
+}
+
+func NewFolderUsecaseWithRequests(folders repository.FolderRepository, requests repository.RequestRepository) FolderUsecase {
+	return &folderUsecaseImpl{folders: folders, requests: requests}
 }
 
 func (u *folderUsecaseImpl) CreateFolder(ctx context.Context, in *entity.CreateFolderInput) (*entity.FolderItem, *apperror.AppError) {
@@ -249,4 +256,106 @@ func (u *folderUsecaseImpl) ReorderFolder(ctx context.Context, folderID, parentI
 		}
 	}
 	return u.folders.ReorderFolderSibling(ctx, folderID, pid, ib)
+}
+
+func (u *folderUsecaseImpl) DuplicateFolder(ctx context.Context, folderID string) (*entity.FolderItem, error) {
+	folderID = strings.TrimSpace(folderID)
+	if folderID == "" {
+		return nil, errors.New("empty folder id")
+	}
+	if u.requests == nil {
+		return nil, errors.New("request repository is required to duplicate folders")
+	}
+	original, err := u.folders.GetByID(ctx, folderID)
+	if err != nil {
+		return nil, err
+	}
+	name, err := u.uniqueFolderCopyName(ctx, original.ParentID, original.Name)
+	if err != nil {
+		return nil, err
+	}
+	rootCopy, appErr := u.CreateFolder(ctx, &entity.CreateFolderInput{
+		ParentID:    original.ParentID,
+		Name:        name,
+		Description: original.Description,
+	})
+	if appErr != nil {
+		return nil, appErr
+	}
+	if err := u.copyFolderContents(ctx, original.ID, rootCopy.ID); err != nil {
+		_ = u.folders.DeleteByID(ctx, rootCopy.ID)
+		return nil, err
+	}
+	return rootCopy, nil
+}
+
+func (u *folderUsecaseImpl) copyFolderContents(ctx context.Context, sourceFolderID, destFolderID string) error {
+	reqs, err := u.requests.ListByFolder(ctx, sourceFolderID)
+	if err != nil {
+		return err
+	}
+	for _, summary := range reqs {
+		full, err := u.requests.GetByID(ctx, summary.ID)
+		if err != nil {
+			return err
+		}
+		copyReq := cloneSavedRequestForCreate(full)
+		copyReq.FolderID = destFolderID
+		copyReq.Name = full.Name
+		if _, err := u.requests.CreateFull(ctx, copyReq); err != nil {
+			return err
+		}
+	}
+
+	children, err := u.folders.ListChildren(ctx, sourceFolderID)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		parentID := destFolderID
+		childCopy, appErr := u.CreateFolder(ctx, &entity.CreateFolderInput{
+			ParentID:    &parentID,
+			Name:        child.Name,
+			Description: child.Description,
+		})
+		if appErr != nil {
+			return appErr
+		}
+		if err := u.copyFolderContents(ctx, child.ID, childCopy.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *folderUsecaseImpl) uniqueFolderCopyName(ctx context.Context, parentID *string, base string) (string, error) {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "Folder"
+	}
+	for i := 1; i < 10000; i++ {
+		name := base + " (copy)"
+		if i > 1 {
+			name = base + " (copy " + strconv.Itoa(i) + ")"
+		}
+		var (
+			taken bool
+			err   error
+		)
+		if parentID == nil || strings.TrimSpace(*parentID) == "" {
+			taken, err = u.folders.RootNameTaken(ctx, name, nil)
+		} else {
+			taken, err = u.folders.ChildNameTaken(ctx, *parentID, name, nil)
+		}
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return name, nil
+		}
+	}
+	if parentID == nil {
+		return "", apperror.NewWithErrorDetail(constant.ErrFolderRootNameConflict, nil)
+	}
+	return "", apperror.NewWithErrorDetail(constant.ErrFolderChildNameConflict, nil)
 }

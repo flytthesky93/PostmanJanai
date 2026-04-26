@@ -479,6 +479,25 @@ const onExportPostmanFromMenu = async (ws) => {
   }
 }
 
+const onDuplicateRootFromMenu = async (ws) => {
+  closeWorkspaceMenu()
+  if (!ws?.id) return
+  try {
+    const created = await FolderAPI.DuplicateFolder(ws.id)
+    await loadRootFolders()
+    if (created?.id) {
+      emit('update:activeRootFolderId', created.id)
+      const next = { ...rootTreeExpanded.value }
+      next[created.id] = true
+      rootTreeExpanded.value = next
+    }
+    showToast('success', 'Folder duplicated.')
+  } catch (error) {
+    console.error('[Folders] Duplicate failed:', error)
+    showToast('error', `Duplicate failed: ${error?.message || error}`)
+  }
+}
+
 const PMJ_DND_FOLDER = 'pmj/folder'
 const PMJ_DND_REQUEST = 'pmj/request'
 
@@ -1218,7 +1237,14 @@ function statusBadgeClass(code) {
 defineExpose({
   refreshHistory,
   refreshEnvironments: loadEnvironments,
-  refreshCatalog: onFolderTreeDndRefresh
+  refreshCatalog: onFolderTreeDndRefresh,
+  refreshRootFolders: loadRootFolders,
+  openCreateRootFolder: openCreateModal,
+  openImportCollectionModal,
+  openCurlImportModal,
+  openCreateEnvironment: openCreateEnvModal,
+  revealFolderHit: onFolderSearchHit,
+  revealRequestHit: onRequestSearchHit
 })
 </script>
 
@@ -1803,6 +1829,14 @@ defineExpose({
           @click="onRenameRootFromMenu(menuTargetWs)"
         >
           Rename
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="onDuplicateRootFromMenu(menuTargetWs)"
+        >
+          Duplicate
         </button>
         <button
           type="button"

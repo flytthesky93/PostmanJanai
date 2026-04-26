@@ -446,6 +446,18 @@ function onFolderMenuRename(f) {
   startInlineFolderRename(f)
 }
 
+async function onFolderMenuDuplicate(f) {
+  closeFolderRowMenu()
+  if (!f?.id) return
+  try {
+    await FolderAPI.DuplicateFolder(f.id)
+    await load()
+    emit('tree-changed')
+  } catch (e) {
+    emit('console', `[Folders] ${e?.message || String(e)}`)
+  }
+}
+
 function onFolderMenuEdit(f) {
   closeFolderRowMenu()
   openEditFolder(f)
@@ -509,6 +521,19 @@ function toggleRequestRowMenu(r, event) {
 function onRequestMenuRename(r) {
   closeRequestRowMenu()
   startInlineRequestRename(r)
+}
+
+async function onRequestMenuDuplicate(r) {
+  closeRequestRowMenu()
+  if (!r?.id) return
+  try {
+    const created = await SavedRequestAPI.Duplicate(r.id)
+    await load()
+    emit('saved-request')
+    if (created?.id) emit('open-saved-request', created.id)
+  } catch (e) {
+    emit('console', `[Saved] ${e?.message || String(e)}`)
+  }
 }
 
 async function openRenameRequest(r) {
@@ -998,6 +1023,14 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
           type="button"
           role="menuitem"
           class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="onFolderMenuDuplicate(menuTargetFolder)"
+        >
+          Duplicate
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
           @click="onFolderMenuEdit(menuTargetFolder)"
         >
           Edit folder…
@@ -1028,6 +1061,14 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
           @click="onRequestMenuRename(menuTargetRequest)"
         >
           Rename
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700"
+          @click="onRequestMenuDuplicate(menuTargetRequest)"
+        >
+          Duplicate
         </button>
         <button
           type="button"

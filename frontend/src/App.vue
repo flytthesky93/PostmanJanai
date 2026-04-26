@@ -7,10 +7,14 @@ import ResponsePanel from './components/ResponsePanel.vue'
 import ConsolePanel from './components/ConsolePanel.vue'
 import EnvironmentDetailPanel from './components/EnvironmentDetailPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import DashboardHome from './components/DashboardHome.vue'
+import CommandPalette from './components/CommandPalette.vue'
+import HelpModal from './components/HelpModal.vue'
 import { Execute } from '../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import { Get as GetSavedRequest } from '../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as EnvAPI from '../wailsjs/wailsjs/go/delivery/EnvironmentHandler'
 import { useTabsStore } from './stores/tabsStore'
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 const tabsStore = useTabsStore()
 const { tabsMeta, activeTab, state: tabsState } = tabsStore
@@ -24,6 +28,8 @@ const mainWorkspaceMode = ref('request')
 const selectedEnvironmentId = ref(null)
 /** When opening Settings from request/env, restore this mode when closing. */
 const workspaceBeforeSettings = ref(null)
+const commandPaletteOpen = ref(false)
+const helpOpen = ref(false)
 
 /** @type {import('vue').Ref<Array<Record<string, unknown>>>} */
 const environmentSummaries = ref([])
@@ -65,6 +71,7 @@ async function refreshActiveEnvContext() {
       variables: vars.map((v, i) => ({
         key: String(v.key || '').trim(),
         value: v.value ?? '',
+        kind: v.kind === 'secret' ? 'secret' : 'plain',
         enabled: v.enabled !== false,
         sort_order: typeof v.sort_order === 'number' ? v.sort_order : i
       }))
@@ -101,6 +108,7 @@ async function onPatchActiveEnvValue(payload) {
     st.variables.push({
       key,
       value,
+      kind: 'plain',
       enabled: true,
       sort_order: maxSo + 1
     })
@@ -112,6 +120,7 @@ async function onPatchActiveEnvValue(payload) {
     .map((v, i) => ({
       key: v.key,
       value: v.value ?? '',
+      kind: v.kind === 'secret' ? 'secret' : 'plain',
       enabled: v.enabled !== false,
       sort_order: v.sort_order ?? i
     }))
@@ -291,6 +300,7 @@ function onTabActivate(id) {
 }
 
 function onTabClose(id) {
+  captureCurrentPanelSnapshot()
   tabsStore.closeTab(id)
 }
 
@@ -298,6 +308,112 @@ function onTabNew() {
   captureCurrentPanelSnapshot()
   tabsStore.openBlank()
 }
+
+async function openNewTabFromDashboard() {
+  tabsStore.openBlank()
+  mainWorkspaceMode.value = 'request'
+  await nextTick()
+  await hydrateActiveTabIntoPanel()
+}
+
+function openCreateFolderFromDashboard() {
+  sidebarRef.value?.openCreateRootFolder?.()
+}
+
+function openImportCollectionFromDashboard() {
+  sidebarRef.value?.openImportCollectionModal?.()
+}
+
+function openCurlImportFromDashboard() {
+  sidebarRef.value?.openCurlImportModal?.()
+}
+
+function openCreateEnvironmentFromDashboard() {
+  mainWorkspaceMode.value = 'request'
+  sidebarRef.value?.openCreateEnvironment?.()
+}
+
+function openCommandPalette() {
+  commandPaletteOpen.value = true
+}
+
+function closeCommandPalette() {
+  commandPaletteOpen.value = false
+}
+
+function openHelp() {
+  helpOpen.value = true
+}
+
+function closeHelp() {
+  helpOpen.value = false
+}
+
+function onPaletteFolderHit(hit) {
+  mainWorkspaceMode.value = 'request'
+  sidebarRef.value?.revealFolderHit?.(hit)
+}
+
+function onPaletteOpenSettings() {
+  if (mainWorkspaceMode.value !== 'settings') {
+    workspaceBeforeSettings.value = mainWorkspaceMode.value
+    mainWorkspaceMode.value = 'settings'
+  }
+}
+
+async function shortcutSendActive() {
+  if (mainWorkspaceMode.value !== 'request' || !activeTab.value) return
+  requestPanelRef.value?.sendCurrentRequest?.()
+}
+
+async function shortcutSaveActive() {
+  if (mainWorkspaceMode.value !== 'request' || !activeTab.value) return
+  requestPanelRef.value?.saveCurrentRequest?.()
+}
+
+async function shortcutNewTab() {
+  captureCurrentPanelSnapshot()
+  tabsStore.openBlank()
+  mainWorkspaceMode.value = 'request'
+  await nextTick()
+  await hydrateActiveTabIntoPanel()
+}
+
+function shortcutCloseTab() {
+  if (!tabsState.activeTabId) return
+  onTabClose(tabsState.activeTabId)
+}
+
+function shortcutToggleEnvironment() {
+  const active = envList.value.find((e) => e.is_active) || envList.value[0]
+  if (active?.id) {
+    onOpenEnvironment(active.id)
+  }
+}
+
+function shortcutEscape() {
+  if (helpOpen.value) {
+    closeHelp()
+    return
+  }
+  if (commandPaletteOpen.value) {
+    closeCommandPalette()
+    return
+  }
+  if (mainWorkspaceMode.value === 'settings') {
+    onToggleSettings()
+  }
+}
+
+useKeyboardShortcuts({
+  send: shortcutSendActive,
+  save: shortcutSaveActive,
+  palette: openCommandPalette,
+  newTab: shortcutNewTab,
+  closeTab: shortcutCloseTab,
+  toggleEnvironment: shortcutToggleEnvironment,
+  escape: shortcutEscape
+})
 
 async function onOpenSavedRequest(id) {
   if (!id) return
@@ -426,7 +542,7 @@ watch(
       class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       style="min-width: 0; min-height: 0; height: 100%"
     >
-      <template v-if="mainWorkspaceMode === 'request' || mainWorkspaceMode === 'settings'">
+      <template v-if="mainWorkspaceMode === 'request' || mainWorkspaceMode === 'settings' || mainWorkspaceMode === 'environment'">
         <div
           class="flex shrink-0 flex-wrap items-center gap-3 border-b border-[#2a2a2a] bg-[#252525] px-4 py-2"
         >
@@ -444,6 +560,15 @@ watch(
               </option>
             </select>
           </div>
+          <button
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-gray-600 bg-[#1a1a1a] text-sm font-bold text-gray-300 hover:border-orange-500 hover:text-orange-200"
+            title="Help and keyboard shortcuts"
+            aria-label="Help and keyboard shortcuts"
+            @click="openHelp"
+          >
+            ?
+          </button>
           <button
             type="button"
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded border text-gray-300 hover:border-orange-500 hover:text-orange-200"
@@ -476,13 +601,25 @@ watch(
           @close="onTabClose"
           @new="onTabNew"
         />
-        <div class="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+        <DashboardHome
+          v-if="!activeTab"
+          @new-tab="openNewTabFromDashboard"
+          @new-folder="openCreateFolderFromDashboard"
+          @import-collection="openImportCollectionFromDashboard"
+          @import-curl="openCurlImportFromDashboard"
+          @new-environment="openCreateEnvironmentFromDashboard"
+          @open-help="openHelp"
+          @open-saved-request="onOpenSavedRequest"
+          @console="onRequestConsole"
+        />
+        <div v-else class="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
           <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-[#2a2a2a]">
             <RequestPanel
               ref="requestPanelRef"
               :active-root-folder-id="activeRootFolderId"
               :declared-env-keys="activeEnvDeclaredKeys"
               :active-env-values="activeEnvValues"
+              :active-env-variables="activeEnvForPatch?.variables || []"
               @send="onExecuteRequest"
               @console="onRequestConsole"
               @saved-request="onSavedRequestUpdated"
@@ -516,5 +653,21 @@ watch(
         @deleted="() => onEnvironmentDeleted(null)"
       />
     </main>
+
+    <CommandPalette
+      :open="commandPaletteOpen"
+      @close="closeCommandPalette"
+      @open-saved-request="onOpenSavedRequest"
+      @open-folder-hit="onPaletteFolderHit"
+      @open-environment="onOpenEnvironment"
+      @new-tab="shortcutNewTab"
+      @new-folder="openCreateFolderFromDashboard"
+      @import-collection="openImportCollectionFromDashboard"
+      @import-curl="openCurlImportFromDashboard"
+      @new-environment="openCreateEnvironmentFromDashboard"
+      @open-settings="onPaletteOpenSettings"
+      @console="onRequestConsole"
+    />
+    <HelpModal :open="helpOpen" @close="closeHelp" />
   </div>
 </template>
