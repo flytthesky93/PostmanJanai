@@ -26,7 +26,7 @@ Build a desktop API client (Postman-like) focused on:
 | **5** | **Done** (2026-04-21) | 4 nhóm đo được đã giao: (1) test bù lấp (dbmanage + repository + usecase + import/export round-trip); (2) smoke E2E tầng Go (`internal/e2e/smoke_test.go`); (3) CI tối thiểu `.github/workflows/ci.yml` (go vet + go test -race + vite build) — **xanh trên GitHub Actions 2026-04-21**; (4) `release-checklist.md` + `manual-test-plan.md`. **Windows-first:** v1 official = Windows x64; macOS/Linux best-effort, unsigned. Backlog không nằm trong Phase 5: export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); bug `{{var}}` bị URL-encode khi export Postman v2.1. |
 | **6** | **Done** (2026-04-21) | **Networking & Security:** proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas` PEM trong DB), `HTTPTransportFactory` + per-request `insecure_skip_verify` trên `requests`, env var `kind=secret` + AES-GCM `enc:v1:` + redact history/snippets, Wails `SettingsHandler` + tab **Settings** UI + test proxy. **DB v6.** |
 | **7** | **Done** (2026-04-26) | **UX Polish & Productivity:** Dashboard khi không còn tab + đóng tab cuối; in-app Help `?`; Command palette Ctrl/Cmd+K; variable interpolation preview có mask secret; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản; Vite code splitting để hết warning chunk > 500 kB. Không bump DB. |
-| **8** | Planned    | **Collection Runner & Chaining** — per-request capture rules (JSONPath/regex → env var), assertion rules đơn giản (status/header/json-path), Runner chạy tuần tự cây folder theo `sort_order` với env active, report JSON + Markdown. Capture là nền tảng cho Phase 9. |
+| **8** | **Done** (2026-04-26) | **Collection Runner & Chaining:** schema **DB v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`); capture engine (JSONPath/regex/header/status) + assertion engine (status/header/json-path/duration/size/regex, ops eq/neq/contains/...); HTTPHandler chạy capture+assertion sau Send (saved request); `RunnerUsecase.RunFolder` tuần tự theo folder/sort_order với env active + memory bag, persist `runner_runs` + per-request rows, stream Wails events `runner:started/request/finished`; UI: tab **Captures** + **Tests** trong RequestPanel, summary tests trong ResponsePanel, **Runner** modal (config form, live progress, recent runs, cancel, export JSON/Markdown qua Save dialog). Tests: capture/assertion/runner_report unit + repo (`request_rule_repository_test`) + smoke E2E `phase8_runner_smoke_test` (capture chain `$.token` → env, assertion 2xx, event order, report). |
 | **9** | Planned (bắt buộc) | **Scripting (pre-request & post-response)** — goja (ES5+ subset), sandbox + interrupt timeout, subset `pm.*` API tối thiểu (`pm.environment`, `pm.variables`, `pm.response`, `pm.request`, `pm.test`, `pm.expect`), CodeMirror editor + console panel. Cho phép import script từ Postman v2.1 chạy được ở mức cơ bản. |
 
 ---
@@ -373,9 +373,9 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 
 ## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-26)
 
-Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). **Phase 7** đã **đóng** (2026-04-26 — UX polish/productivity + code splitting). Lộ trình tiếp theo đi theo thứ tự:
+Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). **Phase 7** đã **đóng** (2026-04-26 — UX polish/productivity + code splitting). **Phase 8** đã **đóng** (2026-04-26 — Collection Runner + capture/assertion + DB v7). Lộ trình tiếp theo đi theo thứ tự:
 
-**Phase 8 → 9** (mỗi phase xem section phía trên có đầy đủ Scope / DB migration / Done when / Ngoài scope).
+**Phase 9** (xem section phía trên có đầy đủ Scope / DB migration / Done when / Ngoài scope).
 
 1. ~~**Phase 6 — Networking & Security**~~ **Done (2026-04-21).**
    - Proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas`), per-request `insecure_skip_verify`, secret env vars + redact history/snippet payloads, Wails `SettingsHandler` + tab **Settings**.
@@ -383,8 +383,8 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Pha
 2. ~~**Phase 7 — UX Polish & Productivity**~~ **Done (2026-04-26).**
    - Dashboard thay tab mặc định + cho đóng tab cuối; in-app Help `?`; Command palette Ctrl+K; variable preview; Duplicate folder/request; Copy as cURL; shortcuts cơ bản; Vite code splitting.
    - Không bump DB.
-3. **Phase 8 — Collection Runner & Chaining** (biến tool thành automation thật).
-   - Capture rules (JSONPath/regex → env var), Assertion rules (status/header/json-path), Runner tuần tự theo folder + env, report JSON/MD.
+3. ~~**Phase 8 — Collection Runner & Chaining**~~ **Done (2026-04-26).**
+   - Capture rules (JSONPath/regex/header/status → env hoặc memory), Assertion rules (status/header/json-path/duration/size/regex, op eq/neq/contains/exists/...), Runner tuần tự folder theo `sort_order` + env active, persist run + per-request rows, stream Wails events, export report JSON/Markdown.
    - DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
 4. **Phase 9 — Scripting (bắt buộc)** (pre-request + post-response).
    - goja + sandbox + timeout; `pm.*` API subset (environment/variables/request/response/test/expect/sendRequest).
@@ -428,7 +428,7 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Pha
 | ~~**9**~~ | ~~**Quality gate baseline** (tests + smoke E2E + CI + release/manual docs)~~ | **Done (Phase 5 — 2026-04-21).** |
 | ~~**10**~~ | ~~**Networking & Security** — proxy + custom CA + insecure skip verify + secret var~~ | **Done (Phase 6 — 2026-04-21).** |
 | ~~**11**~~ | ~~**UX Polish & Productivity** — Dashboard, Ctrl+K palette, preview var, duplicate, copy cURL, shortcuts~~ | **Done (Phase 7 — 2026-04-26).** |
-| **12** | **Collection Runner & Chaining** — capture rules + assertion + Runner folder theo env | **Phase 8 (Planned).** |
+| ~~**12**~~ | ~~**Collection Runner & Chaining** — capture rules + assertion + Runner folder theo env~~ | **Done (Phase 8 — 2026-04-26, DB v7).** |
 | **13** | **Scripting** — goja + `pm.*` subset pre-request & post-response | **Phase 9 (Planned, bắt buộc).** |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL; mỗi phase có DB bump → viết thêm test migration theo pattern Phase 5 v4→v5; mỗi phase chạm HTTP layer hoặc thêm usecase lớn → bổ sung smoke E2E.

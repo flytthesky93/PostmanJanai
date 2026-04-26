@@ -68,6 +68,30 @@ func (f RequestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestMutation", m)
 }
 
+// The RequestAssertionFunc type is an adapter to allow the use of ordinary
+// function as RequestAssertion mutator.
+type RequestAssertionFunc func(context.Context, *ent.RequestAssertionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RequestAssertionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RequestAssertionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestAssertionMutation", m)
+}
+
+// The RequestCaptureFunc type is an adapter to allow the use of ordinary
+// function as RequestCapture mutator.
+type RequestCaptureFunc func(context.Context, *ent.RequestCaptureMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RequestCaptureFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RequestCaptureMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestCaptureMutation", m)
+}
+
 // The RequestFormFieldFunc type is an adapter to allow the use of ordinary
 // function as RequestFormField mutator.
 type RequestFormFieldFunc func(context.Context, *ent.RequestFormFieldMutation) (ent.Value, error)
@@ -102,6 +126,30 @@ func (f RequestQueryParamFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RequestQueryParamMutation", m)
+}
+
+// The RunnerRunFunc type is an adapter to allow the use of ordinary
+// function as RunnerRun mutator.
+type RunnerRunFunc func(context.Context, *ent.RunnerRunMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RunnerRunFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RunnerRunMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RunnerRunMutation", m)
+}
+
+// The RunnerRunRequestFunc type is an adapter to allow the use of ordinary
+// function as RunnerRunRequest mutator.
+type RunnerRunRequestFunc func(context.Context, *ent.RunnerRunRequestMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RunnerRunRequestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RunnerRunRequestMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RunnerRunRequestMutation", m)
 }
 
 // The SettingFunc type is an adapter to allow the use of ordinary

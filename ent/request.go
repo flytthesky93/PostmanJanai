@@ -57,9 +57,13 @@ type RequestEdges struct {
 	RequestFormFields []*RequestFormField `json:"request_form_fields,omitempty"`
 	// Histories holds the value of the histories edge.
 	Histories []*History `json:"histories,omitempty"`
+	// RequestCaptures holds the value of the request_captures edge.
+	RequestCaptures []*RequestCapture `json:"request_captures,omitempty"`
+	// RequestAssertions holds the value of the request_assertions edge.
+	RequestAssertions []*RequestAssertion `json:"request_assertions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [7]bool
 }
 
 // FolderOrErr returns the Folder value or an error if the edge
@@ -107,6 +111,24 @@ func (e RequestEdges) HistoriesOrErr() ([]*History, error) {
 		return e.Histories, nil
 	}
 	return nil, &NotLoadedError{edge: "histories"}
+}
+
+// RequestCapturesOrErr returns the RequestCaptures value or an error if the edge
+// was not loaded in eager-loading.
+func (e RequestEdges) RequestCapturesOrErr() ([]*RequestCapture, error) {
+	if e.loadedTypes[5] {
+		return e.RequestCaptures, nil
+	}
+	return nil, &NotLoadedError{edge: "request_captures"}
+}
+
+// RequestAssertionsOrErr returns the RequestAssertions value or an error if the edge
+// was not loaded in eager-loading.
+func (e RequestEdges) RequestAssertionsOrErr() ([]*RequestAssertion, error) {
+	if e.loadedTypes[6] {
+		return e.RequestAssertions, nil
+	}
+	return nil, &NotLoadedError{edge: "request_assertions"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -241,6 +263,16 @@ func (_m *Request) QueryRequestFormFields() *RequestFormFieldQuery {
 // QueryHistories queries the "histories" edge of the Request entity.
 func (_m *Request) QueryHistories() *HistoryQuery {
 	return NewRequestClient(_m.config).QueryHistories(_m)
+}
+
+// QueryRequestCaptures queries the "request_captures" edge of the Request entity.
+func (_m *Request) QueryRequestCaptures() *RequestCaptureQuery {
+	return NewRequestClient(_m.config).QueryRequestCaptures(_m)
+}
+
+// QueryRequestAssertions queries the "request_assertions" edge of the Request entity.
+func (_m *Request) QueryRequestAssertions() *RequestAssertionQuery {
+	return NewRequestClient(_m.config).QueryRequestAssertions(_m)
 }
 
 // Update returns a builder for updating this Request.

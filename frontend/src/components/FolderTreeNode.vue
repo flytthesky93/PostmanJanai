@@ -8,7 +8,7 @@ const props = defineProps({
   depth: { type: Number, default: 0 }
 })
 
-const emit = defineEmits(['open-saved-request', 'console', 'saved-request', 'tree-changed'])
+const emit = defineEmits(['open-saved-request', 'console', 'saved-request', 'tree-changed', 'run-folder'])
 
 const folderTreeReload = inject('folderTreeReload', null)
 /**
@@ -401,6 +401,63 @@ const menuTargetFolder = computed(() => {
   return childFolders.value.find((x) => x.id === id) ?? null
 })
 
+/**
+ * Run-folder eligibility for the currently-open menu target. Phase 8 rule:
+ * the runner is only meaningful for a "leaf" folder — one that contains
+ * requests directly and no sub-folders. We probe the target folder when the
+ * menu opens so the menu item can disable itself + show a hover hint.
+ */
+const runEligibility = ref({
+  folderId: /** @type {string|null} */(null),
+  loading: false,
+  hasSubfolders: false,
+  requestCount: 0
+})
+
+async function checkRunEligibility(folderId) {
+  if (!folderId) return
+  runEligibility.value = { folderId, loading: true, hasSubfolders: false, requestCount: 0 }
+  try {
+    const [subs, reqs] = await Promise.all([
+      FolderAPI.ListChildFolders(folderId),
+      SavedRequestAPI.ListByFolder(folderId)
+    ])
+    if (runEligibility.value.folderId !== folderId) return
+    runEligibility.value = {
+      folderId,
+      loading: false,
+      hasSubfolders: Array.isArray(subs) && subs.length > 0,
+      requestCount: Array.isArray(reqs) ? reqs.length : 0
+    }
+  } catch {
+    if (runEligibility.value.folderId !== folderId) return
+    runEligibility.value = { folderId, loading: false, hasSubfolders: false, requestCount: 0 }
+  }
+}
+
+const runEligibilityForMenuTarget = computed(() => {
+  const target = menuTargetFolder.value
+  if (!target) return { canRun: false, loading: false, reason: '' }
+  const e = runEligibility.value
+  if (e.folderId !== target.id) return { canRun: false, loading: true, reason: 'Checking folder contents…' }
+  if (e.loading) return { canRun: false, loading: true, reason: 'Checking folder contents…' }
+  if (e.hasSubfolders) {
+    return {
+      canRun: false,
+      loading: false,
+      reason: 'Only folders that contain requests directly (no sub-folders) can be run.'
+    }
+  }
+  if (e.requestCount === 0) {
+    return {
+      canRun: false,
+      loading: false,
+      reason: 'Folder is empty — add at least one request to run it.'
+    }
+  }
+  return { canRun: true, loading: false, reason: '' }
+})
+
 function closeFolderRowMenu() {
   folderMenuOpenId.value = null
 }
@@ -414,6 +471,7 @@ function toggleFolderRowMenu(f, event) {
     return
   }
   folderMenuOpenId.value = f.id
+  checkRunEligibility(f.id)
   const el = event?.currentTarget
   if (el && typeof el.getBoundingClientRect === 'function') {
     const r = el.getBoundingClientRect()
@@ -466,6 +524,13 @@ function onFolderMenuEdit(f) {
 function onFolderMenuDelete(f) {
   closeFolderRowMenu()
   openDeleteFolderModal(f)
+}
+
+function onFolderMenuRun(f) {
+  if (!f?.id) return
+  if (!runEligibilityForMenuTarget.value.canRun) return
+  closeFolderRowMenu()
+  emit('run-folder', f.id)
 }
 
 const requestMenuOpenId = ref(null)
@@ -923,6 +988,7 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
             @console="(m) => emit('console', m)"
             @saved-request="emit('saved-request')"
             @tree-changed="emit('tree-changed')"
+            @run-folder="(id) => emit('run-folder', id)"
           />
         </div>
       </Transition>
@@ -1010,6 +1076,31 @@ defineExpose({ load, openCreateSubfolder, openCreateRequest })
         >
           New Request
         </button>
+        <div class="my-1 border-t border-gray-600" role="separator" />
+        <button
+          type="button"
+          role="menuitem"
+          :disabled="!runEligibilityForMenuTarget.canRun"
+          :aria-disabled="!runEligibilityForMenuTarget.canRun"
+          :title="runEligibilityForMenuTarget.canRun ? 'Run every request in this folder sequentially' : runEligibilityForMenuTarget.reason"
+          class="w-full px-3 py-2 text-left text-sm transition-colors"
+          :class="runEligibilityForMenuTarget.canRun
+            ? 'text-emerald-300 hover:bg-gray-700'
+            : 'cursor-not-allowed text-gray-500'"
+          @click="onFolderMenuRun(menuTargetFolder)"
+        >
+          <span class="flex items-center justify-between gap-2">
+            <span>Run folder…</span>
+            <span v-if="runEligibilityForMenuTarget.loading" class="text-[10px] text-gray-500">checking…</span>
+            <span v-else-if="!runEligibilityForMenuTarget.canRun" class="text-[10px] text-gray-500">disabled</span>
+          </span>
+        </button>
+        <p
+          v-if="!runEligibilityForMenuTarget.canRun && !runEligibilityForMenuTarget.loading && runEligibilityForMenuTarget.reason"
+          class="px-3 pb-2 text-[10px] leading-snug text-gray-500"
+        >
+          {{ runEligibilityForMenuTarget.reason }}
+        </p>
         <div class="my-1 border-t border-gray-600" role="separator" />
         <button
           type="button"

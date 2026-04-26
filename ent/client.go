@@ -16,9 +16,13 @@ import (
 	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
+	"PostmanJanai/ent/runnerrun"
+	"PostmanJanai/ent/runnerrunrequest"
 	"PostmanJanai/ent/setting"
 	"PostmanJanai/ent/trustedca"
 
@@ -44,12 +48,20 @@ type Client struct {
 	History *HistoryClient
 	// Request is the client for interacting with the Request builders.
 	Request *RequestClient
+	// RequestAssertion is the client for interacting with the RequestAssertion builders.
+	RequestAssertion *RequestAssertionClient
+	// RequestCapture is the client for interacting with the RequestCapture builders.
+	RequestCapture *RequestCaptureClient
 	// RequestFormField is the client for interacting with the RequestFormField builders.
 	RequestFormField *RequestFormFieldClient
 	// RequestHeader is the client for interacting with the RequestHeader builders.
 	RequestHeader *RequestHeaderClient
 	// RequestQueryParam is the client for interacting with the RequestQueryParam builders.
 	RequestQueryParam *RequestQueryParamClient
+	// RunnerRun is the client for interacting with the RunnerRun builders.
+	RunnerRun *RunnerRunClient
+	// RunnerRunRequest is the client for interacting with the RunnerRunRequest builders.
+	RunnerRunRequest *RunnerRunRequestClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
 	// TrustedCA is the client for interacting with the TrustedCA builders.
@@ -70,9 +82,13 @@ func (c *Client) init() {
 	c.Folder = NewFolderClient(c.config)
 	c.History = NewHistoryClient(c.config)
 	c.Request = NewRequestClient(c.config)
+	c.RequestAssertion = NewRequestAssertionClient(c.config)
+	c.RequestCapture = NewRequestCaptureClient(c.config)
 	c.RequestFormField = NewRequestFormFieldClient(c.config)
 	c.RequestHeader = NewRequestHeaderClient(c.config)
 	c.RequestQueryParam = NewRequestQueryParamClient(c.config)
+	c.RunnerRun = NewRunnerRunClient(c.config)
+	c.RunnerRunRequest = NewRunnerRunRequestClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.TrustedCA = NewTrustedCAClient(c.config)
 }
@@ -172,9 +188,13 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Folder:              NewFolderClient(cfg),
 		History:             NewHistoryClient(cfg),
 		Request:             NewRequestClient(cfg),
+		RequestAssertion:    NewRequestAssertionClient(cfg),
+		RequestCapture:      NewRequestCaptureClient(cfg),
 		RequestFormField:    NewRequestFormFieldClient(cfg),
 		RequestHeader:       NewRequestHeaderClient(cfg),
 		RequestQueryParam:   NewRequestQueryParamClient(cfg),
+		RunnerRun:           NewRunnerRunClient(cfg),
+		RunnerRunRequest:    NewRunnerRunRequestClient(cfg),
 		Setting:             NewSettingClient(cfg),
 		TrustedCA:           NewTrustedCAClient(cfg),
 	}, nil
@@ -201,9 +221,13 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Folder:              NewFolderClient(cfg),
 		History:             NewHistoryClient(cfg),
 		Request:             NewRequestClient(cfg),
+		RequestAssertion:    NewRequestAssertionClient(cfg),
+		RequestCapture:      NewRequestCaptureClient(cfg),
 		RequestFormField:    NewRequestFormFieldClient(cfg),
 		RequestHeader:       NewRequestHeaderClient(cfg),
 		RequestQueryParam:   NewRequestQueryParamClient(cfg),
+		RunnerRun:           NewRunnerRunClient(cfg),
+		RunnerRunRequest:    NewRunnerRunRequestClient(cfg),
 		Setting:             NewSettingClient(cfg),
 		TrustedCA:           NewTrustedCAClient(cfg),
 	}, nil
@@ -236,8 +260,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.Environment, c.EnvironmentVariable, c.Folder, c.History, c.Request,
-		c.RequestFormField, c.RequestHeader, c.RequestQueryParam, c.Setting,
-		c.TrustedCA,
+		c.RequestAssertion, c.RequestCapture, c.RequestFormField, c.RequestHeader,
+		c.RequestQueryParam, c.RunnerRun, c.RunnerRunRequest, c.Setting, c.TrustedCA,
 	} {
 		n.Use(hooks...)
 	}
@@ -248,8 +272,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.Environment, c.EnvironmentVariable, c.Folder, c.History, c.Request,
-		c.RequestFormField, c.RequestHeader, c.RequestQueryParam, c.Setting,
-		c.TrustedCA,
+		c.RequestAssertion, c.RequestCapture, c.RequestFormField, c.RequestHeader,
+		c.RequestQueryParam, c.RunnerRun, c.RunnerRunRequest, c.Setting, c.TrustedCA,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -268,12 +292,20 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.History.mutate(ctx, m)
 	case *RequestMutation:
 		return c.Request.mutate(ctx, m)
+	case *RequestAssertionMutation:
+		return c.RequestAssertion.mutate(ctx, m)
+	case *RequestCaptureMutation:
+		return c.RequestCapture.mutate(ctx, m)
 	case *RequestFormFieldMutation:
 		return c.RequestFormField.mutate(ctx, m)
 	case *RequestHeaderMutation:
 		return c.RequestHeader.mutate(ctx, m)
 	case *RequestQueryParamMutation:
 		return c.RequestQueryParam.mutate(ctx, m)
+	case *RunnerRunMutation:
+		return c.RunnerRun.mutate(ctx, m)
+	case *RunnerRunRequestMutation:
+		return c.RunnerRunRequest.mutate(ctx, m)
 	case *SettingMutation:
 		return c.Setting.mutate(ctx, m)
 	case *TrustedCAMutation:
@@ -1131,6 +1163,38 @@ func (c *RequestClient) QueryHistories(_m *Request) *HistoryQuery {
 	return query
 }
 
+// QueryRequestCaptures queries the request_captures edge of a Request.
+func (c *RequestClient) QueryRequestCaptures(_m *Request) *RequestCaptureQuery {
+	query := (&RequestCaptureClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(requestcapture.Table, requestcapture.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestCapturesTable, request.RequestCapturesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRequestAssertions queries the request_assertions edge of a Request.
+func (c *RequestClient) QueryRequestAssertions(_m *Request) *RequestAssertionQuery {
+	query := (&RequestAssertionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, id),
+			sqlgraph.To(requestassertion.Table, requestassertion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestAssertionsTable, request.RequestAssertionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *RequestClient) Hooks() []Hook {
 	return c.hooks.Request
@@ -1153,6 +1217,304 @@ func (c *RequestClient) mutate(ctx context.Context, m *RequestMutation) (Value, 
 		return (&RequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Request mutation op: %q", m.Op())
+	}
+}
+
+// RequestAssertionClient is a client for the RequestAssertion schema.
+type RequestAssertionClient struct {
+	config
+}
+
+// NewRequestAssertionClient returns a client for the RequestAssertion from the given config.
+func NewRequestAssertionClient(c config) *RequestAssertionClient {
+	return &RequestAssertionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `requestassertion.Hooks(f(g(h())))`.
+func (c *RequestAssertionClient) Use(hooks ...Hook) {
+	c.hooks.RequestAssertion = append(c.hooks.RequestAssertion, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `requestassertion.Intercept(f(g(h())))`.
+func (c *RequestAssertionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RequestAssertion = append(c.inters.RequestAssertion, interceptors...)
+}
+
+// Create returns a builder for creating a RequestAssertion entity.
+func (c *RequestAssertionClient) Create() *RequestAssertionCreate {
+	mutation := newRequestAssertionMutation(c.config, OpCreate)
+	return &RequestAssertionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RequestAssertion entities.
+func (c *RequestAssertionClient) CreateBulk(builders ...*RequestAssertionCreate) *RequestAssertionCreateBulk {
+	return &RequestAssertionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RequestAssertionClient) MapCreateBulk(slice any, setFunc func(*RequestAssertionCreate, int)) *RequestAssertionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RequestAssertionCreateBulk{err: fmt.Errorf("calling to RequestAssertionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RequestAssertionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RequestAssertionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RequestAssertion.
+func (c *RequestAssertionClient) Update() *RequestAssertionUpdate {
+	mutation := newRequestAssertionMutation(c.config, OpUpdate)
+	return &RequestAssertionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RequestAssertionClient) UpdateOne(_m *RequestAssertion) *RequestAssertionUpdateOne {
+	mutation := newRequestAssertionMutation(c.config, OpUpdateOne, withRequestAssertion(_m))
+	return &RequestAssertionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RequestAssertionClient) UpdateOneID(id uuid.UUID) *RequestAssertionUpdateOne {
+	mutation := newRequestAssertionMutation(c.config, OpUpdateOne, withRequestAssertionID(id))
+	return &RequestAssertionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RequestAssertion.
+func (c *RequestAssertionClient) Delete() *RequestAssertionDelete {
+	mutation := newRequestAssertionMutation(c.config, OpDelete)
+	return &RequestAssertionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RequestAssertionClient) DeleteOne(_m *RequestAssertion) *RequestAssertionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RequestAssertionClient) DeleteOneID(id uuid.UUID) *RequestAssertionDeleteOne {
+	builder := c.Delete().Where(requestassertion.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RequestAssertionDeleteOne{builder}
+}
+
+// Query returns a query builder for RequestAssertion.
+func (c *RequestAssertionClient) Query() *RequestAssertionQuery {
+	return &RequestAssertionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRequestAssertion},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RequestAssertion entity by its id.
+func (c *RequestAssertionClient) Get(ctx context.Context, id uuid.UUID) (*RequestAssertion, error) {
+	return c.Query().Where(requestassertion.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RequestAssertionClient) GetX(ctx context.Context, id uuid.UUID) *RequestAssertion {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRequest queries the request edge of a RequestAssertion.
+func (c *RequestAssertionClient) QueryRequest(_m *RequestAssertion) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(requestassertion.Table, requestassertion.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, requestassertion.RequestTable, requestassertion.RequestColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RequestAssertionClient) Hooks() []Hook {
+	return c.hooks.RequestAssertion
+}
+
+// Interceptors returns the client interceptors.
+func (c *RequestAssertionClient) Interceptors() []Interceptor {
+	return c.inters.RequestAssertion
+}
+
+func (c *RequestAssertionClient) mutate(ctx context.Context, m *RequestAssertionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RequestAssertionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RequestAssertionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RequestAssertionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RequestAssertionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RequestAssertion mutation op: %q", m.Op())
+	}
+}
+
+// RequestCaptureClient is a client for the RequestCapture schema.
+type RequestCaptureClient struct {
+	config
+}
+
+// NewRequestCaptureClient returns a client for the RequestCapture from the given config.
+func NewRequestCaptureClient(c config) *RequestCaptureClient {
+	return &RequestCaptureClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `requestcapture.Hooks(f(g(h())))`.
+func (c *RequestCaptureClient) Use(hooks ...Hook) {
+	c.hooks.RequestCapture = append(c.hooks.RequestCapture, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `requestcapture.Intercept(f(g(h())))`.
+func (c *RequestCaptureClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RequestCapture = append(c.inters.RequestCapture, interceptors...)
+}
+
+// Create returns a builder for creating a RequestCapture entity.
+func (c *RequestCaptureClient) Create() *RequestCaptureCreate {
+	mutation := newRequestCaptureMutation(c.config, OpCreate)
+	return &RequestCaptureCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RequestCapture entities.
+func (c *RequestCaptureClient) CreateBulk(builders ...*RequestCaptureCreate) *RequestCaptureCreateBulk {
+	return &RequestCaptureCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RequestCaptureClient) MapCreateBulk(slice any, setFunc func(*RequestCaptureCreate, int)) *RequestCaptureCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RequestCaptureCreateBulk{err: fmt.Errorf("calling to RequestCaptureClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RequestCaptureCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RequestCaptureCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RequestCapture.
+func (c *RequestCaptureClient) Update() *RequestCaptureUpdate {
+	mutation := newRequestCaptureMutation(c.config, OpUpdate)
+	return &RequestCaptureUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RequestCaptureClient) UpdateOne(_m *RequestCapture) *RequestCaptureUpdateOne {
+	mutation := newRequestCaptureMutation(c.config, OpUpdateOne, withRequestCapture(_m))
+	return &RequestCaptureUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RequestCaptureClient) UpdateOneID(id uuid.UUID) *RequestCaptureUpdateOne {
+	mutation := newRequestCaptureMutation(c.config, OpUpdateOne, withRequestCaptureID(id))
+	return &RequestCaptureUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RequestCapture.
+func (c *RequestCaptureClient) Delete() *RequestCaptureDelete {
+	mutation := newRequestCaptureMutation(c.config, OpDelete)
+	return &RequestCaptureDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RequestCaptureClient) DeleteOne(_m *RequestCapture) *RequestCaptureDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RequestCaptureClient) DeleteOneID(id uuid.UUID) *RequestCaptureDeleteOne {
+	builder := c.Delete().Where(requestcapture.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RequestCaptureDeleteOne{builder}
+}
+
+// Query returns a query builder for RequestCapture.
+func (c *RequestCaptureClient) Query() *RequestCaptureQuery {
+	return &RequestCaptureQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRequestCapture},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RequestCapture entity by its id.
+func (c *RequestCaptureClient) Get(ctx context.Context, id uuid.UUID) (*RequestCapture, error) {
+	return c.Query().Where(requestcapture.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RequestCaptureClient) GetX(ctx context.Context, id uuid.UUID) *RequestCapture {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRequest queries the request edge of a RequestCapture.
+func (c *RequestCaptureClient) QueryRequest(_m *RequestCapture) *RequestQuery {
+	query := (&RequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(requestcapture.Table, requestcapture.FieldID, id),
+			sqlgraph.To(request.Table, request.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, requestcapture.RequestTable, requestcapture.RequestColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RequestCaptureClient) Hooks() []Hook {
+	return c.hooks.RequestCapture
+}
+
+// Interceptors returns the client interceptors.
+func (c *RequestCaptureClient) Interceptors() []Interceptor {
+	return c.inters.RequestCapture
+}
+
+func (c *RequestCaptureClient) mutate(ctx context.Context, m *RequestCaptureMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RequestCaptureCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RequestCaptureUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RequestCaptureUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RequestCaptureDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RequestCapture mutation op: %q", m.Op())
 	}
 }
 
@@ -1603,6 +1965,304 @@ func (c *RequestQueryParamClient) mutate(ctx context.Context, m *RequestQueryPar
 	}
 }
 
+// RunnerRunClient is a client for the RunnerRun schema.
+type RunnerRunClient struct {
+	config
+}
+
+// NewRunnerRunClient returns a client for the RunnerRun from the given config.
+func NewRunnerRunClient(c config) *RunnerRunClient {
+	return &RunnerRunClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `runnerrun.Hooks(f(g(h())))`.
+func (c *RunnerRunClient) Use(hooks ...Hook) {
+	c.hooks.RunnerRun = append(c.hooks.RunnerRun, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `runnerrun.Intercept(f(g(h())))`.
+func (c *RunnerRunClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RunnerRun = append(c.inters.RunnerRun, interceptors...)
+}
+
+// Create returns a builder for creating a RunnerRun entity.
+func (c *RunnerRunClient) Create() *RunnerRunCreate {
+	mutation := newRunnerRunMutation(c.config, OpCreate)
+	return &RunnerRunCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RunnerRun entities.
+func (c *RunnerRunClient) CreateBulk(builders ...*RunnerRunCreate) *RunnerRunCreateBulk {
+	return &RunnerRunCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RunnerRunClient) MapCreateBulk(slice any, setFunc func(*RunnerRunCreate, int)) *RunnerRunCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RunnerRunCreateBulk{err: fmt.Errorf("calling to RunnerRunClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RunnerRunCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RunnerRunCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RunnerRun.
+func (c *RunnerRunClient) Update() *RunnerRunUpdate {
+	mutation := newRunnerRunMutation(c.config, OpUpdate)
+	return &RunnerRunUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RunnerRunClient) UpdateOne(_m *RunnerRun) *RunnerRunUpdateOne {
+	mutation := newRunnerRunMutation(c.config, OpUpdateOne, withRunnerRun(_m))
+	return &RunnerRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RunnerRunClient) UpdateOneID(id uuid.UUID) *RunnerRunUpdateOne {
+	mutation := newRunnerRunMutation(c.config, OpUpdateOne, withRunnerRunID(id))
+	return &RunnerRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RunnerRun.
+func (c *RunnerRunClient) Delete() *RunnerRunDelete {
+	mutation := newRunnerRunMutation(c.config, OpDelete)
+	return &RunnerRunDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RunnerRunClient) DeleteOne(_m *RunnerRun) *RunnerRunDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RunnerRunClient) DeleteOneID(id uuid.UUID) *RunnerRunDeleteOne {
+	builder := c.Delete().Where(runnerrun.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RunnerRunDeleteOne{builder}
+}
+
+// Query returns a query builder for RunnerRun.
+func (c *RunnerRunClient) Query() *RunnerRunQuery {
+	return &RunnerRunQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRunnerRun},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RunnerRun entity by its id.
+func (c *RunnerRunClient) Get(ctx context.Context, id uuid.UUID) (*RunnerRun, error) {
+	return c.Query().Where(runnerrun.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RunnerRunClient) GetX(ctx context.Context, id uuid.UUID) *RunnerRun {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRequests queries the requests edge of a RunnerRun.
+func (c *RunnerRunClient) QueryRequests(_m *RunnerRun) *RunnerRunRequestQuery {
+	query := (&RunnerRunRequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(runnerrun.Table, runnerrun.FieldID, id),
+			sqlgraph.To(runnerrunrequest.Table, runnerrunrequest.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, runnerrun.RequestsTable, runnerrun.RequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RunnerRunClient) Hooks() []Hook {
+	return c.hooks.RunnerRun
+}
+
+// Interceptors returns the client interceptors.
+func (c *RunnerRunClient) Interceptors() []Interceptor {
+	return c.inters.RunnerRun
+}
+
+func (c *RunnerRunClient) mutate(ctx context.Context, m *RunnerRunMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RunnerRunCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RunnerRunUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RunnerRunUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RunnerRunDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RunnerRun mutation op: %q", m.Op())
+	}
+}
+
+// RunnerRunRequestClient is a client for the RunnerRunRequest schema.
+type RunnerRunRequestClient struct {
+	config
+}
+
+// NewRunnerRunRequestClient returns a client for the RunnerRunRequest from the given config.
+func NewRunnerRunRequestClient(c config) *RunnerRunRequestClient {
+	return &RunnerRunRequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `runnerrunrequest.Hooks(f(g(h())))`.
+func (c *RunnerRunRequestClient) Use(hooks ...Hook) {
+	c.hooks.RunnerRunRequest = append(c.hooks.RunnerRunRequest, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `runnerrunrequest.Intercept(f(g(h())))`.
+func (c *RunnerRunRequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RunnerRunRequest = append(c.inters.RunnerRunRequest, interceptors...)
+}
+
+// Create returns a builder for creating a RunnerRunRequest entity.
+func (c *RunnerRunRequestClient) Create() *RunnerRunRequestCreate {
+	mutation := newRunnerRunRequestMutation(c.config, OpCreate)
+	return &RunnerRunRequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RunnerRunRequest entities.
+func (c *RunnerRunRequestClient) CreateBulk(builders ...*RunnerRunRequestCreate) *RunnerRunRequestCreateBulk {
+	return &RunnerRunRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RunnerRunRequestClient) MapCreateBulk(slice any, setFunc func(*RunnerRunRequestCreate, int)) *RunnerRunRequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RunnerRunRequestCreateBulk{err: fmt.Errorf("calling to RunnerRunRequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RunnerRunRequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RunnerRunRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RunnerRunRequest.
+func (c *RunnerRunRequestClient) Update() *RunnerRunRequestUpdate {
+	mutation := newRunnerRunRequestMutation(c.config, OpUpdate)
+	return &RunnerRunRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RunnerRunRequestClient) UpdateOne(_m *RunnerRunRequest) *RunnerRunRequestUpdateOne {
+	mutation := newRunnerRunRequestMutation(c.config, OpUpdateOne, withRunnerRunRequest(_m))
+	return &RunnerRunRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RunnerRunRequestClient) UpdateOneID(id uuid.UUID) *RunnerRunRequestUpdateOne {
+	mutation := newRunnerRunRequestMutation(c.config, OpUpdateOne, withRunnerRunRequestID(id))
+	return &RunnerRunRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RunnerRunRequest.
+func (c *RunnerRunRequestClient) Delete() *RunnerRunRequestDelete {
+	mutation := newRunnerRunRequestMutation(c.config, OpDelete)
+	return &RunnerRunRequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RunnerRunRequestClient) DeleteOne(_m *RunnerRunRequest) *RunnerRunRequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RunnerRunRequestClient) DeleteOneID(id uuid.UUID) *RunnerRunRequestDeleteOne {
+	builder := c.Delete().Where(runnerrunrequest.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RunnerRunRequestDeleteOne{builder}
+}
+
+// Query returns a query builder for RunnerRunRequest.
+func (c *RunnerRunRequestClient) Query() *RunnerRunRequestQuery {
+	return &RunnerRunRequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRunnerRunRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RunnerRunRequest entity by its id.
+func (c *RunnerRunRequestClient) Get(ctx context.Context, id uuid.UUID) (*RunnerRunRequest, error) {
+	return c.Query().Where(runnerrunrequest.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RunnerRunRequestClient) GetX(ctx context.Context, id uuid.UUID) *RunnerRunRequest {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRun queries the run edge of a RunnerRunRequest.
+func (c *RunnerRunRequestClient) QueryRun(_m *RunnerRunRequest) *RunnerRunQuery {
+	query := (&RunnerRunClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(runnerrunrequest.Table, runnerrunrequest.FieldID, id),
+			sqlgraph.To(runnerrun.Table, runnerrun.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, runnerrunrequest.RunTable, runnerrunrequest.RunColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RunnerRunRequestClient) Hooks() []Hook {
+	return c.hooks.RunnerRunRequest
+}
+
+// Interceptors returns the client interceptors.
+func (c *RunnerRunRequestClient) Interceptors() []Interceptor {
+	return c.inters.RunnerRunRequest
+}
+
+func (c *RunnerRunRequestClient) mutate(ctx context.Context, m *RunnerRunRequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RunnerRunRequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RunnerRunRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RunnerRunRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RunnerRunRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RunnerRunRequest mutation op: %q", m.Op())
+	}
+}
+
 // SettingClient is a client for the Setting schema.
 type SettingClient struct {
 	config
@@ -1872,11 +2532,13 @@ func (c *TrustedCAClient) mutate(ctx context.Context, m *TrustedCAMutation) (Val
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Environment, EnvironmentVariable, Folder, History, Request, RequestFormField,
-		RequestHeader, RequestQueryParam, Setting, TrustedCA []ent.Hook
+		Environment, EnvironmentVariable, Folder, History, Request, RequestAssertion,
+		RequestCapture, RequestFormField, RequestHeader, RequestQueryParam, RunnerRun,
+		RunnerRunRequest, Setting, TrustedCA []ent.Hook
 	}
 	inters struct {
-		Environment, EnvironmentVariable, Folder, History, Request, RequestFormField,
-		RequestHeader, RequestQueryParam, Setting, TrustedCA []ent.Interceptor
+		Environment, EnvironmentVariable, Folder, History, Request, RequestAssertion,
+		RequestCapture, RequestFormField, RequestHeader, RequestQueryParam, RunnerRun,
+		RunnerRunRequest, Setting, TrustedCA []ent.Interceptor
 	}
 )

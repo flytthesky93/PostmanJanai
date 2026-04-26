@@ -10,8 +10,106 @@ import (
 // TestMigrate_NoopWhenFromEqualsTo ensures the migration driver is idempotent for same-version DBs.
 func TestMigrate_NoopWhenFromEqualsTo(t *testing.T) {
 	db, _ := testutil.NewSQLDB(t)
-	if err := MigrateDataBetweenVersions(context.Background(), db, 6, 6); err != nil {
+	if err := MigrateDataBetweenVersions(context.Background(), db, 8, 8); err != nil {
 		t.Fatalf("noop should not error, got %v", err)
+	}
+}
+
+// TestMigrate_6to7IsAdditive verifies v6→v7 (Phase 8) is a no-op for legacy data:
+// the new runner / capture / assertion tables are created later by ent.Schema.Create,
+// not in this migration step.
+func TestMigrate_6to7IsAdditive(t *testing.T) {
+	db, _ := testutil.NewSQLDB(t)
+	if _, err := db.Exec(`CREATE TABLE requests (id TEXT PRIMARY KEY, name TEXT)`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO requests (id, name) VALUES ('r1', 'x')`); err != nil {
+		t.Fatalf("seed insert: %v", err)
+	}
+	if err := MigrateDataBetweenVersions(context.Background(), db, 6, 7); err != nil {
+		t.Fatalf("migrate 6→7: %v", err)
+	}
+	row := db.QueryRow(`SELECT COUNT(*) FROM requests`)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		t.Fatalf("count requests: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("requests row count = %d, want 1 (additive migration must not touch existing tables)", n)
+	}
+}
+
+// TestMigrate_7to8AddsRunnerRequestSnapshots verifies v7→v8 (Phase 8.1) adds
+// the request/response snapshot columns to runner_run_requests as additive,
+// idempotent ALTER TABLE statements.
+func TestMigrate_7to8AddsRunnerRequestSnapshots(t *testing.T) {
+	db, _ := testutil.NewSQLDB(t)
+	stmts := []string{
+		`CREATE TABLE runner_run_requests (
+			id TEXT PRIMARY KEY,
+			run_id TEXT NOT NULL,
+			request_id TEXT NULL,
+			request_name TEXT NOT NULL DEFAULT '',
+			method TEXT NOT NULL DEFAULT 'GET',
+			url TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'passed',
+			status_code INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER NOT NULL DEFAULT 0,
+			response_size_bytes INTEGER NOT NULL DEFAULT 0,
+			error_message TEXT NOT NULL DEFAULT '',
+			assertions_json TEXT NOT NULL DEFAULT '',
+			captures_json TEXT NOT NULL DEFAULT '',
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`INSERT INTO runner_run_requests (id, run_id, request_name) VALUES ('r1', 'run1', 'seed')`,
+	}
+	for _, q := range stmts {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("seed %q: %v", q, err)
+		}
+	}
+
+	if err := MigrateDataBetweenVersions(context.Background(), db, 7, 8); err != nil {
+		t.Fatalf("migrate 7→8: %v", err)
+	}
+
+	// Re-running must not error (idempotent ALTERs).
+	if err := MigrateDataBetweenVersions(context.Background(), db, 7, 8); err != nil {
+		t.Fatalf("migrate 7→8 (rerun): %v", err)
+	}
+
+	cols := map[string]bool{}
+	rows, err := db.Query(`PRAGMA table_info(runner_run_requests)`)
+	if err != nil {
+		t.Fatalf("pragma: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid                int
+			name, ctype        string
+			notnull, pk        int
+			dflt               *string
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		cols[name] = true
+	}
+	for _, c := range []string{"request_headers_json", "response_headers_json", "request_body", "response_body", "body_truncated"} {
+		if !cols[c] {
+			t.Errorf("expected column %q after migration", c)
+		}
+	}
+
+	row := db.QueryRow(`SELECT COUNT(*) FROM runner_run_requests`)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("rows = %d, want 1 (additive migration must keep rows)", n)
 	}
 }
 

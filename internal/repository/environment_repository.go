@@ -9,6 +9,7 @@ import (
 	"PostmanJanai/internal/service"
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -30,6 +31,15 @@ type EnvironmentRepository interface {
 	// ActiveSecretPlaintexts returns decrypted plaintext values of **enabled secret** variables
 	// in the active environment — used to redact them from history / snippets.
 	ActiveSecretPlaintexts(ctx context.Context) ([]string, error)
+
+	// UpsertActiveVariable writes a single key/value into the currently active environment.
+	// Phase 8 — used by capture rules.
+	//
+	// Behaviour:
+	//   - returns (false, nil) if there is no active environment (silent no-op).
+	//   - if the key already exists, only `value` is overwritten (kind / enabled / order preserved).
+	//   - new keys are inserted as plain (non-secret) and enabled, appended after existing rows.
+	UpsertActiveVariable(ctx context.Context, key, value string) (bool, error)
 }
 
 type environmentRepo struct {
@@ -313,6 +323,88 @@ func (r *environmentRepo) ActiveVariableMap(ctx context.Context) (map[string]str
 		m[k] = val
 	}
 	return m, nil
+}
+
+func (r *environmentRepo) UpsertActiveVariable(ctx context.Context, key, value string) (bool, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false, nil
+	}
+	sum, err := r.GetActiveSummary(ctx)
+	if err != nil {
+		return false, err
+	}
+	if sum == nil {
+		return false, nil
+	}
+	envID, err := uuid.Parse(strings.TrimSpace(sum.ID))
+	if err != nil {
+		return false, err
+	}
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+	existing, err := tx.EnvironmentVariable.Query().
+		Where(
+			environmentvariable.EnvironmentIDEQ(envID),
+			environmentvariable.KeyEQ(key),
+		).
+		First(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		_ = tx.Rollback()
+		return false, err
+	}
+	if existing != nil {
+		stored, encErr := r.encryptForStore(existing.Kind, value)
+		if encErr != nil {
+			_ = tx.Rollback()
+			return false, encErr
+		}
+		if err := tx.EnvironmentVariable.UpdateOneID(existing.ID).SetValue(stored).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return false, err
+		}
+	} else {
+		next, err := tx.EnvironmentVariable.Query().
+			Where(environmentvariable.EnvironmentIDEQ(envID)).
+			Count(ctx)
+		if err != nil {
+			_ = tx.Rollback()
+			return false, err
+		}
+		stored, encErr := r.encryptForStore(constant.EnvVarKindPlain, value)
+		if encErr != nil {
+			_ = tx.Rollback()
+			return false, encErr
+		}
+		_, err = tx.EnvironmentVariable.Create().
+			SetEnvironmentID(envID).
+			SetKey(key).
+			SetValue(stored).
+			SetKind(constant.EnvVarKindPlain).
+			SetEnabled(true).
+			SetSortOrder(next).
+			Save(ctx)
+		if err != nil {
+			_ = tx.Rollback()
+			return false, err
+		}
+	}
+	if err := tx.Environment.UpdateOneID(envID).SetUpdatedAt(time.Now()).Exec(ctx); err != nil {
+		_ = tx.Rollback()
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *environmentRepo) ActiveSecretPlaintexts(ctx context.Context) ([]string, error) {

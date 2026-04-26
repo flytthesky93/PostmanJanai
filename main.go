@@ -79,6 +79,8 @@ func main() {
 	folderRepo := repository.NewFolderRepository(client)
 	savedRequestRepo := repository.NewRequestRepository(client)
 	historyRepo := repository.NewHistoryRepository(client)
+	requestRuleRepo := repository.NewRequestRuleRepository(client)
+	runnerRepo := repository.NewRunnerRepository(client)
 
 	secretCipher, err := service.NewSecretCipher()
 	if err != nil {
@@ -95,6 +97,9 @@ func main() {
 	searchUc := usecase.NewSearchUsecase(folderRepo, savedRequestRepo)
 	exportUc := usecase.NewExportUsecase(folderRepo, savedRequestRepo)
 	settingsUc := usecase.NewSettingsUsecase(settingsRepo, trustedCARepo, secretCipher)
+	tf := &service.HTTPTransportFactory{Settings: settingsRepo, CAs: trustedCARepo, Cipher: secretCipher}
+	httpExecutor := service.NewHTTPExecutor(tf)
+	runnerUc := usecase.NewRunnerUsecase(folderRepo, savedRequestRepo, requestRuleRepo, envRepo, runnerRepo, httpExecutor)
 
 	appHandler := delivery.NewAppHandler()
 	folderHandler := delivery.NewFolderHandler(folderUc)
@@ -105,10 +110,10 @@ func main() {
 	searchHandler := delivery.NewSearchHandler(searchUc)
 	exportHandler := delivery.NewExportHandler(exportUc)
 	settingsHandler := delivery.NewSettingsHandler(settingsUc)
-	tf := &service.HTTPTransportFactory{Settings: settingsRepo, CAs: trustedCARepo, Cipher: secretCipher}
-	httpExecutor := service.NewHTTPExecutor(tf)
-	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo, savedRequestRepo)
+	httpHandler := delivery.NewHTTPHandler(httpExecutor, historyRepo, envRepo, savedRequestRepo, requestRuleRepo)
 	snippetHandler := delivery.NewSnippetHandler(envRepo)
+	ruleHandler := delivery.NewRuleHandler(requestRuleRepo)
+	runnerHandler := delivery.NewRunnerHandler(runnerUc)
 
 	err = wails.Run(&options.App{
 		Title:            constant.AppName,
@@ -140,6 +145,8 @@ func main() {
 			settingsHandler.SetContext(ctx)
 			httpHandler.SetContext(ctx)
 			snippetHandler.SetContext(ctx)
+			ruleHandler.SetContext(ctx)
+			runnerHandler.SetContext(ctx)
 		},
 		Bind: []interface{}{
 			appHandler,
@@ -153,6 +160,8 @@ func main() {
 			settingsHandler,
 			httpHandler,
 			snippetHandler,
+			ruleHandler,
+			runnerHandler,
 		},
 	})
 

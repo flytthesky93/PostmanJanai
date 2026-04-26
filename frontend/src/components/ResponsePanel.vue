@@ -43,6 +43,16 @@ const summaryParts = computed(() => {
   }
   return parts
 })
+
+const assertionList = computed(() =>
+  Array.isArray(props.result?.assertions) ? props.result.assertions : []
+)
+const captureList = computed(() =>
+  Array.isArray(props.result?.captures) ? props.result.captures : []
+)
+const assertionPassCount = computed(() => assertionList.value.filter((a) => a.passed).length)
+const assertionFailCount = computed(() => assertionList.value.length - assertionPassCount.value)
+const hasTests = computed(() => assertionList.value.length > 0 || captureList.value.length > 0)
 </script>
 
 <template>
@@ -72,6 +82,22 @@ const summaryParts = computed(() => {
               @click="activeTab = 'headers'"
             >
               Headers
+            </button>
+            <button
+              v-if="hasTests"
+              type="button"
+              class="rounded-t px-3 py-2"
+              :class="activeTab === 'tests' ? 'text-white border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-300'"
+              @click="activeTab = 'tests'"
+            >
+              Tests
+              <span
+                v-if="assertionList.length"
+                class="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                :class="assertionFailCount === 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'"
+              >
+                {{ assertionPassCount }}/{{ assertionList.length }}
+              </span>
             </button>
           </div>
         </div>
@@ -107,6 +133,60 @@ const summaryParts = computed(() => {
         class="app-scrollbar h-full overflow-auto break-words whitespace-pre-wrap p-1 leading-relaxed text-gray-300"
         >{{ headersText || '(no headers)' }}</pre
       >
+      <div
+        v-else-if="activeTab === 'tests' && result"
+        class="app-scrollbar h-full overflow-auto p-2 text-xs"
+      >
+        <section v-if="assertionList.length" class="mb-3">
+          <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            Assertions ({{ assertionPassCount }}/{{ assertionList.length }})
+          </h4>
+          <ul class="space-y-1">
+            <li
+              v-for="(a, i) in assertionList"
+              :key="'a' + i"
+              class="rounded border px-2 py-1.5"
+              :class="a.passed ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold" :class="a.passed ? 'text-emerald-300' : 'text-red-300'">
+                  {{ a.passed ? 'PASS' : 'FAIL' }} · {{ a.name || '(unnamed)' }}
+                </span>
+                <span class="text-[10px] text-gray-500">{{ a.source }} {{ a.operator }}</span>
+              </div>
+              <div v-if="!a.passed && a.error_message" class="mt-0.5 break-words font-mono text-[11px] text-red-300">{{ a.error_message }}</div>
+              <div v-if="a.actual" class="mt-0.5 truncate font-mono text-[11px] text-gray-400" :title="a.actual">
+                actual: {{ a.actual }}
+              </div>
+            </li>
+          </ul>
+        </section>
+        <section v-if="captureList.length">
+          <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            Captures ({{ captureList.length }})
+          </h4>
+          <ul class="space-y-1">
+            <li
+              v-for="(c, i) in captureList"
+              :key="'c' + i"
+              class="rounded border px-2 py-1.5"
+              :class="c.error_message ? 'border-amber-500/30 bg-amber-500/5' : 'border-gray-700 bg-[#141414]'"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold" :class="c.error_message ? 'text-amber-300' : 'text-gray-200'">
+                  {{ c.name || '(unnamed)' }}
+                </span>
+                <span class="text-[10px] text-gray-500">{{ c.source }} → {{ c.target_scope }}.{{ c.target_variable }}</span>
+              </div>
+              <div v-if="c.error_message" class="mt-0.5 font-mono text-[11px] text-amber-300">{{ c.error_message }}</div>
+              <div v-else-if="c.value" class="mt-0.5 truncate font-mono text-[11px] text-gray-400" :title="c.value">
+                {{ c.value }}
+              </div>
+            </li>
+          </ul>
+        </section>
+        <div v-if="!hasTests" class="text-gray-500">No tests or captures defined for this request.</div>
+      </div>
       <div v-else-if="!loading" class="flex h-full min-h-[120px] items-center justify-center italic text-gray-600">
         Press Send to see the response…
       </div>

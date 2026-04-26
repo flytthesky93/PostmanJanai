@@ -16,6 +16,7 @@ const SettingsPanel = defineAsyncComponent(() => import('./components/SettingsPa
 const DashboardHome = defineAsyncComponent(() => import('./components/DashboardHome.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/CommandPalette.vue'))
 const HelpModal = defineAsyncComponent(() => import('./components/HelpModal.vue'))
+const RunnerModal = defineAsyncComponent(() => import('./components/RunnerModal.vue'))
 
 const tabsStore = useTabsStore()
 const { tabsMeta, activeTab, state: tabsState } = tabsStore
@@ -31,6 +32,8 @@ const selectedEnvironmentId = ref(null)
 const workspaceBeforeSettings = ref(null)
 const commandPaletteOpen = ref(false)
 const helpOpen = ref(false)
+const runnerOpen = ref(false)
+const runnerSeedFolderId = ref('')
 
 /** @type {import('vue').Ref<Array<Record<string, unknown>>>} */
 const environmentSummaries = ref([])
@@ -350,6 +353,15 @@ function closeHelp() {
   helpOpen.value = false
 }
 
+function openRunner(folderId) {
+  runnerSeedFolderId.value = folderId ? String(folderId) : ''
+  runnerOpen.value = true
+}
+
+function closeRunner() {
+  runnerOpen.value = false
+}
+
 function onPaletteFolderHit(hit) {
   mainWorkspaceMode.value = 'request'
   sidebarRef.value?.revealFolderHit?.(hit)
@@ -536,6 +548,7 @@ watch(
         @console="onRequestConsole"
         @apply-curl-import="onApplyCurlImport"
         @saved-request="onSavedRequestUpdated"
+        @run-folder="(id) => openRunner(id)"
       />
     </div>
 
@@ -561,6 +574,18 @@ watch(
               </option>
             </select>
           </div>
+          <button
+            type="button"
+            class="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded border border-gray-600 bg-[#1a1a1a] px-3 text-xs font-semibold text-gray-200 hover:border-orange-500 hover:text-orange-200"
+            title="Open Collection Runner"
+            aria-label="Open Collection Runner"
+            @click="() => openRunner(activeRootFolderId)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="h-4 w-4" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 0 1 0 1.971l-11.54 6.347a1.125 1.125 0 0 1-1.667-.985V5.653Z" />
+            </svg>
+            Runner
+          </button>
           <button
             type="button"
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-gray-600 bg-[#1a1a1a] text-sm font-bold text-gray-300 hover:border-orange-500 hover:text-orange-200"
@@ -670,5 +695,11 @@ watch(
       @console="onRequestConsole"
     />
     <HelpModal :open="helpOpen" @close="closeHelp" />
+    <RunnerModal
+      :open="runnerOpen"
+      :folder-id="runnerSeedFolderId"
+      @close="closeRunner"
+      @console="onRequestConsole"
+    />
   </div>
 </template>

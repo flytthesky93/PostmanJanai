@@ -8,7 +8,7 @@ const (
 
 	// DBSchemaUserVersion — expected SQLite PRAGMA user_version after schema/data matches current Ent code.
 	// When bumping: add a branch in dbmanage.migrateOneStep (data); backup runs before Schema.Create.
-	DBSchemaUserVersion = 6
+	DBSchemaUserVersion = 8
 
 	// HTTPClientTimeout — total time for one request (including reading the response body).
 	HTTPClientTimeoutSeconds = 60
@@ -41,4 +41,51 @@ const (
 	// SecretCipherPrefix — stored ciphertext prefix so legacy plaintext can coexist
 	// and be recognised for future migration to an OS-keychain backed scheme.
 	SecretCipherPrefix = "enc:v1:"
+
+	// Capture / assertion sources (Phase 8).
+	CaptureSourceJSONBody  = "json_body"
+	CaptureSourceHeader    = "header"
+	CaptureSourceStatus    = "status"
+	CaptureSourceRegexBody = "regex_body"
+
+	AssertionSourceStatus            = "status"
+	AssertionSourceHeader            = "header"
+	AssertionSourceJSONBody          = "json_body"
+	AssertionSourceRegexBody         = "regex_body"
+	AssertionSourceDurationMs        = "duration_ms"
+	AssertionSourceResponseSizeBytes = "response_size_bytes"
+
+	// Capture target scopes (Phase 8).
+	CaptureScopeEnvironment = "environment"
+	CaptureScopeMemory      = "memory"
+
+	// Assertion operators (Phase 8).
+	AssertionOpEq          = "eq"
+	AssertionOpNeq         = "neq"
+	AssertionOpContains    = "contains"
+	AssertionOpNotContains = "not_contains"
+	AssertionOpGT          = "gt"
+	AssertionOpLT          = "lt"
+	AssertionOpGTE         = "gte"
+	AssertionOpLTE         = "lte"
+	AssertionOpRegex       = "regex"
+	AssertionOpExists      = "exists"
+	AssertionOpNotExists   = "not_exists"
+
+	// Runner run statuses (Phase 8).
+	RunnerStatusRunning   = "running"
+	RunnerStatusCompleted = "completed"
+	RunnerStatusFailed    = "failed"
+	RunnerStatusCancelled = "cancelled"
+
+	// Runner per-request statuses (Phase 8).
+	RunnerRequestStatusPassed  = "passed"
+	RunnerRequestStatusFailed  = "failed"
+	RunnerRequestStatusErrored = "errored"
+	RunnerRequestStatusSkipped = "skipped"
+
+	// Runner Wails events (Phase 8).
+	RunnerEventStarted     = "runner:started"
+	RunnerEventRequestDone = "runner:request"
+	RunnerEventFinished    = "runner:finished"
 )

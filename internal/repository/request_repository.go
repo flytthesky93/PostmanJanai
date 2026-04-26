@@ -3,6 +3,8 @@ package repository
 import (
 	"PostmanJanai/ent"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
@@ -150,6 +152,10 @@ func (r *requestRepo) DeleteByID(ctx context.Context, id string) error {
 		_ = tx.Rollback()
 		return err
 	}
+	if err := deleteRequestRules(ctx, tx, uid); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
 	if err := tx.Request.DeleteOneID(uid).Exec(ctx); err != nil {
 		_ = tx.Rollback()
 		return err
@@ -165,6 +171,20 @@ func deleteRequestParts(ctx context.Context, tx *ent.Tx, requestID uuid.UUID) er
 		return err
 	}
 	if _, err := tx.RequestFormField.Delete().Where(requestformfield.RequestIDEQ(requestID)).Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+// deleteRequestRules removes Phase 8 capture + assertion rules. These are managed
+// independently of the request payload (own SaveCaptures / SaveAssertions APIs),
+// so callers should ONLY invoke this from a full request deletion path — never
+// from UpdateFull, which would silently wipe the user's rules.
+func deleteRequestRules(ctx context.Context, tx *ent.Tx, requestID uuid.UUID) error {
+	if _, err := tx.RequestCapture.Delete().Where(requestcapture.RequestIDEQ(requestID)).Exec(ctx); err != nil {
+		return err
+	}
+	if _, err := tx.RequestAssertion.Delete().Where(requestassertion.RequestIDEQ(requestID)).Exec(ctx); err != nil {
 		return err
 	}
 	return nil

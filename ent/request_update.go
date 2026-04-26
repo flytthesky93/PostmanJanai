@@ -7,6 +7,8 @@ import (
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
@@ -229,6 +231,36 @@ func (_u *RequestUpdate) AddHistories(v ...*History) *RequestUpdate {
 	return _u.AddHistoryIDs(ids...)
 }
 
+// AddRequestCaptureIDs adds the "request_captures" edge to the RequestCapture entity by IDs.
+func (_u *RequestUpdate) AddRequestCaptureIDs(ids ...uuid.UUID) *RequestUpdate {
+	_u.mutation.AddRequestCaptureIDs(ids...)
+	return _u
+}
+
+// AddRequestCaptures adds the "request_captures" edges to the RequestCapture entity.
+func (_u *RequestUpdate) AddRequestCaptures(v ...*RequestCapture) *RequestUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequestCaptureIDs(ids...)
+}
+
+// AddRequestAssertionIDs adds the "request_assertions" edge to the RequestAssertion entity by IDs.
+func (_u *RequestUpdate) AddRequestAssertionIDs(ids ...uuid.UUID) *RequestUpdate {
+	_u.mutation.AddRequestAssertionIDs(ids...)
+	return _u
+}
+
+// AddRequestAssertions adds the "request_assertions" edges to the RequestAssertion entity.
+func (_u *RequestUpdate) AddRequestAssertions(v ...*RequestAssertion) *RequestUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequestAssertionIDs(ids...)
+}
+
 // Mutation returns the RequestMutation object of the builder.
 func (_u *RequestUpdate) Mutation() *RequestMutation {
 	return _u.mutation
@@ -322,6 +354,48 @@ func (_u *RequestUpdate) RemoveHistories(v ...*History) *RequestUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveHistoryIDs(ids...)
+}
+
+// ClearRequestCaptures clears all "request_captures" edges to the RequestCapture entity.
+func (_u *RequestUpdate) ClearRequestCaptures() *RequestUpdate {
+	_u.mutation.ClearRequestCaptures()
+	return _u
+}
+
+// RemoveRequestCaptureIDs removes the "request_captures" edge to RequestCapture entities by IDs.
+func (_u *RequestUpdate) RemoveRequestCaptureIDs(ids ...uuid.UUID) *RequestUpdate {
+	_u.mutation.RemoveRequestCaptureIDs(ids...)
+	return _u
+}
+
+// RemoveRequestCaptures removes "request_captures" edges to RequestCapture entities.
+func (_u *RequestUpdate) RemoveRequestCaptures(v ...*RequestCapture) *RequestUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequestCaptureIDs(ids...)
+}
+
+// ClearRequestAssertions clears all "request_assertions" edges to the RequestAssertion entity.
+func (_u *RequestUpdate) ClearRequestAssertions() *RequestUpdate {
+	_u.mutation.ClearRequestAssertions()
+	return _u
+}
+
+// RemoveRequestAssertionIDs removes the "request_assertions" edge to RequestAssertion entities by IDs.
+func (_u *RequestUpdate) RemoveRequestAssertionIDs(ids ...uuid.UUID) *RequestUpdate {
+	_u.mutation.RemoveRequestAssertionIDs(ids...)
+	return _u
+}
+
+// RemoveRequestAssertions removes "request_assertions" edges to RequestAssertion entities.
+func (_u *RequestUpdate) RemoveRequestAssertions(v ...*RequestAssertion) *RequestUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequestAssertionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -634,6 +708,96 @@ func (_u *RequestUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.RequestCapturesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequestCapturesIDs(); len(nodes) > 0 && !_u.mutation.RequestCapturesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequestCapturesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequestAssertionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequestAssertionsIDs(); len(nodes) > 0 && !_u.mutation.RequestAssertionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequestAssertionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{request.Label}
@@ -849,6 +1013,36 @@ func (_u *RequestUpdateOne) AddHistories(v ...*History) *RequestUpdateOne {
 	return _u.AddHistoryIDs(ids...)
 }
 
+// AddRequestCaptureIDs adds the "request_captures" edge to the RequestCapture entity by IDs.
+func (_u *RequestUpdateOne) AddRequestCaptureIDs(ids ...uuid.UUID) *RequestUpdateOne {
+	_u.mutation.AddRequestCaptureIDs(ids...)
+	return _u
+}
+
+// AddRequestCaptures adds the "request_captures" edges to the RequestCapture entity.
+func (_u *RequestUpdateOne) AddRequestCaptures(v ...*RequestCapture) *RequestUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequestCaptureIDs(ids...)
+}
+
+// AddRequestAssertionIDs adds the "request_assertions" edge to the RequestAssertion entity by IDs.
+func (_u *RequestUpdateOne) AddRequestAssertionIDs(ids ...uuid.UUID) *RequestUpdateOne {
+	_u.mutation.AddRequestAssertionIDs(ids...)
+	return _u
+}
+
+// AddRequestAssertions adds the "request_assertions" edges to the RequestAssertion entity.
+func (_u *RequestUpdateOne) AddRequestAssertions(v ...*RequestAssertion) *RequestUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRequestAssertionIDs(ids...)
+}
+
 // Mutation returns the RequestMutation object of the builder.
 func (_u *RequestUpdateOne) Mutation() *RequestMutation {
 	return _u.mutation
@@ -942,6 +1136,48 @@ func (_u *RequestUpdateOne) RemoveHistories(v ...*History) *RequestUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveHistoryIDs(ids...)
+}
+
+// ClearRequestCaptures clears all "request_captures" edges to the RequestCapture entity.
+func (_u *RequestUpdateOne) ClearRequestCaptures() *RequestUpdateOne {
+	_u.mutation.ClearRequestCaptures()
+	return _u
+}
+
+// RemoveRequestCaptureIDs removes the "request_captures" edge to RequestCapture entities by IDs.
+func (_u *RequestUpdateOne) RemoveRequestCaptureIDs(ids ...uuid.UUID) *RequestUpdateOne {
+	_u.mutation.RemoveRequestCaptureIDs(ids...)
+	return _u
+}
+
+// RemoveRequestCaptures removes "request_captures" edges to RequestCapture entities.
+func (_u *RequestUpdateOne) RemoveRequestCaptures(v ...*RequestCapture) *RequestUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequestCaptureIDs(ids...)
+}
+
+// ClearRequestAssertions clears all "request_assertions" edges to the RequestAssertion entity.
+func (_u *RequestUpdateOne) ClearRequestAssertions() *RequestUpdateOne {
+	_u.mutation.ClearRequestAssertions()
+	return _u
+}
+
+// RemoveRequestAssertionIDs removes the "request_assertions" edge to RequestAssertion entities by IDs.
+func (_u *RequestUpdateOne) RemoveRequestAssertionIDs(ids ...uuid.UUID) *RequestUpdateOne {
+	_u.mutation.RemoveRequestAssertionIDs(ids...)
+	return _u
+}
+
+// RemoveRequestAssertions removes "request_assertions" edges to RequestAssertion entities.
+func (_u *RequestUpdateOne) RemoveRequestAssertions(v ...*RequestAssertion) *RequestUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRequestAssertionIDs(ids...)
 }
 
 // Where appends a list predicates to the RequestUpdate builder.
@@ -1277,6 +1513,96 @@ func (_u *RequestUpdateOne) sqlSave(ctx context.Context) (_node *Request, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequestCapturesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequestCapturesIDs(); len(nodes) > 0 && !_u.mutation.RequestCapturesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequestCapturesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RequestAssertionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRequestAssertionsIDs(); len(nodes) > 0 && !_u.mutation.RequestAssertionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RequestAssertionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

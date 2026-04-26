@@ -22,12 +22,20 @@ type Tx struct {
 	History *HistoryClient
 	// Request is the client for interacting with the Request builders.
 	Request *RequestClient
+	// RequestAssertion is the client for interacting with the RequestAssertion builders.
+	RequestAssertion *RequestAssertionClient
+	// RequestCapture is the client for interacting with the RequestCapture builders.
+	RequestCapture *RequestCaptureClient
 	// RequestFormField is the client for interacting with the RequestFormField builders.
 	RequestFormField *RequestFormFieldClient
 	// RequestHeader is the client for interacting with the RequestHeader builders.
 	RequestHeader *RequestHeaderClient
 	// RequestQueryParam is the client for interacting with the RequestQueryParam builders.
 	RequestQueryParam *RequestQueryParamClient
+	// RunnerRun is the client for interacting with the RunnerRun builders.
+	RunnerRun *RunnerRunClient
+	// RunnerRunRequest is the client for interacting with the RunnerRunRequest builders.
+	RunnerRunRequest *RunnerRunRequestClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
 	// TrustedCA is the client for interacting with the TrustedCA builders.
@@ -168,9 +176,13 @@ func (tx *Tx) init() {
 	tx.Folder = NewFolderClient(tx.config)
 	tx.History = NewHistoryClient(tx.config)
 	tx.Request = NewRequestClient(tx.config)
+	tx.RequestAssertion = NewRequestAssertionClient(tx.config)
+	tx.RequestCapture = NewRequestCaptureClient(tx.config)
 	tx.RequestFormField = NewRequestFormFieldClient(tx.config)
 	tx.RequestHeader = NewRequestHeaderClient(tx.config)
 	tx.RequestQueryParam = NewRequestQueryParamClient(tx.config)
+	tx.RunnerRun = NewRunnerRunClient(tx.config)
+	tx.RunnerRunRequest = NewRunnerRunRequestClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
 	tx.TrustedCA = NewTrustedCAClient(tx.config)
 }

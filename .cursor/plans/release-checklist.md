@@ -56,6 +56,15 @@ Nếu release này có thay đổi **Phase 7 (UX polish/productivity)** → thê
 - [ ] Duplicate request/folder và Copy as cURL hoạt động — xem `manual-test-plan.md` §**J. UX polish & productivity (Phase 7)**.
 - [ ] `npm run build` không còn warning chunk > 500 kB sau Vite code splitting.
 
+Nếu release này có thay đổi **Phase 8 (Collection Runner & Chaining)** → thêm tick nhanh:
+
+- [ ] DB mở từ bản v6 cũ → migrate v6→v7 chạy thành công, các bảng mới `request_captures` / `request_assertions` / `runner_runs` / `runner_run_requests` tồn tại; bảng cũ không bị đụng.
+- [ ] Tạo capture `$.token` → environment scope → request kế tiếp dùng `{{token}}` resolve đúng giá trị mới (chained).
+- [ ] Assertion `status eq 200` PASS hiện trong tab **Tests** của ResponsePanel; assertion FAIL hiển thị message rõ.
+- [ ] Mở **Runner** trên header (hoặc context menu folder → "Run folder…") → run xong total/passed/failed khớp; recent runs hiện đúng.
+- [ ] Stop-on-fail dừng đúng request lỗi; cancel run đang chạy hoạt động (status `cancelled`).
+- [ ] **Export JSON** + **Export Markdown** từ Runner modal mở Save dialog, lưu file đọc được — xem `manual-test-plan.md` §**K. Collection Runner & Chaining (Phase 8)**.
+
 ## 5. Artifacts & release notes
 
 - [ ] Binary + installer (nếu có) upload lên nơi lưu trữ nội bộ (Drive / S3 / Release draft).

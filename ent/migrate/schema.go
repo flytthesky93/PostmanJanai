@@ -169,6 +169,76 @@ var (
 			},
 		},
 	}
+	// RequestAssertionsColumns holds the columns for the "request_assertions" table.
+	RequestAssertionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "source", Type: field.TypeString},
+		{Name: "expression", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "operator", Type: field.TypeString},
+		{Name: "expected", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "request_id", Type: field.TypeUUID},
+	}
+	// RequestAssertionsTable holds the schema information for the "request_assertions" table.
+	RequestAssertionsTable = &schema.Table{
+		Name:       "request_assertions",
+		Columns:    RequestAssertionsColumns,
+		PrimaryKey: []*schema.Column{RequestAssertionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "request_assertions_requests_request_assertions",
+				Columns:    []*schema.Column{RequestAssertionsColumns[10]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "requestassertion_request_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{RequestAssertionsColumns[10], RequestAssertionsColumns[7]},
+			},
+		},
+	}
+	// RequestCapturesColumns holds the columns for the "request_captures" table.
+	RequestCapturesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "source", Type: field.TypeString},
+		{Name: "expression", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "target_scope", Type: field.TypeString, Default: "environment"},
+		{Name: "target_variable", Type: field.TypeString},
+		{Name: "enabled", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "request_id", Type: field.TypeUUID},
+	}
+	// RequestCapturesTable holds the schema information for the "request_captures" table.
+	RequestCapturesTable = &schema.Table{
+		Name:       "request_captures",
+		Columns:    RequestCapturesColumns,
+		PrimaryKey: []*schema.Column{RequestCapturesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "request_captures_requests_request_captures",
+				Columns:    []*schema.Column{RequestCapturesColumns[10]},
+				RefColumns: []*schema.Column{RequestsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "requestcapture_request_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{RequestCapturesColumns[10], RequestCapturesColumns[7]},
+			},
+		},
+	}
 	// RequestFormFieldsColumns holds the columns for the "request_form_fields" table.
 	RequestFormFieldsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -260,6 +330,80 @@ var (
 			},
 		},
 	}
+	// RunnerRunsColumns holds the columns for the "runner_runs" table.
+	RunnerRunsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "folder_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "environment_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "folder_name", Type: field.TypeString, Default: ""},
+		{Name: "environment_name", Type: field.TypeString, Default: ""},
+		{Name: "status", Type: field.TypeString, Default: "running"},
+		{Name: "total_count", Type: field.TypeInt, Default: 0},
+		{Name: "passed_count", Type: field.TypeInt, Default: 0},
+		{Name: "failed_count", Type: field.TypeInt, Default: 0},
+		{Name: "error_count", Type: field.TypeInt, Default: 0},
+		{Name: "duration_ms", Type: field.TypeInt, Default: 0},
+		{Name: "notes", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "started_at", Type: field.TypeTime},
+		{Name: "finished_at", Type: field.TypeTime, Nullable: true},
+	}
+	// RunnerRunsTable holds the schema information for the "runner_runs" table.
+	RunnerRunsTable = &schema.Table{
+		Name:       "runner_runs",
+		Columns:    RunnerRunsColumns,
+		PrimaryKey: []*schema.Column{RunnerRunsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "runnerrun_started_at",
+				Unique:  false,
+				Columns: []*schema.Column{RunnerRunsColumns[12]},
+			},
+		},
+	}
+	// RunnerRunRequestsColumns holds the columns for the "runner_run_requests" table.
+	RunnerRunRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "request_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "request_name", Type: field.TypeString, Default: ""},
+		{Name: "method", Type: field.TypeString, Default: "GET"},
+		{Name: "url", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "status", Type: field.TypeString, Default: "passed"},
+		{Name: "status_code", Type: field.TypeInt, Default: 0},
+		{Name: "duration_ms", Type: field.TypeInt, Default: 0},
+		{Name: "response_size_bytes", Type: field.TypeInt, Default: 0},
+		{Name: "error_message", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "assertions_json", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "captures_json", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "request_headers_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "response_headers_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "request_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "response_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "body_truncated", Type: field.TypeBool, Default: false},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "run_id", Type: field.TypeUUID},
+	}
+	// RunnerRunRequestsTable holds the schema information for the "runner_run_requests" table.
+	RunnerRunRequestsTable = &schema.Table{
+		Name:       "runner_run_requests",
+		Columns:    RunnerRunRequestsColumns,
+		PrimaryKey: []*schema.Column{RunnerRunRequestsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "runner_run_requests_runner_runs_requests",
+				Columns:    []*schema.Column{RunnerRunRequestsColumns[19]},
+				RefColumns: []*schema.Column{RunnerRunsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "runnerrunrequest_run_id_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{RunnerRunRequestsColumns[19], RunnerRunRequestsColumns[17]},
+			},
+		},
+	}
 	// SettingsColumns holds the columns for the "settings" table.
 	SettingsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -301,9 +445,13 @@ var (
 		FoldersTable,
 		HistoriesTable,
 		RequestsTable,
+		RequestAssertionsTable,
+		RequestCapturesTable,
 		RequestFormFieldsTable,
 		RequestHeadersTable,
 		RequestQueryParamsTable,
+		RunnerRunsTable,
+		RunnerRunRequestsTable,
 		SettingsTable,
 		TrustedCasTable,
 	}
@@ -315,7 +463,10 @@ func init() {
 	HistoriesTable.ForeignKeys[0].RefTable = FoldersTable
 	HistoriesTable.ForeignKeys[1].RefTable = RequestsTable
 	RequestsTable.ForeignKeys[0].RefTable = FoldersTable
+	RequestAssertionsTable.ForeignKeys[0].RefTable = RequestsTable
+	RequestCapturesTable.ForeignKeys[0].RefTable = RequestsTable
 	RequestFormFieldsTable.ForeignKeys[0].RefTable = RequestsTable
 	RequestHeadersTable.ForeignKeys[0].RefTable = RequestsTable
 	RequestQueryParamsTable.ForeignKeys[0].RefTable = RequestsTable
+	RunnerRunRequestsTable.ForeignKeys[0].RefTable = RunnerRunsTable
 }

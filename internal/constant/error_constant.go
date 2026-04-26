@@ -30,6 +30,13 @@ var (
 	ErrEnvironmentNameConflict = apperror.ErrDetail{Code: "ENV_602", Message: "An environment with this name already exists"}
 	ErrEnvironmentDuplicateVariableKey = apperror.ErrDetail{Code: "ENV_603", Message: "Duplicate variable key in the same environment"}
 
+	// Runner / capture / assertion (Phase 8)
+	ErrRunnerNotFound        = apperror.ErrDetail{Code: "RUN_801", Message: "Runner run not found"}
+	ErrRunnerInvalidScope    = apperror.ErrDetail{Code: "RUN_802", Message: "Invalid capture target scope"}
+	ErrRunnerInvalidSource   = apperror.ErrDetail{Code: "RUN_803", Message: "Invalid capture/assertion source"}
+	ErrRunnerInvalidOperator = apperror.ErrDetail{Code: "RUN_804", Message: "Invalid assertion operator"}
+	ErrRunnerEmpty           = apperror.ErrDetail{Code: "RUN_805", Message: "Folder has no saved requests to run"}
+
 	// Import collection
 	ErrImportFileOpen       = apperror.ErrDetail{Code: "IMP_701", Message: "Could not open the selected file"}
 	ErrImportFileTooLarge   = apperror.ErrDetail{Code: "IMP_702", Message: "Collection file exceeds the maximum allowed size"}

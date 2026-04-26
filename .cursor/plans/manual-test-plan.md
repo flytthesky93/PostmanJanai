@@ -180,13 +180,43 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
    - Với request active có env/auth/body, bấm **Copy cURL** rồi paste vào terminal.
    - **Expect**: cURL chạy tương đương request trong app; console báo copy thành công.
 
-### K. Migration & backup
+### K. Collection Runner & Chaining (Phase 8)
+
+> Tiền đề: env active có `base_url` trỏ tới 1 server thật (httpbin.org) hoặc mock cục bộ; tạo folder `Phase8` với 2 saved request: `01 Login` (POST `{{base_url}}/post`, body trả `{"token":"<x>"}` qua field) và `02 Me` (GET `{{base_url}}/headers` dùng bearer `{{TOKEN}}`).
+
+1. **Capture rule (single Send)**
+   - Trên `01 Login` → tab **Captures** → thêm: name `token`, source `json_body`, expression `$.json.token` (hoặc field tương ứng), target scope `environment`, target var `TOKEN`, enabled. Save.
+   - Send → tab **Tests** ở ResponsePanel hiện capture với value đúng; mở Environments → biến `TOKEN` đã được ghi vào env active.
+2. **Assertion rule (single Send)**
+   - Trên `01 Login` → tab **Tests** (RequestPanel) → assertion `status eq 200`. Save → Send.
+   - **Expect**: ResponsePanel tab **Tests** hiển thị `1/1` PASS, summary pill xanh.
+   - Đổi assertion thành `status eq 999` → Send → hiển thị `0/1` FAIL với message rõ.
+3. **Chaining qua Runner**
+   - Trên `02 Me` → header `Authorization: Bearer {{TOKEN}}` (hoặc Bearer auth = `{{TOKEN}}`).
+   - Header App → bấm **Runner** (hoặc context menu folder `Phase8` → **Run folder…**) → chọn env active → Run.
+   - **Expect**: progress stream hiển thị từng request done theo thứ tự; tổng `2 passed / 0 failed`; request `02 Me` thấy header `Authorization: Bearer <giá trị token vừa capture>`.
+4. **Stop on fail + Cancel**
+   - Bật toggle **Stop on fail** + thêm 1 request lỗi (URL sai) ở giữa danh sách → Run → dừng đúng request lỗi, status run = `failed`.
+   - Run lại folder lớn (≥ 5 request) → bấm **Cancel** giữa chừng → run dừng, status = `cancelled`, recent runs ghi nhận đúng.
+5. **Recent runs + Detail**
+   - Mở section **Recent runs** trong Runner modal → thấy ≥ 3 entry mới nhất (tên folder, env, totals, duration). Click 1 entry → load lại bảng kết quả.
+   - Xoá 1 entry → biến mất khỏi list.
+6. **Export report**
+   - Sau 1 lần run xong → bấm **Export JSON** → Save dialog mở, save → file `.json` hợp lệ (mở thấy `passed_count`, `requests[]`).
+   - Bấm **Export Markdown** → file `.md` đọc được, có bảng totals + section per-request, escape pipe trong URL không phá table.
+7. **Migration v6 → v7**
+   - Mở app với DB v6 (backup từ build trước Phase 8) → app khởi động không lỗi, `<appDir>/backups/` có file backup, các bảng cũ giữ nguyên dữ liệu, các bảng mới (`request_captures`/`request_assertions`/`runner_runs`/`runner_run_requests`) tồn tại.
+8. **Cascade delete**
+   - Tạo capture + assertion cho 1 request → xoá request đó → mở DB browser (hoặc tạo lại request cùng id không khả thi vì UUID mới) → đảm bảo các row capture/assertion đã được xoá, không còn orphan.
+   - Xoá nguyên folder chứa request có rules → tương tự, không còn orphan.
+
+### L. Migration & backup
 
 1. Từ DB v4 (lấy từ backup bản release trước) → mở app → `<appDir>/backups/` có file backup mới, app chạy bình thường, folders có `sort_order` backfill đúng (alphabetical trong từng parent).
 2. Từ DB đang ở version target → mở app → không tạo backup mới (tránh spam).
 3. DB bị corrupt (cố tình ghi byte rác): app không panic — phải show error message thân thiện hoặc ít nhất log có stack trace rõ ràng (known limitation: hiện tại có thể fatal; ghi chú vào release note nếu vẫn xảy ra).
 
-### L. Crash / stability
+### M. Crash / stability
 
 1. Chạy app nhiều giờ (> 2h) với 1 vài request định kỳ → memory không leak quá mức (Task Manager: < 500MB).
 2. Đóng app đột ngột (Task Manager kill) → lần mở sau vẫn bình thường.

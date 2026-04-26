@@ -10,7 +10,7 @@
 > **Phase 6–9 (snapshot 2026-04-21):**
 > - **Phase 6 — Networking & Security:** **Done (2026-04-21).** proxy (`none/system/manual` + `NO_PROXY`) + custom CA pool (`trusted_cas` PEM trong DB) + `insecure_skip_verify` (per-request, lưu trên `requests`) + secret env var (`kind` + AES-GCM `enc:v1:` + redact history/snippet) + Wails `SettingsHandler` + tab **Settings**. DB bump **v5 → v6**.
 > - **Phase 7 — UX Polish:** **Done (2026-04-26).** Dashboard khi không còn tab + cho đóng tab cuối, in-app Help `?`, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting. **Không** bump DB.
-> - **Phase 8 — Runner & Chaining:** capture rules (JSONPath/regex → env var) + assertion rules (status/header/json-path) + Collection Runner theo folder + env. DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
+> - **Phase 8 — Runner & Chaining:** **Done (2026-04-26).** capture rules (JSONPath/regex/header/status → env hoặc memory) + assertion rules (status/header/json-path/duration/size/regex, op eq/neq/contains/exists/...) + Collection Runner theo folder + env (persist run + per-request rows + Wails event stream + export JSON/Markdown). DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
 > - **Phase 9 — Scripting (bắt buộc):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v7 → v8** (`requests.pre_request_script`, `requests.post_response_script`).
 >
 > Xem scope chi tiết + "Done when" trong từng section `Phase 6/7/8/9` của `roadmap.md`.
@@ -189,6 +189,72 @@ Bảng nhỏ dạng “feature flags / config” cho proxy (và có thể mở r
 | `enabled` | BOOLEAN | NOT NULL, default true |
 | `created_at` | DATETIME | NOT NULL |
 
+### `request_captures` (Phase 8 — post-response capture rules)
+
+Mỗi rule extract một giá trị từ response của request và ghi vào env hoặc memory bag.
+
+| Cột | Kiểu | Ràng buộc |
+|-----|------|-----------|
+| `id` | UUID | PK |
+| `request_id` | UUID | NOT NULL, FK → `requests.id` CASCADE |
+| `name` | TEXT | NOT NULL — nhãn hiển thị, cũng dùng để debug |
+| `source` | TEXT | NOT NULL — `json_body` \| `header` \| `status` \| `regex_body` |
+| `expression` | TEXT | NOT NULL, default `''` — JSONPath / header name / regex; rỗng cho `status` |
+| `target_scope` | TEXT | NOT NULL — `environment` (ghi env active qua `UpsertActiveVariable`) \| `memory` (chỉ trong run hiện tại) |
+| `target_variable` | TEXT | NOT NULL — tên biến đích |
+| `enabled` | BOOLEAN | NOT NULL, default true |
+| `sort_order` | INTEGER | NOT NULL, default 0 |
+| `created_at` | DATETIME | NOT NULL |
+| `updated_at` | DATETIME | NOT NULL |
+
+### `request_assertions` (Phase 8 — post-response assertion rules)
+
+| Cột | Kiểu | Ràng buộc |
+|-----|------|-----------|
+| `id` | UUID | PK |
+| `request_id` | UUID | NOT NULL, FK → `requests.id` CASCADE |
+| `name` | TEXT | NOT NULL |
+| `source` | TEXT | NOT NULL — `status` \| `header` \| `json_body` \| `regex_body` \| `duration_ms` \| `response_size_bytes` |
+| `expression` | TEXT | NOT NULL, default `''` — JSONPath / header name / regex |
+| `operator` | TEXT | NOT NULL — `eq` \| `neq` \| `contains` \| `not_contains` \| `gt` \| `lt` \| `gte` \| `lte` \| `regex` \| `exists` \| `not_exists` |
+| `expected` | TEXT | NOT NULL, default `''` |
+| `enabled` | BOOLEAN | NOT NULL, default true |
+| `sort_order` | INTEGER | NOT NULL, default 0 |
+| `created_at` | DATETIME | NOT NULL |
+| `updated_at` | DATETIME | NOT NULL |
+
+### `runner_runs` (Phase 8 — header cho mỗi lần chạy folder)
+
+| Cột | Kiểu | Ràng buộc |
+|-----|------|-----------|
+| `id` | UUID | PK |
+| `folder_id` | UUID | NULL — folder gốc của lần run (NULL nếu folder bị xoá sau đó) |
+| `folder_name` | TEXT | NOT NULL — snapshot tên folder lúc chạy (giữ report đọc được dù folder bị đổi tên) |
+| `environment_id` | UUID | NULL |
+| `environment_name` | TEXT | NOT NULL, default `''` |
+| `status` | TEXT | NOT NULL — `running` \| `completed` \| `failed` \| `cancelled` |
+| `total_count` / `passed_count` / `failed_count` / `error_count` | INTEGER | NOT NULL, default 0 |
+| `duration_ms` | INTEGER | NOT NULL, default 0 |
+| `notes` | TEXT | NOT NULL, default `''` — text user nhập ở Runner modal |
+| `started_at` | DATETIME | NOT NULL |
+| `finished_at` | DATETIME | NULL |
+
+### `runner_run_requests` (Phase 8 — per-request kết quả trong run)
+
+| Cột | Kiểu | Ràng buộc |
+|-----|------|-----------|
+| `id` | UUID | PK |
+| `run_id` | UUID | NOT NULL, FK → `runner_runs.id` CASCADE |
+| `request_id` | UUID | NULL — saved request gốc (NULL nếu bị xoá) |
+| `request_name` / `method` / `url` | TEXT | NOT NULL |
+| `status` | TEXT | NOT NULL — `passed` \| `failed` \| `errored` \| `skipped` |
+| `status_code` / `duration_ms` / `response_size_bytes` | INTEGER | NOT NULL, default 0 |
+| `error_message` | TEXT | NOT NULL, default `''` |
+| `assertions_json` | TEXT | NOT NULL, default `''` — danh sách `AssertionResult` đã JSON-encode |
+| `captures_json` | TEXT | NOT NULL, default `''` — danh sách `CaptureResult` đã JSON-encode |
+| `sort_order` | INTEGER | NOT NULL, default 0 |
+| `created_at` | DATETIME | NOT NULL |
+
 ---
 
 ## Diễn giải ERD (tóm tắt)
@@ -205,13 +271,17 @@ erDiagram
   environments ||--o{ environment_variables : has
   settings
   trusted_cas
+  requests ||--o{ request_captures : rules
+  requests ||--o{ request_assertions : rules
+  folders ||--o{ runner_runs : ranOver
+  runner_runs ||--o{ runner_run_requests : rows
 ```
 
 ---
 
 ## Migration & phiên bản DB
 
-- **`PRAGMA user_version` hiện tại (code):** **`6`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
+- **`PRAGMA user_version` hiện tại (code):** **`7`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
 - **Luồng migrate:** backup DB (nếu non-empty) → `MigrateDataBetweenVersions` → `ent.Client.Schema.Create` → set `user_version`.
 - **Các bước đã định nghĩa:**
   - `0 → 1`: placeholder.
@@ -220,6 +290,7 @@ erDiagram
   - `3 → 4`: additive (Ent `Schema.Create`) — ví dụ `requests.auth_json`.
   - `4 → 5`: `ALTER TABLE folders ADD COLUMN sort_order …` + backfill theo tên trong `internal/dbmanage/data_migrate.go` (`backfillFolderSortOrder`).
   - `5 → 6`: additive — `CREATE TABLE settings`, `CREATE TABLE trusted_cas`, `ALTER TABLE environment_variables ADD COLUMN kind …`, `ALTER TABLE requests ADD COLUMN insecure_skip_verify …` (chi tiết trong `internal/dbmanage/data_migrate.go`).
+  - `6 → 7`: **additive** — `CREATE TABLE request_captures`, `CREATE TABLE request_assertions`, `CREATE TABLE runner_runs`, `CREATE TABLE runner_run_requests` (Phase 8). Tất cả DDL do `ent.Schema.Create` đảm nhiệm; bước migrate chỉ bump `user_version` (không destructive, không backfill). Có test idempotent (`TestMigrate_6to7IsAdditive`) đảm bảo các bảng cũ không bị đụng.
 - Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm — **backlog**).
 
 ---
@@ -227,7 +298,7 @@ erDiagram
 ## Trạng thái (schema)
 
 - **Schema Ent** khớp các bảng trên (folder, request, history, environment, …); **không** còn entity `workspace` / `collection` trong `ent/schema`.
-- **Wails:** `FolderHandler` (gồm `MoveFolder`, **`ReorderFolder`**), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, **`SettingsHandler` (Phase 6)**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`** — binding trong `frontend/wailsjs/`.
+- **Wails:** `FolderHandler` (gồm `MoveFolder`, **`ReorderFolder`**), `SavedRequestHandler` (gồm `MoveRequest`), `HTTPHandler`, `HistoryHandler`, **`EnvironmentHandler`**, **`SettingsHandler` (Phase 6)**, `ImportHandler`, `SearchHandler`, **`ExportHandler`**, **`SnippetHandler`**, **`RuleHandler` (Phase 8 — capture/assertion CRUD)**, **`RunnerHandler` (Phase 8 — `RunFolder`/`CancelRun`/`GetRun`/`ListRecentRuns`/`DeleteRun`/`ExportRunReport`)** — binding trong `frontend/wailsjs/`.
 
 ---
 
@@ -245,6 +316,21 @@ erDiagram
 - **Phase 5** **đã đóng** (2026-04-21) — quality gate baseline (tests + smoke E2E Go + CI + release/manual docs).
 - **Phase 6** **đã đóng** (2026-04-21) — networking/security: proxy + custom CA + per-request insecure TLS + secret env + redact + Settings UI — **DB v6**.
 - **Phase 7** **đã đóng** (2026-04-26) — UX polish/productivity: Dashboard, in-app Help `?`, Ctrl+K palette, variable preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting hết warning chunk > 500 kB — **không bump DB**.
+- **Phase 8** **đã đóng** (2026-04-26) — Collection Runner & Chaining: capture/assertion engine, runner orchestrator, persist runs, Wails event stream, UI Captures/Tests + Runner modal + ResponsePanel summary, export JSON/Markdown — **DB v7**.
+
+### Đã xong (Phase 8 — Collection Runner & Chaining, 2026-04-26)
+
+- [x] **DB v7** — `request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests` (Ent schema + bump `DBSchemaUserVersion` + migrate v6→v7 additive + test idempotent + `TestMigrate_6to7IsAdditive`).
+- [x] **Capture engine** — `internal/service/jsonpath.go`, `capture_engine.go` (`json_body` / `header` / `status` / `regex_body`), unit test `jsonpath_test.go` + `capture_engine_test.go`.
+- [x] **Assertion engine** — `assertion_engine.go` (sources `status`/`header`/`json_body`/`regex_body`/`duration_ms`/`response_size_bytes`, ops `eq`/`neq`/`contains`/`not_contains`/`gt`/`lt`/`gte`/`lte`/`regex`/`exists`/`not_exists`), unit test `assertion_engine_test.go`.
+- [x] **Repositories** — `RequestRuleRepository` (delete-then-create cho captures/assertions, cascade khi xoá request/folder) + `RunnerRepository` (`StartRun` / `AppendRequest` / `UpdateProgress` / `FinishRun` / `GetDetail` / `ListRecent` / `DeleteByID`); test `request_rule_repository_test.go`.
+- [x] **HTTP execute integration** — `HTTPHandler.Execute` chạy capture + assertion sau response cho saved request, `HTTPExecuteResult` thêm `Captures` + `Assertions`, captures scope=environment ghi qua `EnvironmentRepository.UpsertActiveVariable`.
+- [x] **RunnerUsecase** — `RunFolder` orchestrate (env active map + memory bag chaining; `StopOnFail`; status `completed`/`failed`/`cancelled`); persist run + per-request rows; emit Wails events `runner:started` / `runner:request` / `runner:finished`; test `runner_usecase_test.go`.
+- [x] **Wails handlers** — `RuleHandler` (CRUD captures/assertions) + `RunnerHandler` (`RunFolder` async + cancel; `GetRun` / `ListRecentRuns` / `DeleteRun` / `ExportRunReport` JSON+MD via Save dialog) + bindings regenerate.
+- [x] **Frontend** — `RequestRulesEditor.vue` (mode captures/assertions trong tab **Captures** + **Tests** trên RequestPanel khi đã save); `ResponsePanel.vue` thêm tab **Tests** + summary pills; `RunnerModal.vue` (config form, live progress, recent runs, cancel, export JSON/Markdown); context menu folder “Run folder…” trong `FolderTreeNode` → `Sidebar` → `App.vue` mở Runner; nút **Runner** trên header App.
+- [x] **Report service** — `internal/service/runner_report.go` (`MarshalRunnerRunDetailJSON` + `MarshalRunnerRunDetailMarkdown` truncate 200/600 ký tự, escape pipe cho cell Markdown), test `runner_report_test.go`.
+- [x] **Smoke E2E** — `internal/e2e/phase8_runner_smoke_test.go`: capture `$.token` → env active → request kế tiếp gửi `Authorization: Bearer tkn-42`, assertion 2xx + JSON contains, kiểm tra event order `started → request × N → finished`, JSON/Markdown report.
+- [x] **`go test ./... -count=1`** xanh (tất cả layer).
 
 ### Đã xong (Phase 6 — networking & security, 2026-04-21)
 

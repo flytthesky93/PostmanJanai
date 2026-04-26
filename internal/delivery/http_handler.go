@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"PostmanJanai/internal/constant"
 	"PostmanJanai/internal/entity"
 	"PostmanJanai/internal/pkg/logger"
 	"PostmanJanai/internal/repository"
@@ -14,6 +15,71 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+func savedRequestID(in *entity.HTTPExecuteInput) string {
+	if in == nil || in.RequestID == nil {
+		return ""
+	}
+	return strings.TrimSpace(*in.RequestID)
+}
+
+// applyCaptureAndAssertions runs Phase 8 capture + assertion rules attached to the
+// saved request (when one is identified) against the response and writes capture
+// outcomes into the active environment for environment-scoped rules. Failures
+// degrade gracefully — they're surfaced via the returned result, never propagated.
+func (h *HTTPHandler) applyCaptureAndAssertions(ctx context.Context, requestID string, res *entity.HTTPExecuteResult) {
+	if h.rules == nil || res == nil || strings.TrimSpace(requestID) == "" {
+		return
+	}
+	if res.ErrorMessage != "" {
+		return
+	}
+	captureRules, cerr := h.rules.ListCaptures(ctx, requestID)
+	if cerr != nil {
+		logger.L().InfoContext(ctx, "list captures failed", "error", cerr)
+	}
+	assertionRules, aerr := h.rules.ListAssertions(ctx, requestID)
+	if aerr != nil {
+		logger.L().InfoContext(ctx, "list assertions failed", "error", aerr)
+	}
+	if len(captureRules) == 0 && len(assertionRules) == 0 {
+		return
+	}
+	capCtx := service.NewCaptureContext(res.StatusCode, res.ResponseHeaders, res.ResponseBody)
+	if len(captureRules) > 0 {
+		captures := service.RunCaptureRules(capCtx, captureRules)
+		for i := range captures {
+			c := &captures[i]
+			if !c.Captured {
+				continue
+			}
+			scope := strings.TrimSpace(c.TargetScope)
+			if scope == "" {
+				scope = constant.CaptureScopeEnvironment
+			}
+			if scope != constant.CaptureScopeEnvironment {
+				continue
+			}
+			if h.env == nil {
+				c.ErrorMessage = "no environment repository configured"
+				continue
+			}
+			ok, err := h.env.UpsertActiveVariable(ctx, c.TargetVariable, c.Value)
+			if err != nil {
+				c.ErrorMessage = err.Error()
+				continue
+			}
+			if !ok {
+				c.ErrorMessage = "no active environment to receive capture"
+			}
+		}
+		res.Captures = captures
+	}
+	if len(assertionRules) > 0 {
+		assertCtx := service.AssertionContextFromCapture(capCtx, res.DurationMs, res.ResponseSizeBytes)
+		res.Assertions = service.RunAssertionRules(assertCtx, assertionRules)
+	}
+}
+
 // HTTPHandler is the Wails binding for HTTP request execution (Phase 1).
 type HTTPHandler struct {
 	ctx      context.Context
@@ -21,10 +87,17 @@ type HTTPHandler struct {
 	history  repository.HistoryRepository
 	env      repository.EnvironmentRepository
 	saved    repository.RequestRepository
+	rules    repository.RequestRuleRepository
 }
 
-func NewHTTPHandler(ex *service.HTTPExecutor, hist repository.HistoryRepository, env repository.EnvironmentRepository, saved repository.RequestRepository) *HTTPHandler {
-	return &HTTPHandler{executor: ex, history: hist, env: env, saved: saved}
+func NewHTTPHandler(
+	ex *service.HTTPExecutor,
+	hist repository.HistoryRepository,
+	env repository.EnvironmentRepository,
+	saved repository.RequestRepository,
+	rules repository.RequestRuleRepository,
+) *HTTPHandler {
+	return &HTTPHandler{executor: ex, history: hist, env: env, saved: saved, rules: rules}
 }
 
 func (h *HTTPHandler) SetContext(ctx context.Context) {
@@ -73,6 +146,10 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 		logger.L().InfoContext(ctx, "HTTP execute finished with transport error", "error", res.ErrorMessage)
 	} else {
 		logger.L().InfoContext(ctx, "HTTP execute success", "status", res.StatusCode, "duration_ms", res.DurationMs)
+	}
+
+	if requestID := savedRequestID(in); requestID != "" {
+		h.applyCaptureAndAssertions(ctx, requestID, res)
 	}
 	secrets := []string{}
 	if h.env != nil {

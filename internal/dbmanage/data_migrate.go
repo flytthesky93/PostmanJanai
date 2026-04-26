@@ -50,9 +50,45 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 			return err
 		}
 		return nil
+	case 6:
+		// → 7: Phase 8 — Collection Runner & Chaining.
+		// All deltas are additive new tables (request_captures, request_assertions,
+		// runner_runs, runner_run_requests). Ent's Schema.Create handles their creation
+		// after this migration step returns; no destructive SQL is required.
+		return nil
+	case 7:
+		// → 8: Phase 8.1 — persist resolved request snapshot + response payload
+		// per runner request so users can inspect what was actually sent and
+		// received without re-running the request. Additive columns on
+		// runner_run_requests; safe to run on existing databases.
+		alters := []string{
+			`ALTER TABLE runner_run_requests ADD COLUMN request_headers_json TEXT`,
+			`ALTER TABLE runner_run_requests ADD COLUMN response_headers_json TEXT`,
+			`ALTER TABLE runner_run_requests ADD COLUMN request_body TEXT`,
+			`ALTER TABLE runner_run_requests ADD COLUMN response_body TEXT`,
+			`ALTER TABLE runner_run_requests ADD COLUMN body_truncated INTEGER NOT NULL DEFAULT 0`,
+		}
+		for _, q := range alters {
+			if _, err := db.Exec(q); err != nil {
+				// SQLite doesn't ship `IF NOT EXISTS` for ADD COLUMN until 3.35; treat
+				// "duplicate column" errors as a no-op so re-running the migration is safe.
+				if !isDuplicateColumnErr(err) {
+					return err
+				}
+			}
+		}
+		return nil
 	default:
 		return nil
 	}
+}
+
+func isDuplicateColumnErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate column") || strings.Contains(msg, "already exists")
 }
 
 type folderSortRow struct {

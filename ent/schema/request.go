@@ -44,6 +44,8 @@ func (Request) Edges() []ent.Edge {
 		edge.To("request_query_params", RequestQueryParam.Type),
 		edge.To("request_form_fields", RequestFormField.Type),
 		edge.To("histories", History.Type),
+		edge.To("request_captures", RequestCapture.Type),
+		edge.To("request_assertions", RequestAssertion.Type),
 	}
 }
 

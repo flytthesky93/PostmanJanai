@@ -5,6 +5,8 @@ import (
 	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
@@ -228,6 +230,15 @@ func (r *folderRepo) DeleteByID(ctx context.Context, id string) error {
 			return err
 		}
 		if _, err := tx.RequestFormField.Delete().Where(requestformfield.RequestIDIn(requestIDs...)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		// Phase 8 — capture + assertion rules cascade with the owning request.
+		if _, err := tx.RequestCapture.Delete().Where(requestcapture.RequestIDIn(requestIDs...)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if _, err := tx.RequestAssertion.Delete().Where(requestassertion.RequestIDIn(requestIDs...)).Exec(ctx); err != nil {
 			_ = tx.Rollback()
 			return err
 		}

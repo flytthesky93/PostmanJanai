@@ -8,9 +8,13 @@ import (
 	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
+	"PostmanJanai/ent/runnerrun"
+	"PostmanJanai/ent/runnerrunrequest"
 	"PostmanJanai/ent/setting"
 	"PostmanJanai/ent/trustedca"
 	"context"
@@ -87,9 +91,13 @@ func checkColumn(t, c string) error {
 			folder.Table:              folder.ValidColumn,
 			history.Table:             history.ValidColumn,
 			request.Table:             request.ValidColumn,
+			requestassertion.Table:    requestassertion.ValidColumn,
+			requestcapture.Table:      requestcapture.ValidColumn,
 			requestformfield.Table:    requestformfield.ValidColumn,
 			requestheader.Table:       requestheader.ValidColumn,
 			requestqueryparam.Table:   requestqueryparam.ValidColumn,
+			runnerrun.Table:           runnerrun.ValidColumn,
+			runnerrunrequest.Table:    runnerrunrequest.ValidColumn,
 			setting.Table:             setting.ValidColumn,
 			trustedca.Table:           trustedca.ValidColumn,
 		})

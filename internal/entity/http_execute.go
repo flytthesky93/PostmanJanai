@@ -68,6 +68,10 @@ type HTTPExecuteResult struct {
 	// FinalURL is the URL after merging query params (scheme + host + path + query).
 	FinalURL string `json:"final_url,omitempty"`
 
+	// Phase 8 — Post-response capture + assertion outcomes (saved request only).
+	Captures   []CaptureResult   `json:"captures,omitempty"`
+	Assertions []AssertionResult `json:"assertions,omitempty"`
+
 	// Snapshots for persisting history (not serialized to the frontend).
 	RequestHeadersSnapshot []KeyValue `json:"-"`
 	RequestBodySnapshot    string     `json:"-"`

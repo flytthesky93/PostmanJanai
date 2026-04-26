@@ -30,7 +30,8 @@ const emit = defineEmits([
   'environment-deleted',
   'console',
   'apply-curl-import',
-  'saved-request'
+  'saved-request',
+  'run-folder'
 ])
 
 /** Đồng bộ UI sau khi tạo folder/request trong folder con: instance đúng `folderId` sẽ gọi load() */
@@ -433,6 +434,62 @@ const menuTargetWs = computed(() => {
   return rootFolderList.value.find((w) => w.id === id) ?? null
 })
 
+/**
+ * Run-folder eligibility for the currently-open root menu. Mirrors the same
+ * rule used in `FolderTreeNode`: a folder must contain only requests (no
+ * sub-folders) and have at least one request to be eligible for the runner.
+ */
+const rootRunEligibility = ref({
+  folderId: /** @type {string|null} */(null),
+  loading: false,
+  hasSubfolders: false,
+  requestCount: 0
+})
+
+async function checkRootRunEligibility(folderId) {
+  if (!folderId) return
+  rootRunEligibility.value = { folderId, loading: true, hasSubfolders: false, requestCount: 0 }
+  try {
+    const [subs, reqs] = await Promise.all([
+      FolderAPI.ListChildFolders(folderId),
+      SavedRequestAPI.ListByFolder(folderId)
+    ])
+    if (rootRunEligibility.value.folderId !== folderId) return
+    rootRunEligibility.value = {
+      folderId,
+      loading: false,
+      hasSubfolders: Array.isArray(subs) && subs.length > 0,
+      requestCount: Array.isArray(reqs) ? reqs.length : 0
+    }
+  } catch {
+    if (rootRunEligibility.value.folderId !== folderId) return
+    rootRunEligibility.value = { folderId, loading: false, hasSubfolders: false, requestCount: 0 }
+  }
+}
+
+const rootRunEligibilityForMenuTarget = computed(() => {
+  const target = menuTargetWs.value
+  if (!target) return { canRun: false, loading: false, reason: '' }
+  const e = rootRunEligibility.value
+  if (e.folderId !== target.id) return { canRun: false, loading: true, reason: 'Checking folder contents…' }
+  if (e.loading) return { canRun: false, loading: true, reason: 'Checking folder contents…' }
+  if (e.hasSubfolders) {
+    return {
+      canRun: false,
+      loading: false,
+      reason: 'Only folders that contain requests directly (no sub-folders) can be run.'
+    }
+  }
+  if (e.requestCount === 0) {
+    return {
+      canRun: false,
+      loading: false,
+      reason: 'Folder is empty — add at least one request to run it.'
+    }
+  }
+  return { canRun: true, loading: false, reason: '' }
+})
+
 const closeWorkspaceMenu = () => {
   menuOpenForId.value = null
 }
@@ -445,6 +502,7 @@ const toggleWorkspaceMenu = (ws, event) => {
     return
   }
   menuOpenForId.value = ws.id
+  checkRootRunEligibility(ws.id)
   const el = event?.currentTarget
   if (el && typeof el.getBoundingClientRect === 'function') {
     const r = el.getBoundingClientRect()
@@ -477,6 +535,13 @@ const onExportPostmanFromMenu = async (ws) => {
     console.error('[Export] Postman v2.1 failed:', error)
     showToast('error', `Export failed: ${error?.message || error}`)
   }
+}
+
+const onRunFolderFromMenu = (ws) => {
+  if (!ws?.id) return
+  if (!rootRunEligibilityForMenuTarget.value.canRun) return
+  closeWorkspaceMenu()
+  emit('run-folder', ws.id)
 }
 
 const onDuplicateRootFromMenu = async (ws) => {
@@ -1512,6 +1577,7 @@ defineExpose({
                     @console="(msg) => emit('console', msg)"
                     @saved-request="emit('saved-request')"
                     @tree-changed="onFolderTreeDndRefresh"
+                    @run-folder="(id) => emit('run-folder', id)"
                   />
                 </div>
               </Transition>
@@ -1821,6 +1887,31 @@ defineExpose({
         >
           New Request
         </button>
+        <div class="my-1 border-t border-gray-600" role="separator" />
+        <button
+          type="button"
+          role="menuitem"
+          :disabled="!rootRunEligibilityForMenuTarget.canRun"
+          :aria-disabled="!rootRunEligibilityForMenuTarget.canRun"
+          :title="rootRunEligibilityForMenuTarget.canRun ? 'Run every request in this folder sequentially' : rootRunEligibilityForMenuTarget.reason"
+          class="w-full px-3 py-2 text-left text-sm transition-colors"
+          :class="rootRunEligibilityForMenuTarget.canRun
+            ? 'text-emerald-300 hover:bg-gray-700'
+            : 'cursor-not-allowed text-gray-500'"
+          @click="onRunFolderFromMenu(menuTargetWs)"
+        >
+          <span class="flex items-center justify-between gap-2">
+            <span>Run folder…</span>
+            <span v-if="rootRunEligibilityForMenuTarget.loading" class="text-[10px] text-gray-500">checking…</span>
+            <span v-else-if="!rootRunEligibilityForMenuTarget.canRun" class="text-[10px] text-gray-500">disabled</span>
+          </span>
+        </button>
+        <p
+          v-if="!rootRunEligibilityForMenuTarget.canRun && !rootRunEligibilityForMenuTarget.loading && rootRunEligibilityForMenuTarget.reason"
+          class="px-3 pb-2 text-[10px] leading-snug text-gray-500"
+        >
+          {{ rootRunEligibilityForMenuTarget.reason }}
+        </p>
         <div class="my-1 border-t border-gray-600" role="separator" />
         <button
           type="button"

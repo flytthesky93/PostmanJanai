@@ -1,5 +1,57 @@
 export namespace entity {
 	
+	export class AssertionResult {
+	    name: string;
+	    source: string;
+	    expression: string;
+	    operator: string;
+	    expected: string;
+	    actual: string;
+	    passed: boolean;
+	    error_message?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AssertionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.source = source["source"];
+	        this.expression = source["expression"];
+	        this.operator = source["operator"];
+	        this.expected = source["expected"];
+	        this.actual = source["actual"];
+	        this.passed = source["passed"];
+	        this.error_message = source["error_message"];
+	    }
+	}
+	export class CaptureResult {
+	    name: string;
+	    target_scope: string;
+	    target_variable: string;
+	    source: string;
+	    expression: string;
+	    value: string;
+	    captured: boolean;
+	    error_message?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CaptureResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.target_scope = source["target_scope"];
+	        this.target_variable = source["target_variable"];
+	        this.source = source["source"];
+	        this.expression = source["expression"];
+	        this.value = source["value"];
+	        this.captured = source["captured"];
+	        this.error_message = source["error_message"];
+	    }
+	}
 	export class CreateFolderInput {
 	    parent_id?: string;
 	    name: string;
@@ -303,6 +355,8 @@ export namespace entity {
 	    body_truncated: boolean;
 	    error_message?: string;
 	    final_url?: string;
+	    captures?: CaptureResult[];
+	    assertions?: AssertionResult[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HTTPExecuteResult(source);
@@ -318,6 +372,8 @@ export namespace entity {
 	        this.body_truncated = source["body_truncated"];
 	        this.error_message = source["error_message"];
 	        this.final_url = source["final_url"];
+	        this.captures = this.convertValues(source["captures"], CaptureResult);
+	        this.assertions = this.convertValues(source["assertions"], AssertionResult);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -698,7 +754,311 @@ export namespace entity {
 	        this.final_url = source["final_url"];
 	    }
 	}
+	export class RequestAssertionInput {
+	    name: string;
+	    source: string;
+	    expression: string;
+	    operator: string;
+	    expected: string;
+	    enabled: boolean;
+	    sort_order: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new RequestAssertionInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.source = source["source"];
+	        this.expression = source["expression"];
+	        this.operator = source["operator"];
+	        this.expected = source["expected"];
+	        this.enabled = source["enabled"];
+	        this.sort_order = source["sort_order"];
+	    }
+	}
+	export class RequestAssertionRow {
+	    id: string;
+	    name: string;
+	    source: string;
+	    expression: string;
+	    operator: string;
+	    expected: string;
+	    enabled: boolean;
+	    sort_order: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RequestAssertionRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.source = source["source"];
+	        this.expression = source["expression"];
+	        this.operator = source["operator"];
+	        this.expected = source["expected"];
+	        this.enabled = source["enabled"];
+	        this.sort_order = source["sort_order"];
+	    }
+	}
+	
+	export class RequestCaptureInput {
+	    name: string;
+	    source: string;
+	    expression: string;
+	    target_scope: string;
+	    target_variable: string;
+	    enabled: boolean;
+	    sort_order: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RequestCaptureInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.source = source["source"];
+	        this.expression = source["expression"];
+	        this.target_scope = source["target_scope"];
+	        this.target_variable = source["target_variable"];
+	        this.enabled = source["enabled"];
+	        this.sort_order = source["sort_order"];
+	    }
+	}
+	export class RequestCaptureRow {
+	    id: string;
+	    name: string;
+	    source: string;
+	    expression: string;
+	    target_scope: string;
+	    target_variable: string;
+	    enabled: boolean;
+	    sort_order: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RequestCaptureRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.source = source["source"];
+	        this.expression = source["expression"];
+	        this.target_scope = source["target_scope"];
+	        this.target_variable = source["target_variable"];
+	        this.enabled = source["enabled"];
+	        this.sort_order = source["sort_order"];
+	    }
+	}
+	export class RunFolderInput {
+	    folder_id: string;
+	    environment_id?: string;
+	    stop_on_fail?: boolean;
+	    notes?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RunFolderInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.folder_id = source["folder_id"];
+	        this.environment_id = source["environment_id"];
+	        this.stop_on_fail = source["stop_on_fail"];
+	        this.notes = source["notes"];
+	    }
+	}
+	export class RunnerRunRequestRow {
+	    id: string;
+	    run_id: string;
+	    request_id?: string;
+	    request_name: string;
+	    method: string;
+	    url: string;
+	    status: string;
+	    status_code: number;
+	    duration_ms: number;
+	    response_size_bytes: number;
+	    error_message?: string;
+	    request_headers_json?: string;
+	    response_headers_json?: string;
+	    request_body?: string;
+	    response_body?: string;
+	    body_truncated?: boolean;
+	    assertions?: AssertionResult[];
+	    captures?: CaptureResult[];
+	    sort_order: number;
+	    // Go type: time
+	    created_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new RunnerRunRequestRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.run_id = source["run_id"];
+	        this.request_id = source["request_id"];
+	        this.request_name = source["request_name"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.status = source["status"];
+	        this.status_code = source["status_code"];
+	        this.duration_ms = source["duration_ms"];
+	        this.response_size_bytes = source["response_size_bytes"];
+	        this.error_message = source["error_message"];
+	        this.request_headers_json = source["request_headers_json"];
+	        this.response_headers_json = source["response_headers_json"];
+	        this.request_body = source["request_body"];
+	        this.response_body = source["response_body"];
+	        this.body_truncated = source["body_truncated"];
+	        this.assertions = this.convertValues(source["assertions"], AssertionResult);
+	        this.captures = this.convertValues(source["captures"], CaptureResult);
+	        this.sort_order = source["sort_order"];
+	        this.created_at = this.convertValues(source["created_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RunnerRunDetail {
+	    id: string;
+	    folder_id?: string;
+	    folder_name: string;
+	    environment_id?: string;
+	    environment_name: string;
+	    status: string;
+	    total_count: number;
+	    passed_count: number;
+	    failed_count: number;
+	    error_count: number;
+	    duration_ms: number;
+	    // Go type: time
+	    started_at: any;
+	    // Go type: time
+	    finished_at?: any;
+	    requests: RunnerRunRequestRow[];
+	    notes: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RunnerRunDetail(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.folder_id = source["folder_id"];
+	        this.folder_name = source["folder_name"];
+	        this.environment_id = source["environment_id"];
+	        this.environment_name = source["environment_name"];
+	        this.status = source["status"];
+	        this.total_count = source["total_count"];
+	        this.passed_count = source["passed_count"];
+	        this.failed_count = source["failed_count"];
+	        this.error_count = source["error_count"];
+	        this.duration_ms = source["duration_ms"];
+	        this.started_at = this.convertValues(source["started_at"], null);
+	        this.finished_at = this.convertValues(source["finished_at"], null);
+	        this.requests = this.convertValues(source["requests"], RunnerRunRequestRow);
+	        this.notes = source["notes"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class RunnerRunSummary {
+	    id: string;
+	    folder_id?: string;
+	    folder_name: string;
+	    environment_id?: string;
+	    environment_name: string;
+	    status: string;
+	    total_count: number;
+	    passed_count: number;
+	    failed_count: number;
+	    error_count: number;
+	    duration_ms: number;
+	    // Go type: time
+	    started_at: any;
+	    // Go type: time
+	    finished_at?: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new RunnerRunSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.folder_id = source["folder_id"];
+	        this.folder_name = source["folder_name"];
+	        this.environment_id = source["environment_id"];
+	        this.environment_name = source["environment_name"];
+	        this.status = source["status"];
+	        this.total_count = source["total_count"];
+	        this.passed_count = source["passed_count"];
+	        this.failed_count = source["failed_count"];
+	        this.error_count = source["error_count"];
+	        this.duration_ms = source["duration_ms"];
+	        this.started_at = this.convertValues(source["started_at"], null);
+	        this.finished_at = this.convertValues(source["finished_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class SavedRequestFull {
 	    id: string;
 	    folder_id: string;

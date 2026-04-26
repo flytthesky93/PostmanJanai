@@ -6,6 +6,8 @@ import (
 	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
@@ -211,6 +213,36 @@ func (_c *RequestCreate) AddHistories(v ...*History) *RequestCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddHistoryIDs(ids...)
+}
+
+// AddRequestCaptureIDs adds the "request_captures" edge to the RequestCapture entity by IDs.
+func (_c *RequestCreate) AddRequestCaptureIDs(ids ...uuid.UUID) *RequestCreate {
+	_c.mutation.AddRequestCaptureIDs(ids...)
+	return _c
+}
+
+// AddRequestCaptures adds the "request_captures" edges to the RequestCapture entity.
+func (_c *RequestCreate) AddRequestCaptures(v ...*RequestCapture) *RequestCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRequestCaptureIDs(ids...)
+}
+
+// AddRequestAssertionIDs adds the "request_assertions" edge to the RequestAssertion entity by IDs.
+func (_c *RequestCreate) AddRequestAssertionIDs(ids ...uuid.UUID) *RequestCreate {
+	_c.mutation.AddRequestAssertionIDs(ids...)
+	return _c
+}
+
+// AddRequestAssertions adds the "request_assertions" edges to the RequestAssertion entity.
+func (_c *RequestCreate) AddRequestAssertions(v ...*RequestAssertion) *RequestCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRequestAssertionIDs(ids...)
 }
 
 // Mutation returns the RequestMutation object of the builder.
@@ -459,6 +491,38 @@ func (_c *RequestCreate) createSpec() (*Request, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(history.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RequestCapturesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestCapturesTable,
+			Columns: []string{request.RequestCapturesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestcapture.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RequestAssertionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   request.RequestAssertionsTable,
+			Columns: []string{request.RequestAssertionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(requestassertion.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

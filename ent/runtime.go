@@ -8,9 +8,13 @@ import (
 	"PostmanJanai/ent/folder"
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
+	"PostmanJanai/ent/runnerrun"
+	"PostmanJanai/ent/runnerrunrequest"
 	"PostmanJanai/ent/schema"
 	"PostmanJanai/ent/setting"
 	"PostmanJanai/ent/trustedca"
@@ -163,6 +167,94 @@ func init() {
 	requestDescID := requestFields[0].Descriptor()
 	// request.DefaultID holds the default value on creation for the id field.
 	request.DefaultID = requestDescID.Default.(func() uuid.UUID)
+	requestassertionFields := schema.RequestAssertion{}.Fields()
+	_ = requestassertionFields
+	// requestassertionDescName is the schema descriptor for name field.
+	requestassertionDescName := requestassertionFields[2].Descriptor()
+	// requestassertion.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	requestassertion.NameValidator = requestassertionDescName.Validators[0].(func(string) error)
+	// requestassertionDescSource is the schema descriptor for source field.
+	requestassertionDescSource := requestassertionFields[3].Descriptor()
+	// requestassertion.SourceValidator is a validator for the "source" field. It is called by the builders before save.
+	requestassertion.SourceValidator = requestassertionDescSource.Validators[0].(func(string) error)
+	// requestassertionDescExpression is the schema descriptor for expression field.
+	requestassertionDescExpression := requestassertionFields[4].Descriptor()
+	// requestassertion.DefaultExpression holds the default value on creation for the expression field.
+	requestassertion.DefaultExpression = requestassertionDescExpression.Default.(string)
+	// requestassertionDescOperator is the schema descriptor for operator field.
+	requestassertionDescOperator := requestassertionFields[5].Descriptor()
+	// requestassertion.OperatorValidator is a validator for the "operator" field. It is called by the builders before save.
+	requestassertion.OperatorValidator = requestassertionDescOperator.Validators[0].(func(string) error)
+	// requestassertionDescExpected is the schema descriptor for expected field.
+	requestassertionDescExpected := requestassertionFields[6].Descriptor()
+	// requestassertion.DefaultExpected holds the default value on creation for the expected field.
+	requestassertion.DefaultExpected = requestassertionDescExpected.Default.(string)
+	// requestassertionDescEnabled is the schema descriptor for enabled field.
+	requestassertionDescEnabled := requestassertionFields[7].Descriptor()
+	// requestassertion.DefaultEnabled holds the default value on creation for the enabled field.
+	requestassertion.DefaultEnabled = requestassertionDescEnabled.Default.(bool)
+	// requestassertionDescSortOrder is the schema descriptor for sort_order field.
+	requestassertionDescSortOrder := requestassertionFields[8].Descriptor()
+	// requestassertion.DefaultSortOrder holds the default value on creation for the sort_order field.
+	requestassertion.DefaultSortOrder = requestassertionDescSortOrder.Default.(int)
+	// requestassertionDescCreatedAt is the schema descriptor for created_at field.
+	requestassertionDescCreatedAt := requestassertionFields[9].Descriptor()
+	// requestassertion.DefaultCreatedAt holds the default value on creation for the created_at field.
+	requestassertion.DefaultCreatedAt = requestassertionDescCreatedAt.Default.(func() time.Time)
+	// requestassertionDescUpdatedAt is the schema descriptor for updated_at field.
+	requestassertionDescUpdatedAt := requestassertionFields[10].Descriptor()
+	// requestassertion.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	requestassertion.DefaultUpdatedAt = requestassertionDescUpdatedAt.Default.(func() time.Time)
+	// requestassertion.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	requestassertion.UpdateDefaultUpdatedAt = requestassertionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// requestassertionDescID is the schema descriptor for id field.
+	requestassertionDescID := requestassertionFields[0].Descriptor()
+	// requestassertion.DefaultID holds the default value on creation for the id field.
+	requestassertion.DefaultID = requestassertionDescID.Default.(func() uuid.UUID)
+	requestcaptureFields := schema.RequestCapture{}.Fields()
+	_ = requestcaptureFields
+	// requestcaptureDescName is the schema descriptor for name field.
+	requestcaptureDescName := requestcaptureFields[2].Descriptor()
+	// requestcapture.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	requestcapture.NameValidator = requestcaptureDescName.Validators[0].(func(string) error)
+	// requestcaptureDescSource is the schema descriptor for source field.
+	requestcaptureDescSource := requestcaptureFields[3].Descriptor()
+	// requestcapture.SourceValidator is a validator for the "source" field. It is called by the builders before save.
+	requestcapture.SourceValidator = requestcaptureDescSource.Validators[0].(func(string) error)
+	// requestcaptureDescExpression is the schema descriptor for expression field.
+	requestcaptureDescExpression := requestcaptureFields[4].Descriptor()
+	// requestcapture.DefaultExpression holds the default value on creation for the expression field.
+	requestcapture.DefaultExpression = requestcaptureDescExpression.Default.(string)
+	// requestcaptureDescTargetScope is the schema descriptor for target_scope field.
+	requestcaptureDescTargetScope := requestcaptureFields[5].Descriptor()
+	// requestcapture.DefaultTargetScope holds the default value on creation for the target_scope field.
+	requestcapture.DefaultTargetScope = requestcaptureDescTargetScope.Default.(string)
+	// requestcaptureDescTargetVariable is the schema descriptor for target_variable field.
+	requestcaptureDescTargetVariable := requestcaptureFields[6].Descriptor()
+	// requestcapture.TargetVariableValidator is a validator for the "target_variable" field. It is called by the builders before save.
+	requestcapture.TargetVariableValidator = requestcaptureDescTargetVariable.Validators[0].(func(string) error)
+	// requestcaptureDescEnabled is the schema descriptor for enabled field.
+	requestcaptureDescEnabled := requestcaptureFields[7].Descriptor()
+	// requestcapture.DefaultEnabled holds the default value on creation for the enabled field.
+	requestcapture.DefaultEnabled = requestcaptureDescEnabled.Default.(bool)
+	// requestcaptureDescSortOrder is the schema descriptor for sort_order field.
+	requestcaptureDescSortOrder := requestcaptureFields[8].Descriptor()
+	// requestcapture.DefaultSortOrder holds the default value on creation for the sort_order field.
+	requestcapture.DefaultSortOrder = requestcaptureDescSortOrder.Default.(int)
+	// requestcaptureDescCreatedAt is the schema descriptor for created_at field.
+	requestcaptureDescCreatedAt := requestcaptureFields[9].Descriptor()
+	// requestcapture.DefaultCreatedAt holds the default value on creation for the created_at field.
+	requestcapture.DefaultCreatedAt = requestcaptureDescCreatedAt.Default.(func() time.Time)
+	// requestcaptureDescUpdatedAt is the schema descriptor for updated_at field.
+	requestcaptureDescUpdatedAt := requestcaptureFields[10].Descriptor()
+	// requestcapture.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	requestcapture.DefaultUpdatedAt = requestcaptureDescUpdatedAt.Default.(func() time.Time)
+	// requestcapture.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	requestcapture.UpdateDefaultUpdatedAt = requestcaptureDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// requestcaptureDescID is the schema descriptor for id field.
+	requestcaptureDescID := requestcaptureFields[0].Descriptor()
+	// requestcapture.DefaultID holds the default value on creation for the id field.
+	requestcapture.DefaultID = requestcaptureDescID.Default.(func() uuid.UUID)
 	requestformfieldFields := schema.RequestFormField{}.Fields()
 	_ = requestformfieldFields
 	// requestformfieldDescFieldKind is the schema descriptor for field_kind field.
@@ -229,6 +321,110 @@ func init() {
 	requestqueryparamDescID := requestqueryparamFields[0].Descriptor()
 	// requestqueryparam.DefaultID holds the default value on creation for the id field.
 	requestqueryparam.DefaultID = requestqueryparamDescID.Default.(func() uuid.UUID)
+	runnerrunFields := schema.RunnerRun{}.Fields()
+	_ = runnerrunFields
+	// runnerrunDescFolderName is the schema descriptor for folder_name field.
+	runnerrunDescFolderName := runnerrunFields[3].Descriptor()
+	// runnerrun.DefaultFolderName holds the default value on creation for the folder_name field.
+	runnerrun.DefaultFolderName = runnerrunDescFolderName.Default.(string)
+	// runnerrunDescEnvironmentName is the schema descriptor for environment_name field.
+	runnerrunDescEnvironmentName := runnerrunFields[4].Descriptor()
+	// runnerrun.DefaultEnvironmentName holds the default value on creation for the environment_name field.
+	runnerrun.DefaultEnvironmentName = runnerrunDescEnvironmentName.Default.(string)
+	// runnerrunDescStatus is the schema descriptor for status field.
+	runnerrunDescStatus := runnerrunFields[5].Descriptor()
+	// runnerrun.DefaultStatus holds the default value on creation for the status field.
+	runnerrun.DefaultStatus = runnerrunDescStatus.Default.(string)
+	// runnerrunDescTotalCount is the schema descriptor for total_count field.
+	runnerrunDescTotalCount := runnerrunFields[6].Descriptor()
+	// runnerrun.DefaultTotalCount holds the default value on creation for the total_count field.
+	runnerrun.DefaultTotalCount = runnerrunDescTotalCount.Default.(int)
+	// runnerrunDescPassedCount is the schema descriptor for passed_count field.
+	runnerrunDescPassedCount := runnerrunFields[7].Descriptor()
+	// runnerrun.DefaultPassedCount holds the default value on creation for the passed_count field.
+	runnerrun.DefaultPassedCount = runnerrunDescPassedCount.Default.(int)
+	// runnerrunDescFailedCount is the schema descriptor for failed_count field.
+	runnerrunDescFailedCount := runnerrunFields[8].Descriptor()
+	// runnerrun.DefaultFailedCount holds the default value on creation for the failed_count field.
+	runnerrun.DefaultFailedCount = runnerrunDescFailedCount.Default.(int)
+	// runnerrunDescErrorCount is the schema descriptor for error_count field.
+	runnerrunDescErrorCount := runnerrunFields[9].Descriptor()
+	// runnerrun.DefaultErrorCount holds the default value on creation for the error_count field.
+	runnerrun.DefaultErrorCount = runnerrunDescErrorCount.Default.(int)
+	// runnerrunDescDurationMs is the schema descriptor for duration_ms field.
+	runnerrunDescDurationMs := runnerrunFields[10].Descriptor()
+	// runnerrun.DefaultDurationMs holds the default value on creation for the duration_ms field.
+	runnerrun.DefaultDurationMs = runnerrunDescDurationMs.Default.(int)
+	// runnerrunDescNotes is the schema descriptor for notes field.
+	runnerrunDescNotes := runnerrunFields[11].Descriptor()
+	// runnerrun.DefaultNotes holds the default value on creation for the notes field.
+	runnerrun.DefaultNotes = runnerrunDescNotes.Default.(string)
+	// runnerrunDescStartedAt is the schema descriptor for started_at field.
+	runnerrunDescStartedAt := runnerrunFields[12].Descriptor()
+	// runnerrun.DefaultStartedAt holds the default value on creation for the started_at field.
+	runnerrun.DefaultStartedAt = runnerrunDescStartedAt.Default.(func() time.Time)
+	// runnerrunDescID is the schema descriptor for id field.
+	runnerrunDescID := runnerrunFields[0].Descriptor()
+	// runnerrun.DefaultID holds the default value on creation for the id field.
+	runnerrun.DefaultID = runnerrunDescID.Default.(func() uuid.UUID)
+	runnerrunrequestFields := schema.RunnerRunRequest{}.Fields()
+	_ = runnerrunrequestFields
+	// runnerrunrequestDescRequestName is the schema descriptor for request_name field.
+	runnerrunrequestDescRequestName := runnerrunrequestFields[3].Descriptor()
+	// runnerrunrequest.DefaultRequestName holds the default value on creation for the request_name field.
+	runnerrunrequest.DefaultRequestName = runnerrunrequestDescRequestName.Default.(string)
+	// runnerrunrequestDescMethod is the schema descriptor for method field.
+	runnerrunrequestDescMethod := runnerrunrequestFields[4].Descriptor()
+	// runnerrunrequest.DefaultMethod holds the default value on creation for the method field.
+	runnerrunrequest.DefaultMethod = runnerrunrequestDescMethod.Default.(string)
+	// runnerrunrequestDescURL is the schema descriptor for url field.
+	runnerrunrequestDescURL := runnerrunrequestFields[5].Descriptor()
+	// runnerrunrequest.DefaultURL holds the default value on creation for the url field.
+	runnerrunrequest.DefaultURL = runnerrunrequestDescURL.Default.(string)
+	// runnerrunrequestDescStatus is the schema descriptor for status field.
+	runnerrunrequestDescStatus := runnerrunrequestFields[6].Descriptor()
+	// runnerrunrequest.DefaultStatus holds the default value on creation for the status field.
+	runnerrunrequest.DefaultStatus = runnerrunrequestDescStatus.Default.(string)
+	// runnerrunrequestDescStatusCode is the schema descriptor for status_code field.
+	runnerrunrequestDescStatusCode := runnerrunrequestFields[7].Descriptor()
+	// runnerrunrequest.DefaultStatusCode holds the default value on creation for the status_code field.
+	runnerrunrequest.DefaultStatusCode = runnerrunrequestDescStatusCode.Default.(int)
+	// runnerrunrequestDescDurationMs is the schema descriptor for duration_ms field.
+	runnerrunrequestDescDurationMs := runnerrunrequestFields[8].Descriptor()
+	// runnerrunrequest.DefaultDurationMs holds the default value on creation for the duration_ms field.
+	runnerrunrequest.DefaultDurationMs = runnerrunrequestDescDurationMs.Default.(int)
+	// runnerrunrequestDescResponseSizeBytes is the schema descriptor for response_size_bytes field.
+	runnerrunrequestDescResponseSizeBytes := runnerrunrequestFields[9].Descriptor()
+	// runnerrunrequest.DefaultResponseSizeBytes holds the default value on creation for the response_size_bytes field.
+	runnerrunrequest.DefaultResponseSizeBytes = runnerrunrequestDescResponseSizeBytes.Default.(int)
+	// runnerrunrequestDescErrorMessage is the schema descriptor for error_message field.
+	runnerrunrequestDescErrorMessage := runnerrunrequestFields[10].Descriptor()
+	// runnerrunrequest.DefaultErrorMessage holds the default value on creation for the error_message field.
+	runnerrunrequest.DefaultErrorMessage = runnerrunrequestDescErrorMessage.Default.(string)
+	// runnerrunrequestDescAssertionsJSON is the schema descriptor for assertions_json field.
+	runnerrunrequestDescAssertionsJSON := runnerrunrequestFields[11].Descriptor()
+	// runnerrunrequest.DefaultAssertionsJSON holds the default value on creation for the assertions_json field.
+	runnerrunrequest.DefaultAssertionsJSON = runnerrunrequestDescAssertionsJSON.Default.(string)
+	// runnerrunrequestDescCapturesJSON is the schema descriptor for captures_json field.
+	runnerrunrequestDescCapturesJSON := runnerrunrequestFields[12].Descriptor()
+	// runnerrunrequest.DefaultCapturesJSON holds the default value on creation for the captures_json field.
+	runnerrunrequest.DefaultCapturesJSON = runnerrunrequestDescCapturesJSON.Default.(string)
+	// runnerrunrequestDescBodyTruncated is the schema descriptor for body_truncated field.
+	runnerrunrequestDescBodyTruncated := runnerrunrequestFields[17].Descriptor()
+	// runnerrunrequest.DefaultBodyTruncated holds the default value on creation for the body_truncated field.
+	runnerrunrequest.DefaultBodyTruncated = runnerrunrequestDescBodyTruncated.Default.(bool)
+	// runnerrunrequestDescSortOrder is the schema descriptor for sort_order field.
+	runnerrunrequestDescSortOrder := runnerrunrequestFields[18].Descriptor()
+	// runnerrunrequest.DefaultSortOrder holds the default value on creation for the sort_order field.
+	runnerrunrequest.DefaultSortOrder = runnerrunrequestDescSortOrder.Default.(int)
+	// runnerrunrequestDescCreatedAt is the schema descriptor for created_at field.
+	runnerrunrequestDescCreatedAt := runnerrunrequestFields[19].Descriptor()
+	// runnerrunrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	runnerrunrequest.DefaultCreatedAt = runnerrunrequestDescCreatedAt.Default.(func() time.Time)
+	// runnerrunrequestDescID is the schema descriptor for id field.
+	runnerrunrequestDescID := runnerrunrequestFields[0].Descriptor()
+	// runnerrunrequest.DefaultID holds the default value on creation for the id field.
+	runnerrunrequest.DefaultID = runnerrunrequestDescID.Default.(func() uuid.UUID)
 	settingFields := schema.Setting{}.Fields()
 	_ = settingFields
 	// settingDescKey is the schema descriptor for key field.

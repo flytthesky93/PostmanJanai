@@ -45,6 +45,10 @@ const (
 	EdgeRequestFormFields = "request_form_fields"
 	// EdgeHistories holds the string denoting the histories edge name in mutations.
 	EdgeHistories = "histories"
+	// EdgeRequestCaptures holds the string denoting the request_captures edge name in mutations.
+	EdgeRequestCaptures = "request_captures"
+	// EdgeRequestAssertions holds the string denoting the request_assertions edge name in mutations.
+	EdgeRequestAssertions = "request_assertions"
 	// Table holds the table name of the request in the database.
 	Table = "requests"
 	// FolderTable is the table that holds the folder relation/edge.
@@ -82,6 +86,20 @@ const (
 	HistoriesInverseTable = "histories"
 	// HistoriesColumn is the table column denoting the histories relation/edge.
 	HistoriesColumn = "request_id"
+	// RequestCapturesTable is the table that holds the request_captures relation/edge.
+	RequestCapturesTable = "request_captures"
+	// RequestCapturesInverseTable is the table name for the RequestCapture entity.
+	// It exists in this package in order to avoid circular dependency with the "requestcapture" package.
+	RequestCapturesInverseTable = "request_captures"
+	// RequestCapturesColumn is the table column denoting the request_captures relation/edge.
+	RequestCapturesColumn = "request_id"
+	// RequestAssertionsTable is the table that holds the request_assertions relation/edge.
+	RequestAssertionsTable = "request_assertions"
+	// RequestAssertionsInverseTable is the table name for the RequestAssertion entity.
+	// It exists in this package in order to avoid circular dependency with the "requestassertion" package.
+	RequestAssertionsInverseTable = "request_assertions"
+	// RequestAssertionsColumn is the table column denoting the request_assertions relation/edge.
+	RequestAssertionsColumn = "request_id"
 )
 
 // Columns holds all SQL columns for request fields.
@@ -250,6 +268,34 @@ func ByHistories(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newHistoriesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByRequestCapturesCount orders the results by request_captures count.
+func ByRequestCapturesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRequestCapturesStep(), opts...)
+	}
+}
+
+// ByRequestCaptures orders the results by request_captures terms.
+func ByRequestCaptures(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRequestCapturesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByRequestAssertionsCount orders the results by request_assertions count.
+func ByRequestAssertionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRequestAssertionsStep(), opts...)
+	}
+}
+
+// ByRequestAssertions orders the results by request_assertions terms.
+func ByRequestAssertions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRequestAssertionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newFolderStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -283,5 +329,19 @@ func newHistoriesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(HistoriesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, HistoriesTable, HistoriesColumn),
+	)
+}
+func newRequestCapturesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RequestCapturesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RequestCapturesTable, RequestCapturesColumn),
+	)
+}
+func newRequestAssertionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RequestAssertionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RequestAssertionsTable, RequestAssertionsColumn),
 	)
 }

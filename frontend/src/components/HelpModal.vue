@@ -35,6 +35,14 @@ const tips = [
   {
     title: 'Copy as cURL',
     text: 'Use Copy cURL beside Send to copy a runnable cURL command using the same snippet pipeline as the Snippet panel.'
+  },
+  {
+    title: 'Captures & Tests',
+    text: 'When a request is saved, two extra tabs appear: Captures (extract JSON / header / status into env or memory variables after Send) and Tests (assertions like status eq 200). Results show under Response → Tests.'
+  },
+  {
+    title: 'Collection Runner',
+    text: 'Click Runner in the header (or right-click a folder → Run folder…) to run all requests under a folder sequentially. Captures chain into the next request, totals stream live, and reports can be exported as JSON or Markdown.'
   }
 ]
 
@@ -63,7 +71,7 @@ function close() {
           <div>
             <p class="text-[10px] font-bold uppercase tracking-widest text-orange-400">Help</p>
             <h2 id="help-title" class="mt-1 text-lg font-semibold text-white">Using PostmanJanai Faster</h2>
-            <p class="mt-1 text-sm text-gray-400">A quick guide for Phase 7 productivity features.</p>
+            <p class="mt-1 text-sm text-gray-400">Quick guide to productivity features and the collection runner.</p>
           </div>
           <button
             type="button"

@@ -21,6 +21,12 @@ type History func(*sql.Selector)
 // Request is the predicate function for request builders.
 type Request func(*sql.Selector)
 
+// RequestAssertion is the predicate function for requestassertion builders.
+type RequestAssertion func(*sql.Selector)
+
+// RequestCapture is the predicate function for requestcapture builders.
+type RequestCapture func(*sql.Selector)
+
 // RequestFormField is the predicate function for requestformfield builders.
 type RequestFormField func(*sql.Selector)
 
@@ -29,6 +35,12 @@ type RequestHeader func(*sql.Selector)
 
 // RequestQueryParam is the predicate function for requestqueryparam builders.
 type RequestQueryParam func(*sql.Selector)
+
+// RunnerRun is the predicate function for runnerrun builders.
+type RunnerRun func(*sql.Selector)
+
+// RunnerRunRequest is the predicate function for runnerrunrequest builders.
+type RunnerRunRequest func(*sql.Selector)
 
 // Setting is the predicate function for setting builders.
 type Setting func(*sql.Selector)

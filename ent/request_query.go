@@ -7,6 +7,8 @@ import (
 	"PostmanJanai/ent/history"
 	"PostmanJanai/ent/predicate"
 	"PostmanJanai/ent/request"
+	"PostmanJanai/ent/requestassertion"
+	"PostmanJanai/ent/requestcapture"
 	"PostmanJanai/ent/requestformfield"
 	"PostmanJanai/ent/requestheader"
 	"PostmanJanai/ent/requestqueryparam"
@@ -34,6 +36,8 @@ type RequestQuery struct {
 	withRequestQueryParams *RequestQueryParamQuery
 	withRequestFormFields  *RequestFormFieldQuery
 	withHistories          *HistoryQuery
+	withRequestCaptures    *RequestCaptureQuery
+	withRequestAssertions  *RequestAssertionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -173,6 +177,50 @@ func (_q *RequestQuery) QueryHistories() *HistoryQuery {
 			sqlgraph.From(request.Table, request.FieldID, selector),
 			sqlgraph.To(history.Table, history.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, request.HistoriesTable, request.HistoriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRequestCaptures chains the current query on the "request_captures" edge.
+func (_q *RequestQuery) QueryRequestCaptures() *RequestCaptureQuery {
+	query := (&RequestCaptureClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, selector),
+			sqlgraph.To(requestcapture.Table, requestcapture.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestCapturesTable, request.RequestCapturesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRequestAssertions chains the current query on the "request_assertions" edge.
+func (_q *RequestQuery) QueryRequestAssertions() *RequestAssertionQuery {
+	query := (&RequestAssertionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(request.Table, request.FieldID, selector),
+			sqlgraph.To(requestassertion.Table, requestassertion.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, request.RequestAssertionsTable, request.RequestAssertionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -377,6 +425,8 @@ func (_q *RequestQuery) Clone() *RequestQuery {
 		withRequestQueryParams: _q.withRequestQueryParams.Clone(),
 		withRequestFormFields:  _q.withRequestFormFields.Clone(),
 		withHistories:          _q.withHistories.Clone(),
+		withRequestCaptures:    _q.withRequestCaptures.Clone(),
+		withRequestAssertions:  _q.withRequestAssertions.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -435,6 +485,28 @@ func (_q *RequestQuery) WithHistories(opts ...func(*HistoryQuery)) *RequestQuery
 		opt(query)
 	}
 	_q.withHistories = query
+	return _q
+}
+
+// WithRequestCaptures tells the query-builder to eager-load the nodes that are connected to
+// the "request_captures" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *RequestQuery) WithRequestCaptures(opts ...func(*RequestCaptureQuery)) *RequestQuery {
+	query := (&RequestCaptureClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRequestCaptures = query
+	return _q
+}
+
+// WithRequestAssertions tells the query-builder to eager-load the nodes that are connected to
+// the "request_assertions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *RequestQuery) WithRequestAssertions(opts ...func(*RequestAssertionQuery)) *RequestQuery {
+	query := (&RequestAssertionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRequestAssertions = query
 	return _q
 }
 
@@ -516,12 +588,14 @@ func (_q *RequestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Requ
 	var (
 		nodes       = []*Request{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [7]bool{
 			_q.withFolder != nil,
 			_q.withRequestHeaders != nil,
 			_q.withRequestQueryParams != nil,
 			_q.withRequestFormFields != nil,
 			_q.withHistories != nil,
+			_q.withRequestCaptures != nil,
+			_q.withRequestAssertions != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -577,6 +651,22 @@ func (_q *RequestQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Requ
 		if err := _q.loadHistories(ctx, query, nodes,
 			func(n *Request) { n.Edges.Histories = []*History{} },
 			func(n *Request, e *History) { n.Edges.Histories = append(n.Edges.Histories, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRequestCaptures; query != nil {
+		if err := _q.loadRequestCaptures(ctx, query, nodes,
+			func(n *Request) { n.Edges.RequestCaptures = []*RequestCapture{} },
+			func(n *Request, e *RequestCapture) { n.Edges.RequestCaptures = append(n.Edges.RequestCaptures, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRequestAssertions; query != nil {
+		if err := _q.loadRequestAssertions(ctx, query, nodes,
+			func(n *Request) { n.Edges.RequestAssertions = []*RequestAssertion{} },
+			func(n *Request, e *RequestAssertion) {
+				n.Edges.RequestAssertions = append(n.Edges.RequestAssertions, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -730,6 +820,66 @@ func (_q *RequestQuery) loadHistories(ctx context.Context, query *HistoryQuery, 
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "request_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *RequestQuery) loadRequestCaptures(ctx context.Context, query *RequestCaptureQuery, nodes []*Request, init func(*Request), assign func(*Request, *RequestCapture)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Request)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(requestcapture.FieldRequestID)
+	}
+	query.Where(predicate.RequestCapture(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(request.RequestCapturesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.RequestID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "request_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *RequestQuery) loadRequestAssertions(ctx context.Context, query *RequestAssertionQuery, nodes []*Request, init func(*Request), assign func(*Request, *RequestAssertion)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Request)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(requestassertion.FieldRequestID)
+	}
+	query.Where(predicate.RequestAssertion(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(request.RequestAssertionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.RequestID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "request_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

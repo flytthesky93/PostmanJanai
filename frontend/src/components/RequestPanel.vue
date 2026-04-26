@@ -4,6 +4,7 @@ import formatXml from 'xml-formatter'
 import JsonCodeMirror from './JsonCodeMirror.vue'
 import EnvVarMirrorField from './EnvVarMirrorField.vue'
 import SnippetPanel from './SnippetPanel.vue'
+import RequestRulesEditor from './RequestRulesEditor.vue'
 import { PickFileForBody } from '../../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import * as SavedRequestAPI from '../../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as FolderAPI from '../../wailsjs/wailsjs/go/delivery/FolderHandler'
@@ -875,6 +876,26 @@ const formatXmlBody = () => {
             >
               Body
             </button>
+            <button
+              v-if="savedRequestId"
+              type="button"
+              class="rounded-t px-3 py-2"
+              :class="activeTab === 'captures' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
+              title="Post-response capture rules — extract values into env or memory"
+              @click="activeTab = 'captures'"
+            >
+              Captures
+            </button>
+            <button
+              v-if="savedRequestId"
+              type="button"
+              class="rounded-t px-3 py-2"
+              :class="activeTab === 'tests' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
+              title="Tests — assertions evaluated after the response arrives"
+              @click="activeTab = 'tests'"
+            >
+              Tests
+            </button>
           </div>
         </div>
       </div>
@@ -1367,6 +1388,22 @@ const formatXmlBody = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div v-show="activeTab === 'captures'" class="flex min-h-0 flex-1 flex-col">
+        <RequestRulesEditor
+          :request-id="savedRequestId"
+          mode="captures"
+          @console="(m) => emit('console', m)"
+        />
+      </div>
+
+      <div v-show="activeTab === 'tests'" class="flex min-h-0 flex-1 flex-col">
+        <RequestRulesEditor
+          :request-id="savedRequestId"
+          mode="assertions"
+          @console="(m) => emit('console', m)"
+        />
       </div>
     </div>
   </div>
