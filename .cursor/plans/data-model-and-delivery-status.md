@@ -9,7 +9,7 @@
 
 > **Phase 6–9 (snapshot 2026-04-21):**
 > - **Phase 6 — Networking & Security:** **Done (2026-04-21).** proxy (`none/system/manual` + `NO_PROXY`) + custom CA pool (`trusted_cas` PEM trong DB) + `insecure_skip_verify` (per-request, lưu trên `requests`) + secret env var (`kind` + AES-GCM `enc:v1:` + redact history/snippet) + Wails `SettingsHandler` + tab **Settings**. DB bump **v5 → v6**.
-> - **Phase 7 — UX Polish:** **Done (2026-04-26).** Dashboard khi không còn tab + cho đóng tab cuối, in-app Help `?`, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts. **Không** bump DB.
+> - **Phase 7 — UX Polish:** **Done (2026-04-26).** Dashboard khi không còn tab + cho đóng tab cuối, in-app Help `?`, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting. **Không** bump DB.
 > - **Phase 8 — Runner & Chaining:** capture rules (JSONPath/regex → env var) + assertion rules (status/header/json-path) + Collection Runner theo folder + env. DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
 > - **Phase 9 — Scripting (bắt buộc):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v7 → v8** (`requests.pre_request_script`, `requests.post_response_script`).
 >
@@ -244,7 +244,7 @@ erDiagram
 - **Roadmap:** Phase **0–3** **đã đóng**; **Phase 4** **đã đóng** theo scope productivity (Import, Multi-tab, Search, export Postman v2.1, snippets, cây folder đầy đủ kể cả reorder + polish UX) — chi tiết [roadmap.md](roadmap.md).
 - **Phase 5** **đã đóng** (2026-04-21) — quality gate baseline (tests + smoke E2E Go + CI + release/manual docs).
 - **Phase 6** **đã đóng** (2026-04-21) — networking/security: proxy + custom CA + per-request insecure TLS + secret env + redact + Settings UI — **DB v6**.
-- **Phase 7** **đã đóng** (2026-04-26) — UX polish/productivity: Dashboard, in-app Help `?`, Ctrl+K palette, variable preview, duplicate folder/request, Copy as cURL, shortcuts — **không bump DB**.
+- **Phase 7** **đã đóng** (2026-04-26) — UX polish/productivity: Dashboard, in-app Help `?`, Ctrl+K palette, variable preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting hết warning chunk > 500 kB — **không bump DB**.
 
 ### Đã xong (Phase 6 — networking & security, 2026-04-21)
 
@@ -357,7 +357,7 @@ erDiagram
 - [x] **DnD** move folder/request + **reorder** + **DB v5** `sort_order` — 2026-04-20
 - [x] **Phase 5** quality gate — tests + smoke E2E + CI + release/manual docs — 2026-04-21
 - [x] **Phase 6** networking & security — proxy + custom CA + insecure TLS + secret env + Settings UI — **DB v6** — 2026-04-21
-- [x] **Phase 7** UX polish & productivity — Dashboard + in-app Help + command palette + var preview + duplicate + Copy as cURL + shortcuts — 2026-04-26
+- [x] **Phase 7** UX polish & productivity — Dashboard + in-app Help + command palette + var preview + duplicate + Copy as cURL + shortcuts + Vite code splitting — 2026-04-26
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---

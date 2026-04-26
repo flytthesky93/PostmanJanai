@@ -54,6 +54,7 @@ Nếu release này có thay đổi **Phase 7 (UX polish/productivity)** → thê
 - [ ] Đóng tab cuối → Dashboard hiện, reload vẫn không tự tạo tab.
 - [ ] `Ctrl+K` mở palette; tìm request/folder/env hoạt động.
 - [ ] Duplicate request/folder và Copy as cURL hoạt động — xem `manual-test-plan.md` §**J. UX polish & productivity (Phase 7)**.
+- [ ] `npm run build` không còn warning chunk > 500 kB sau Vite code splitting.
 
 ## 5. Artifacts & release notes
 

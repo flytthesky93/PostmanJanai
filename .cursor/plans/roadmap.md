@@ -25,7 +25,7 @@ Build a desktop API client (Postman-like) focused on:
 | **4** | **Done** (2026-04-20) | **Productivity scope đã đủ để đóng:** #1 Import; #2 Multi-tab; #3 Search/filter; Flow B — export Postman v2.1, snippets, cây folder (expand persist, rename, DnD move + **reorder** + vùng **Same level / Inside** + root drop), **DB v5** `folders.sort_order`. **Polish cùng ngày:** click mở/thu **full hàng** + khe reorder; rename folder **chỉ ⋮** (không double-click). **Backlog tùy chọn (không chặn Phase 4):** export project JSON “native”; migrate v2→v3 giữ dữ liệu. |
 | **5** | **Done** (2026-04-21) | 4 nhóm đo được đã giao: (1) test bù lấp (dbmanage + repository + usecase + import/export round-trip); (2) smoke E2E tầng Go (`internal/e2e/smoke_test.go`); (3) CI tối thiểu `.github/workflows/ci.yml` (go vet + go test -race + vite build) — **xanh trên GitHub Actions 2026-04-21**; (4) `release-checklist.md` + `manual-test-plan.md`. **Windows-first:** v1 official = Windows x64; macOS/Linux best-effort, unsigned. Backlog không nằm trong Phase 5: export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); bug `{{var}}` bị URL-encode khi export Postman v2.1. |
 | **6** | **Done** (2026-04-21) | **Networking & Security:** proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas` PEM trong DB), `HTTPTransportFactory` + per-request `insecure_skip_verify` trên `requests`, env var `kind=secret` + AES-GCM `enc:v1:` + redact history/snippets, Wails `SettingsHandler` + tab **Settings** UI + test proxy. **DB v6.** |
-| **7** | **Done** (2026-04-26) | **UX Polish & Productivity:** Dashboard khi không còn tab + đóng tab cuối; in-app Help `?`; Command palette Ctrl/Cmd+K; variable interpolation preview có mask secret; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản. Không bump DB. |
+| **7** | **Done** (2026-04-26) | **UX Polish & Productivity:** Dashboard khi không còn tab + đóng tab cuối; in-app Help `?`; Command palette Ctrl/Cmd+K; variable interpolation preview có mask secret; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản; Vite code splitting để hết warning chunk > 500 kB. Không bump DB. |
 | **8** | Planned    | **Collection Runner & Chaining** — per-request capture rules (JSONPath/regex → env var), assertion rules đơn giản (status/header/json-path), Runner chạy tuần tự cây folder theo `sort_order` với env active, report JSON + Markdown. Capture là nền tảng cho Phase 9. |
 | **9** | Planned (bắt buộc) | **Scripting (pre-request & post-response)** — goja (ES5+ subset), sandbox + interrupt timeout, subset `pm.*` API tối thiểu (`pm.environment`, `pm.variables`, `pm.response`, `pm.request`, `pm.test`, `pm.expect`), CodeMirror editor + console panel. Cho phép import script từ Postman v2.1 chạy được ở mức cơ bản. |
 
@@ -234,6 +234,7 @@ Delivered (close 2026-04-26):
 - Duplicate folder/request qua Wails handlers mới, copy recursive folder tree + saved request payload.
 - Copy as cURL trên request panel, dùng lại `SnippetHandler` kind `curl_bash`.
 - Shortcut: `Ctrl/Cmd+Enter`, `Ctrl/Cmd+S`, `Ctrl/Cmd+T`, `Ctrl/Cmd+W`, `Ctrl/Cmd+K`, `Ctrl/Cmd+Shift+E`, `Esc`.
+- Vite code splitting: async components cho màn/modal ít dùng + `manualChunks` cho Vue / CodeMirror / formatter vendor; build không còn warning chunk > 500 kB.
 
 Done when:
 
@@ -370,17 +371,17 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 
 ---
 
-## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-21)
+## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-26)
 
-Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). Lộ trình tiếp theo đi theo thứ tự:
+Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). **Phase 7** đã **đóng** (2026-04-26 — UX polish/productivity + code splitting). Lộ trình tiếp theo đi theo thứ tự:
 
-**Phase 7 → 8 → 9** (mỗi phase xem section phía trên có đầy đủ Scope / DB migration / Done when / Ngoài scope).
+**Phase 8 → 9** (mỗi phase xem section phía trên có đầy đủ Scope / DB migration / Done when / Ngoài scope).
 
 1. ~~**Phase 6 — Networking & Security**~~ **Done (2026-04-21).**
    - Proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas`), per-request `insecure_skip_verify`, secret env vars + redact history/snippet payloads, Wails `SettingsHandler` + tab **Settings**.
    - DB **v6** (`trusted_cas`, `settings`, `environment_variables.kind`, `requests.insecure_skip_verify`).
 2. ~~**Phase 7 — UX Polish & Productivity**~~ **Done (2026-04-26).**
-   - Dashboard thay tab mặc định + cho đóng tab cuối; Command palette Ctrl+K; variable preview; Duplicate folder/request; Copy as cURL; shortcuts cơ bản.
+   - Dashboard thay tab mặc định + cho đóng tab cuối; in-app Help `?`; Command palette Ctrl+K; variable preview; Duplicate folder/request; Copy as cURL; shortcuts cơ bản; Vite code splitting.
    - Không bump DB.
 3. **Phase 8 — Collection Runner & Chaining** (biến tool thành automation thật).
    - Capture rules (JSONPath/regex → env var), Assertion rules (status/header/json-path), Runner tuần tự theo folder + env, report JSON/MD.
