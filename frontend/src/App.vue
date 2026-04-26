@@ -1,20 +1,21 @@
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, defineAsyncComponent } from 'vue'
 import Sidebar from './components/Sidebar.vue'
-import RequestPanel from './components/RequestPanel.vue'
 import RequestTabBar from './components/RequestTabBar.vue'
 import ResponsePanel from './components/ResponsePanel.vue'
 import ConsolePanel from './components/ConsolePanel.vue'
-import EnvironmentDetailPanel from './components/EnvironmentDetailPanel.vue'
-import SettingsPanel from './components/SettingsPanel.vue'
-import DashboardHome from './components/DashboardHome.vue'
-import CommandPalette from './components/CommandPalette.vue'
-import HelpModal from './components/HelpModal.vue'
 import { Execute } from '../wailsjs/wailsjs/go/delivery/HTTPHandler'
 import { Get as GetSavedRequest } from '../wailsjs/wailsjs/go/delivery/SavedRequestHandler'
 import * as EnvAPI from '../wailsjs/wailsjs/go/delivery/EnvironmentHandler'
 import { useTabsStore } from './stores/tabsStore'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
+
+const RequestPanel = defineAsyncComponent(() => import('./components/RequestPanel.vue'))
+const EnvironmentDetailPanel = defineAsyncComponent(() => import('./components/EnvironmentDetailPanel.vue'))
+const SettingsPanel = defineAsyncComponent(() => import('./components/SettingsPanel.vue'))
+const DashboardHome = defineAsyncComponent(() => import('./components/DashboardHome.vue'))
+const CommandPalette = defineAsyncComponent(() => import('./components/CommandPalette.vue'))
+const HelpModal = defineAsyncComponent(() => import('./components/HelpModal.vue'))
 
 const tabsStore = useTabsStore()
 const { tabsMeta, activeTab, state: tabsState } = tabsStore
