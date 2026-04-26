@@ -229,13 +229,48 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
     - Xoá nguyên folder chứa request có rules → tương tự, không còn orphan.
     - Xoá 1 run history → kéo theo `runner_run_requests` của run đó (CASCADE).
 
-### L. Migration & backup
+### L. Scripting (Phase 9)
+
+> Tiền đề: env active có `base_url=https://httpbin.org`. Tạo folder `Phase9` với 2 saved request: `01 Login` (POST `{{base_url}}/post` body raw JSON `{"id": 42}`) và `02 Me` (GET `{{base_url}}/headers`).
+
+1. **Migration v8 → v9**
+   - Mở app với DB v8 (backup từ build trước Phase 9) → app khởi động không lỗi, `<appDir>/backups/` có file backup mới; mở DB browser → `requests` có thêm 2 cột `pre_request_script` + `post_response_script` (default `''`).
+   - Mở app lần 2 (đã ở v9) → không tạo backup mới, không re-run migrate, không lỗi duplicate column.
+2. **Editor Pre-request + Tests**
+   - Mở `01 Login` → có 2 tab mới **Pre-request** + **Tests** (CodeMirror JS, syntax highlight, gợi ý `pm.*`).
+   - Nhập script vào Pre-request, save → reload app → script vẫn còn nguyên text.
+3. **`pm.environment.set` qua chained Send**
+   - Pre-request `01 Login`: rỗng. Post-response `01 Login`: `pm.environment.set('TOKEN', pm.response.json().json.id);`
+   - Send `01 Login` → mở Environments → biến `TOKEN` trong env active = `42`.
+   - Send `02 Me` với header `Authorization: Bearer {{TOKEN}}` → server thấy header `Authorization: Bearer 42`.
+4. **`pm.test` + Tests panel**
+   - Post-response: `pm.test('status is 200', () => pm.expect(pm.response.code).to.equal(200));` + `pm.test('has json', () => pm.expect(pm.response.json()).to.exist);`.
+   - Send → tab **Tests** (ResponsePanel) hiển thị `2/2 PASS`. Đổi 1 expectation thành sai → `1/2 FAIL` với message rõ; `pm.test` không làm crash request.
+5. **Timeout sandbox**
+   - Pre-request: `while(true){}`.
+   - Send → request bị huỷ sau `ScriptTimeoutSeconds`; ResponsePanel/console hiển thị error "script timeout / interrupted"; app không treo, có thể tiếp tục dùng tab khác.
+6. **Sandbox no-I/O**
+   - Pre-request: `var fs = require('fs');` → console hiển thị `ReferenceError: require is not defined` (hoặc tương đương sandbox block); request **không** được gửi.
+   - Pre-request: `pm.sendRequest('https://httpbin.org/get', cb)` → log console + request chính vẫn gửi sau khi pre-request finish (sync block).
+7. **Runner integration**
+   - Mở Runner cho folder `Phase9` → Run.
+   - **Expect**: `01 Login` chạy pre + post; `02 Me` thấy `Authorization: Bearer 42` (chained); `pm.test` rollup vào tổng `passed/failed` của Runner; Runner row detail hiện script output trong tab Tests / Console.
+   - Set Pre-request `01 Login` = `throw new Error('boom');` → Run → row `01 Login` status `errored`, `02 Me` skip nếu Stop on fail bật.
+8. **Import / Export Postman v2.1**
+   - Import 1 collection Postman có `event[{"listen":"test","script":...}]`. Mở request được import → script đã điền vào tab **Tests** (post-response).
+   - Export lại root đó → mở JSON: `event[]` được emit lại với listen + script text khớp.
+   - Re-import file vừa export → tree + script khớp.
+9. **Console panel**
+   - Pre-request: `console.log('hi'); console.warn('warn'); console.error('err');`
+   - Send → Console panel dưới Response hiển thị 3 dòng theo level (info/warn/error icon), không lẫn vào response body.
+
+### M. Migration & backup
 
 1. Từ DB v4 (lấy từ backup bản release trước) → mở app → `<appDir>/backups/` có file backup mới, app chạy bình thường, folders có `sort_order` backfill đúng (alphabetical trong từng parent).
 2. Từ DB đang ở version target → mở app → không tạo backup mới (tránh spam).
 3. DB bị corrupt (cố tình ghi byte rác): app không panic — phải show error message thân thiện hoặc ít nhất log có stack trace rõ ràng (known limitation: hiện tại có thể fatal; ghi chú vào release note nếu vẫn xảy ra).
 
-### M. Crash / stability
+### N. Crash / stability
 
 1. Chạy app nhiều giờ (> 2h) với 1 vài request định kỳ → memory không leak quá mức (Task Manager: < 500MB).
 2. Đóng app đột ngột (Task Manager kill) → lần mở sau vẫn bình thường.
