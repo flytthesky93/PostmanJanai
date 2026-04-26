@@ -200,15 +200,34 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
    - Run lại folder lớn (≥ 5 request) → bấm **Cancel** giữa chừng → run dừng, status = `cancelled`, recent runs ghi nhận đúng.
 5. **Recent runs + Detail**
    - Mở section **Recent runs** trong Runner modal → thấy ≥ 3 entry mới nhất (tên folder, env, totals, duration). Click 1 entry → load lại bảng kết quả.
-   - Xoá 1 entry → biến mất khỏi list.
-6. **Export report**
-   - Sau 1 lần run xong → bấm **Export JSON** → Save dialog mở, save → file `.json` hợp lệ (mở thấy `passed_count`, `requests[]`).
+   - Xoá 1 entry: bấm **Delete** → modal xác nhận hiện ra (cùng style các modal khác, KHÔNG dùng `window.confirm`); xác nhận → entry biến mất.
+   - Click 1 row request bất kỳ trong bảng → modal **Request detail** hiện ra với 3 tab: **Request** (headers + body raw đã resolve `{{var}}`), **Response** (headers + body, có badge "truncated" nếu vượt cap), **Tests** (assertion + capture).
+6. **Folder eligibility cho "Run folder…"**
+   - Folder trống (không có request, không có folder con) → context menu → mục **Run folder…** **disabled** + tooltip giải thích.
+   - Folder chỉ chứa folder con (không có request trực tiếp) → tương tự **disabled**.
+   - Folder chứa toàn request → mục **enabled**, click → mở Runner đã chọn folder đó.
+7. **Export report**
+   - Sau 1 lần run xong → bấm **Export JSON** → Save dialog mở, save → file `.json` hợp lệ (mở thấy `passed_count`, `requests[]` với cả `request_headers_json` / `response_body`).
    - Bấm **Export Markdown** → file `.md` đọc được, có bảng totals + section per-request, escape pipe trong URL không phá table.
-7. **Migration v6 → v7**
-   - Mở app với DB v6 (backup từ build trước Phase 8) → app khởi động không lỗi, `<appDir>/backups/` có file backup, các bảng cũ giữ nguyên dữ liệu, các bảng mới (`request_captures`/`request_assertions`/`runner_runs`/`runner_run_requests`) tồn tại.
-8. **Cascade delete**
-   - Tạo capture + assertion cho 1 request → xoá request đó → mở DB browser (hoặc tạo lại request cùng id không khả thi vì UUID mới) → đảm bảo các row capture/assertion đã được xoá, không còn orphan.
-   - Xoá nguyên folder chứa request có rules → tương tự, không còn orphan.
+8. **Phase 8.1 — Iterations / Delay / Timeout per request**
+   - Mở Runner cho folder `Phase8` → set **Iterations = 3**, **Delay between requests = 250 ms**, **Timeout per request = 0** (default). Run.
+     - **Expect**: bảng có 3 × N rows (N = số request trong folder), `total_count` khớp, các row sort theo thời gian (sort_order tăng dần qua các iteration). Run mất ít nhất ~ (3N − 1) × 250 ms.
+   - Set **Iterations = 999** (vượt cap) → Run. **Expect**: backend clamp về 50, modal hiển thị 50 × N rows, không lỗi.
+   - Set **Timeout per request = 100 ms** + chạy folder có 1 request bắn vào URL chậm/treo → row đó status `errored`, error message liên quan tới context deadline; runner vẫn tiếp tục hoặc dừng theo Stop on fail.
+   - Trong lúc đang **Delay** giữa request → bấm **Cancel** → run dừng kịp thời, status = `cancelled`.
+9. **Phase 8.1 — Replay raw request/response**
+   - Sau khi run xong 1 folder có ≥ 1 request body raw + bearer auth + header chứa `{{var}}`:
+     - Click row request đó → tab **Request** hiển thị bearer giá trị thực (đã resolve) chứ không phải `{{var}}`; body raw đã substitute.
+     - Tab **Response** hiển thị status + headers + body. Nếu body lớn → cuối body có suffix `[… response body truncated at configured max size …]`, badge "truncated".
+   - Đóng app → mở lại → vào **Recent runs** → bấm **Open** trên run vừa chạy → click row request → vẫn xem được raw payload (DB đã persist).
+10. **Migration v6 → v7 → v8**
+    - Mở app với DB v6 (backup từ build trước Phase 8) → app khởi động không lỗi, `<appDir>/backups/` có file backup mới.
+    - Mở DB browser → `runner_run_requests` có đủ 5 cột v8 (`request_headers_json`, `response_headers_json`, `request_body`, `response_body`, `body_truncated`); các bảng cũ giữ nguyên dữ liệu.
+    - Mở app lần thứ 2 (đã ở v8) → không tạo backup mới, không re-run migrate.
+11. **Cascade delete**
+    - Tạo capture + assertion cho 1 request → xoá request đó → đảm bảo các row capture/assertion đã được xoá, không còn orphan.
+    - Xoá nguyên folder chứa request có rules → tương tự, không còn orphan.
+    - Xoá 1 run history → kéo theo `runner_run_requests` của run đó (CASCADE).
 
 ### L. Migration & backup
 

@@ -22,6 +22,17 @@ const envId = ref('')
 
 const stopOnFail = ref(false)
 const notes = ref('')
+/**
+ * Phase 8.1 advanced run options. Defaults preserve previous behaviour:
+ *   - iterations 1 (no looping)
+ *   - delayMs    0 (no inter-request sleep)
+ *   - timeoutPerReqMs 0 (use the global HTTPClient timeout)
+ * Backend clamps these to safe ranges (RunnerMaxIterations / RunnerMaxDelayMs /
+ * RunnerMaxTimeoutPerReqMs) so the UI doesn't have to repeat the validation.
+ */
+const iterations = ref(1)
+const delayMs = ref(0)
+const timeoutPerReqMs = ref(0)
 
 /** UI phases:
  *  - "idle" — config form visible, ready to launch.
@@ -226,7 +237,10 @@ async function launch() {
       folder_id: folderId.value,
       environment_id: envId.value || null,
       stop_on_fail: !!stopOnFail.value,
-      notes: notes.value || ''
+      notes: notes.value || '',
+      iterations: clampIntInput(iterations.value, 1, 50, 1),
+      delay_ms: clampIntInput(delayMs.value, 0, 60_000, 0),
+      timeout_per_request_ms: clampIntInput(timeoutPerReqMs.value, 0, 5 * 60_000, 0)
     })
   } catch (e) {
     phase.value = 'idle'
@@ -355,6 +369,16 @@ function fmtSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
+
+/** Clamp a numeric input value to [min, max]; falls back to fallback when NaN. */
+function clampIntInput(value, min, max, fallback) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  const i = Math.trunc(n)
+  if (i < min) return min
+  if (i > max) return max
+  return i
+}
 </script>
 
 <template>
@@ -420,6 +444,54 @@ function fmtSize(bytes) {
                 placeholder="Notes (optional)"
                 class="flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
               />
+            </div>
+
+            <div class="md:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label class="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                  Iterations
+                  <span class="font-normal lowercase text-gray-600">(1–50)</span>
+                </label>
+                <input
+                  v-model.number="iterations"
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
+                  :disabled="phase === 'running'"
+                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                  Delay between requests
+                  <span class="font-normal lowercase text-gray-600">(ms, ≤ 60000)</span>
+                </label>
+                <input
+                  v-model.number="delayMs"
+                  type="number"
+                  min="0"
+                  max="60000"
+                  step="50"
+                  :disabled="phase === 'running'"
+                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                  Timeout per request
+                  <span class="font-normal lowercase text-gray-600">(ms, 0 = use default)</span>
+                </label>
+                <input
+                  v-model.number="timeoutPerReqMs"
+                  type="number"
+                  min="0"
+                  max="300000"
+                  step="500"
+                  :disabled="phase === 'running'"
+                  class="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-orange-500"
+                />
+              </div>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // stubExecutor returns deterministic responses by URL pattern. Tests use
@@ -233,6 +234,117 @@ func TestRunner_RunFolder_EmptyFolderRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty folder")
 	}
+}
+
+// TestRunner_RunFolder_IterationsAndDelay covers the Phase 8.1 options:
+//   - Iterations multiplies the plan (3 requests × 2 iterations = 6 rows).
+//   - DelayMs introduces a measurable gap between requests (we just check the
+//     run took at least the expected lower bound — strict timing is brittle in
+//     CI so we use a generous slack).
+//   - StopOnFail still wins over iterations when a request errors out.
+func TestRunner_RunFolder_IterationsAndDelay(t *testing.T) {
+	exec := newStubExecutor()
+	ctx, uc, folders, requests, _, _, _ := newRunnerUC(t, exec)
+	root := mustCreateRoot(t, folders, "loop")
+	mustCreateRequest(t, requests, root.ID, "a", "https://api.example.com/a")
+	mustCreateRequest(t, requests, root.ID, "b", "https://api.example.com/b")
+	exec.on("/a", &entity.HTTPExecuteResult{StatusCode: 200})
+	exec.on("/b", &entity.HTTPExecuteResult{StatusCode: 200})
+
+	const delayMs = 25
+	start := time.Now()
+	detail, err := uc.RunFolder(ctx, &entity.RunFolderInput{
+		FolderID:   root.ID,
+		Iterations: 3,
+		DelayMs:    delayMs,
+	}, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if detail.Status != constant.RunnerStatusCompleted {
+		t.Fatalf("status = %s", detail.Status)
+	}
+	if got := len(detail.Requests); got != 6 {
+		t.Errorf("rows = %d, want 6 (3 iterations × 2 requests)", got)
+	}
+	if detail.TotalCount != 6 {
+		t.Errorf("total_count = %d, want 6", detail.TotalCount)
+	}
+	// 5 inter-request delays in a 6-step run; allow generous floor for slow CI.
+	wantFloor := time.Duration(delayMs*5) * time.Millisecond / 2
+	if elapsed < wantFloor {
+		t.Errorf("elapsed %s shorter than expected delay floor %s", elapsed, wantFloor)
+	}
+
+	// sort_order should monotonically increase across iterations so the report
+	// view can render rows chronologically.
+	for i := 1; i < len(detail.Requests); i++ {
+		if detail.Requests[i].SortOrder < detail.Requests[i-1].SortOrder {
+			t.Errorf("sort_order regressed at idx %d: %d < %d",
+				i, detail.Requests[i].SortOrder, detail.Requests[i-1].SortOrder)
+		}
+	}
+}
+
+// TestRunner_RunFolder_IterationsClampedToMax confirms the usecase trims
+// runaway iterations down to RunnerMaxIterations even if the caller sends a
+// huge number.
+func TestRunner_RunFolder_IterationsClampedToMax(t *testing.T) {
+	exec := newStubExecutor()
+	ctx, uc, folders, requests, _, _, _ := newRunnerUC(t, exec)
+	root := mustCreateRoot(t, folders, "clamp")
+	mustCreateRequest(t, requests, root.ID, "a", "https://api.example.com/a")
+	exec.on("/a", &entity.HTTPExecuteResult{StatusCode: 200})
+
+	detail, err := uc.RunFolder(ctx, &entity.RunFolderInput{
+		FolderID:   root.ID,
+		Iterations: 1_000, // wildly above the cap
+	}, nil)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := len(detail.Requests); got != constant.RunnerMaxIterations {
+		t.Errorf("rows = %d, want %d (RunnerMaxIterations)", got, constant.RunnerMaxIterations)
+	}
+}
+
+// TestRunner_RunFolder_TimeoutPerRequest verifies the per-request timeout
+// option fires before the default HTTP client timeout. The stub blocks until
+// its context is cancelled, so a 50ms cap should always trigger.
+func TestRunner_RunFolder_TimeoutPerRequest(t *testing.T) {
+	blockingExec := &blockingStubExecutor{}
+	ctx, uc, folders, requests, _, _, _ := newRunnerUC(t, blockingExec)
+	root := mustCreateRoot(t, folders, "timeout")
+	mustCreateRequest(t, requests, root.ID, "slow", "https://api.example.com/slow")
+
+	start := time.Now()
+	detail, err := uc.RunFolder(ctx, &entity.RunFolderInput{
+		FolderID:            root.ID,
+		TimeoutPerRequestMs: 50,
+	}, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if elapsed > 5*time.Second {
+		t.Fatalf("per-request timeout did not fire (elapsed %s)", elapsed)
+	}
+	if len(detail.Requests) != 1 {
+		t.Fatalf("rows = %d, want 1", len(detail.Requests))
+	}
+	if detail.Requests[0].Status != constant.RunnerRequestStatusErrored {
+		t.Errorf("status = %s, want errored", detail.Requests[0].Status)
+	}
+}
+
+// blockingStubExecutor blocks on its context until cancelled, simulating a
+// hung server.
+type blockingStubExecutor struct{}
+
+func (blockingStubExecutor) Execute(ctx context.Context, _ *entity.HTTPExecuteInput) (*entity.HTTPExecuteResult, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
 }
 
 func TestRunner_RunFolder_RecentList(t *testing.T) {

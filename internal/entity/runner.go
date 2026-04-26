@@ -56,11 +56,23 @@ type RunnerRunDetail struct {
 }
 
 // RunFolderInput — payload from the UI to start a folder run.
+//
+// Iterations / DelayMs / TimeoutPerRequestMs were promised in Phase 8 but
+// landed in 8.1 (this iteration). Defaults preserve previous behavior:
+//   - Iterations          ≤0 → 1 iteration; clamped to RunnerMaxIterations.
+//   - DelayMs             ≤0 → no delay; clamped to RunnerMaxDelayMs.
+//   - TimeoutPerRequestMs ≤0 → no per-request override (uses HTTPClientTimeout);
+//                              otherwise wraps each Execute call in its own
+//                              context.WithTimeout so a hung request can't
+//                              starve the rest of the plan.
 type RunFolderInput struct {
-	FolderID      string `json:"folder_id"`
-	EnvironmentID string `json:"environment_id,omitempty"`
-	StopOnFail    bool   `json:"stop_on_fail,omitempty"`
-	Notes         string `json:"notes,omitempty"`
+	FolderID             string `json:"folder_id"`
+	EnvironmentID        string `json:"environment_id,omitempty"`
+	StopOnFail           bool   `json:"stop_on_fail,omitempty"`
+	Notes                string `json:"notes,omitempty"`
+	Iterations           int    `json:"iterations,omitempty"`
+	DelayMs              int    `json:"delay_ms,omitempty"`
+	TimeoutPerRequestMs  int    `json:"timeout_per_request_ms,omitempty"`
 }
 
 // RunnerProgressEvent — emitted to the frontend as the runner advances.

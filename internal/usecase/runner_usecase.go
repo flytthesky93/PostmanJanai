@@ -93,6 +93,30 @@ func (u *runnerUsecaseImpl) RunFolder(ctx context.Context, in *entity.RunFolderI
 	if emitter == nil {
 		emitter = noopEmitter{}
 	}
+
+	// Clamp options so the UI can't accidentally launch a runaway run.
+	iterations := in.Iterations
+	if iterations <= 0 {
+		iterations = constant.RunnerDefaultIterations
+	}
+	if iterations > constant.RunnerMaxIterations {
+		iterations = constant.RunnerMaxIterations
+	}
+	delayMs := in.DelayMs
+	if delayMs < 0 {
+		delayMs = 0
+	}
+	if delayMs > constant.RunnerMaxDelayMs {
+		delayMs = constant.RunnerMaxDelayMs
+	}
+	timeoutMs := in.TimeoutPerRequestMs
+	if timeoutMs < 0 {
+		timeoutMs = 0
+	}
+	if timeoutMs > constant.RunnerMaxTimeoutPerReqMs {
+		timeoutMs = constant.RunnerMaxTimeoutPerReqMs
+	}
+
 	folder, err := u.folders.GetByID(ctx, in.FolderID)
 	if err != nil {
 		return nil, err
@@ -122,12 +146,14 @@ func (u *runnerUsecaseImpl) RunFolder(ctx context.Context, in *entity.RunFolderI
 		return nil, apperror.NewWithErrorDetail(constant.ErrRunnerEmpty, nil)
 	}
 
+	totalForRun := len(plan) * iterations
+
 	runID, err := u.runs.StartRun(ctx, &repository.RunnerStartInput{
 		FolderID:        in.FolderID,
 		FolderName:      folder.Name,
 		EnvironmentID:   envID,
 		EnvironmentName: envName,
-		TotalCount:      len(plan),
+		TotalCount:      totalForRun,
 		Notes:           strings.TrimSpace(in.Notes),
 	})
 	if err != nil {
@@ -135,9 +161,13 @@ func (u *runnerUsecaseImpl) RunFolder(ctx context.Context, in *entity.RunFolderI
 	}
 
 	emitter.Emit(constant.RunnerEventStarted, map[string]any{
-		"run_id":      runID,
-		"total_count": len(plan),
-		"folder_name": folder.Name,
+		"run_id":           runID,
+		"total_count":      totalForRun,
+		"plan_size":        len(plan),
+		"iterations":       iterations,
+		"delay_ms":         delayMs,
+		"timeout_per_req":  timeoutMs,
+		"folder_name":      folder.Name,
 	})
 
 	memoryBag := map[string]string{}
@@ -149,38 +179,62 @@ func (u *runnerUsecaseImpl) RunFolder(ctx context.Context, in *entity.RunFolderI
 	startedAt := time.Now()
 	passed, failed, errored := 0, 0, 0
 	finalStatus := constant.RunnerStatusCompleted
+	currentIdx := 0
 
-	for idx, item := range plan {
-		if ctx.Err() != nil {
-			finalStatus = constant.RunnerStatusCancelled
-			break
-		}
-		row := u.executeOne(ctx, item, idx, envBag, memoryBag)
-		if _, err := u.runs.AppendRequest(ctx, runID, row); err != nil {
-			logger.L().InfoContext(ctx, "runner append failed", "error", err)
-		}
-		switch row.Status {
-		case constant.RunnerRequestStatusPassed:
-			passed++
-		case constant.RunnerRequestStatusFailed:
-			failed++
-		case constant.RunnerRequestStatusErrored:
-			errored++
-		}
-		_ = u.runs.UpdateProgress(ctx, runID, passed, failed, errored, len(plan))
-		emitter.Emit(constant.RunnerEventRequestDone, entity.RunnerProgressEvent{
-			RunID:       runID,
-			TotalCount:  len(plan),
-			CurrentIdx:  idx + 1,
-			PassedCount: passed,
-			FailedCount: failed,
-			ErrorCount:  errored,
-			Phase:       "request",
-			Request:     &row,
-		})
-		if in.StopOnFail && (row.Status == constant.RunnerRequestStatusFailed || row.Status == constant.RunnerRequestStatusErrored) {
-			finalStatus = constant.RunnerStatusFailed
-			break
+OUTER:
+	for iter := 0; iter < iterations; iter++ {
+		for idx, item := range plan {
+			if ctx.Err() != nil {
+				finalStatus = constant.RunnerStatusCancelled
+				break OUTER
+			}
+			// Per-request timeout (Phase 8.1) — wraps the executor call only.
+			// We never override the user's HTTPClient timeout when the option
+			// is unset (timeoutMs == 0).
+			reqCtx := ctx
+			var cancelReq context.CancelFunc
+			if timeoutMs > 0 {
+				reqCtx, cancelReq = context.WithTimeout(ctx, time.Duration(timeoutMs)*time.Millisecond)
+			}
+			row := u.executeOne(reqCtx, item, iter*len(plan)+idx, envBag, memoryBag)
+			if cancelReq != nil {
+				cancelReq()
+			}
+			if _, err := u.runs.AppendRequest(ctx, runID, row); err != nil {
+				logger.L().InfoContext(ctx, "runner append failed", "error", err)
+			}
+			switch row.Status {
+			case constant.RunnerRequestStatusPassed:
+				passed++
+			case constant.RunnerRequestStatusFailed:
+				failed++
+			case constant.RunnerRequestStatusErrored:
+				errored++
+			}
+			currentIdx++
+			_ = u.runs.UpdateProgress(ctx, runID, passed, failed, errored, totalForRun)
+			emitter.Emit(constant.RunnerEventRequestDone, entity.RunnerProgressEvent{
+				RunID:       runID,
+				TotalCount:  totalForRun,
+				CurrentIdx:  currentIdx,
+				PassedCount: passed,
+				FailedCount: failed,
+				ErrorCount:  errored,
+				Phase:       "request",
+				Request:     &row,
+			})
+			if in.StopOnFail && (row.Status == constant.RunnerRequestStatusFailed || row.Status == constant.RunnerRequestStatusErrored) {
+				finalStatus = constant.RunnerStatusFailed
+				break OUTER
+			}
+			// Inter-request delay (Phase 8.1) — skip after the last request of
+			// the last iteration so the run doesn't sleep before reporting done.
+			if delayMs > 0 && !(iter == iterations-1 && idx == len(plan)-1) {
+				if !sleepCancelable(ctx, time.Duration(delayMs)*time.Millisecond) {
+					finalStatus = constant.RunnerStatusCancelled
+					break OUTER
+				}
+			}
 		}
 	}
 
@@ -420,9 +474,31 @@ func applyHTTPSnapshotsToRow(row *entity.RunnerRunRequestRow, res *entity.HTTPEx
 		}
 	}
 	if respBody != "" {
+		// Append the same truncation marker the request-history view uses so
+		// the user sees a consistent message in both views.
+		if bodyTruncated && !strings.Contains(respBody, "[… response body truncated") {
+			respBody = respBody + "\n\n[… response body truncated at configured max size …]"
+		}
 		row.ResponseBody = respBody
 	}
 	row.BodyTruncated = bodyTruncated
+}
+
+// sleepCancelable waits for `d` but returns false immediately if `ctx` is
+// cancelled while waiting. This keeps the runner responsive to Cancel even
+// while sitting in the inter-request delay.
+func sleepCancelable(ctx context.Context, d time.Duration) bool {
+	if d <= 0 {
+		return ctx.Err() == nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return ctx.Err() == nil
+	}
 }
 
 func mergeVarBags(envBag, memoryBag map[string]string) map[string]string {

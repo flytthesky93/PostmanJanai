@@ -88,4 +88,13 @@ const (
 	RunnerEventStarted     = "runner:started"
 	RunnerEventRequestDone = "runner:request"
 	RunnerEventFinished    = "runner:finished"
+
+	// Runner option clamps (Phase 8.1).
+	// Iterations cap matches the original promise in the roadmap; the delay is
+	// generous so users can simulate human-paced flows; per-request timeout is
+	// capped to avoid the runner being indefinitely stalled by a single request.
+	RunnerDefaultIterations    = 1
+	RunnerMaxIterations        = 50
+	RunnerMaxDelayMs           = 60_000
+	RunnerMaxTimeoutPerReqMs   = 5 * 60 * 1000
 )

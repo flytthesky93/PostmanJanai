@@ -860,6 +860,9 @@ export namespace entity {
 	    environment_id?: string;
 	    stop_on_fail?: boolean;
 	    notes?: string;
+	    iterations?: number;
+	    delay_ms?: number;
+	    timeout_per_request_ms?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RunFolderInput(source);
@@ -871,6 +874,9 @@ export namespace entity {
 	        this.environment_id = source["environment_id"];
 	        this.stop_on_fail = source["stop_on_fail"];
 	        this.notes = source["notes"];
+	        this.iterations = source["iterations"];
+	        this.delay_ms = source["delay_ms"];
+	        this.timeout_per_request_ms = source["timeout_per_request_ms"];
 	    }
 	}
 	export class RunnerRunRequestRow {

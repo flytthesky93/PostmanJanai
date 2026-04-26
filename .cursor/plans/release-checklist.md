@@ -58,12 +58,14 @@ Nếu release này có thay đổi **Phase 7 (UX polish/productivity)** → thê
 
 Nếu release này có thay đổi **Phase 8 (Collection Runner & Chaining)** → thêm tick nhanh:
 
-- [ ] DB mở từ bản v6 cũ → migrate v6→v7 chạy thành công, các bảng mới `request_captures` / `request_assertions` / `runner_runs` / `runner_run_requests` tồn tại; bảng cũ không bị đụng.
+- [ ] DB mở từ bản v6 cũ → migrate chain v6→v7→v8 chạy thành công, các bảng mới `request_captures` / `request_assertions` / `runner_runs` / `runner_run_requests` tồn tại; cột v8 (`request_headers_json` / `response_headers_json` / `request_body` / `response_body` / `body_truncated`) đã có; bảng cũ không bị đụng.
 - [ ] Tạo capture `$.token` → environment scope → request kế tiếp dùng `{{token}}` resolve đúng giá trị mới (chained).
 - [ ] Assertion `status eq 200` PASS hiện trong tab **Tests** của ResponsePanel; assertion FAIL hiển thị message rõ.
 - [ ] Mở **Runner** trên header (hoặc context menu folder → "Run folder…") → run xong total/passed/failed khớp; recent runs hiện đúng.
-- [ ] Stop-on-fail dừng đúng request lỗi; cancel run đang chạy hoạt động (status `cancelled`).
+- [ ] Stop-on-fail dừng đúng request lỗi; cancel run đang chạy hoạt động (status `cancelled`); cancel trong lúc đang **delay** cũng dừng kịp thời.
 - [ ] **Export JSON** + **Export Markdown** từ Runner modal mở Save dialog, lưu file đọc được — xem `manual-test-plan.md` §**K. Collection Runner & Chaining (Phase 8)**.
+- [ ] (Phase 8.1) Click 1 row trong run report → modal chi tiết hiện raw resolved headers + body request/response (không còn `{{var}}`); response body lớn có suffix `[… response body truncated …]` khớp History detail.
+- [ ] (Phase 8.1) Iterations = 3, DelayMs = 200, Timeout/req = 1000 → run xong tổng row = 3 × số request, recent runs ghi nhận đúng tổng; nhập Iterations = 999 → backend tự clamp về 50.
 
 ## 5. Artifacts & release notes
 

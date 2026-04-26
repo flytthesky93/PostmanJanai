@@ -113,6 +113,99 @@ func TestMigrate_7to8AddsRunnerRequestSnapshots(t *testing.T) {
 	}
 }
 
+// TestMigrate_6to8Chain runs the full v6 → v7 → v8 chain on a v6-shape DB
+// (Phase 8 left some tables to ent.Schema.Create, so we recreate the v7 shape
+// of `runner_run_requests` here). This is a smoke test to catch regressions
+// where a future step accidentally depends on side-effects of an earlier one.
+func TestMigrate_6to8Chain(t *testing.T) {
+	db, _ := testutil.NewSQLDB(t)
+
+	// Seed v6-era tables we still touch + v7 shape of runner_run_requests so
+	// the v7→v8 ALTERs find their target. Phase 8 didn't ALTER any table in
+	// the v6→v7 step, but downstream code (incl. the v7→v8 step) needs the
+	// runner table present.
+	stmts := []string{
+		`CREATE TABLE folders (
+			id TEXT PRIMARY KEY,
+			parent_id TEXT NULL,
+			name TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`INSERT INTO folders (id, name) VALUES ('f1', 'root')`,
+		`CREATE TABLE runner_run_requests (
+			id TEXT PRIMARY KEY,
+			run_id TEXT NOT NULL,
+			request_name TEXT NOT NULL DEFAULT '',
+			method TEXT NOT NULL DEFAULT 'GET',
+			url TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'passed',
+			status_code INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER NOT NULL DEFAULT 0,
+			response_size_bytes INTEGER NOT NULL DEFAULT 0,
+			error_message TEXT NOT NULL DEFAULT '',
+			assertions_json TEXT NOT NULL DEFAULT '',
+			captures_json TEXT NOT NULL DEFAULT '',
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`INSERT INTO runner_run_requests (id, run_id) VALUES ('rr1', 'run1')`,
+	}
+	for _, q := range stmts {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("seed %q: %v", q, err)
+		}
+	}
+
+	if err := MigrateDataBetweenVersions(context.Background(), db, 6, 8); err != nil {
+		t.Fatalf("migrate 6→8: %v", err)
+	}
+
+	// Pre-existing data must survive both steps.
+	if row, n := db.QueryRow(`SELECT COUNT(*) FROM folders`), 0; row.Scan(&n) == nil && n != 1 {
+		t.Errorf("folders rows = %d, want 1", n)
+	}
+	row := db.QueryRow(`SELECT COUNT(*) FROM runner_run_requests`)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("runner_run_requests rows = %d, want 1", n)
+	}
+
+	// v8 columns must exist.
+	cols := map[string]bool{}
+	rows, err := db.Query(`PRAGMA table_info(runner_run_requests)`)
+	if err != nil {
+		t.Fatalf("pragma: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid         int
+			name, ctype string
+			notnull, pk int
+			dflt        *string
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		cols[name] = true
+	}
+	for _, c := range []string{"request_headers_json", "response_headers_json", "request_body", "response_body", "body_truncated"} {
+		if !cols[c] {
+			t.Errorf("expected column %q after v6→v8 chain", c)
+		}
+	}
+
+	// Re-running the chain should be a no-op (idempotent).
+	if err := MigrateDataBetweenVersions(context.Background(), db, 6, 8); err != nil {
+		t.Fatalf("migrate 6→8 (rerun): %v", err)
+	}
+}
+
 // TestMigrate_4to5AddsSortOrderAndBackfill verifies the v4→v5 migration step:
 // adds the column, then backfills sort_order per-parent alphabetically.
 func TestMigrate_4to5AddsSortOrderAndBackfill(t *testing.T) {

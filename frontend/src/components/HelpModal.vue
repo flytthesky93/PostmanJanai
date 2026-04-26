@@ -43,6 +43,14 @@ const tips = [
   {
     title: 'Collection Runner',
     text: 'Click Runner in the header (or right-click a folder → Run folder…) to run all requests under a folder sequentially. Captures chain into the next request, totals stream live, and reports can be exported as JSON or Markdown.'
+  },
+  {
+    title: 'Runner options',
+    text: 'In the Runner modal you can repeat the plan up to 50 times (Iterations), pause between requests up to 60s (Delay), and shorten the wait for a hung server (Timeout per request). Stop on first failure halts the run early; Cancel works during delays too.'
+  },
+  {
+    title: 'Runner request detail',
+    text: 'Click any row in a run to see the resolved request and response that was actually sent and received — variable substitution is already applied, so you no longer need to re-run a request to debug it.'
   }
 ]
 

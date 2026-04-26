@@ -7,11 +7,11 @@
 
 **Roadmap** (mục tiêu, phase 0–9, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
 
-> **Phase 6–9 (snapshot 2026-04-21):**
+> **Phase 6–9 (snapshot 2026-04-26 — Phase 8.1 closed):**
 > - **Phase 6 — Networking & Security:** **Done (2026-04-21).** proxy (`none/system/manual` + `NO_PROXY`) + custom CA pool (`trusted_cas` PEM trong DB) + `insecure_skip_verify` (per-request, lưu trên `requests`) + secret env var (`kind` + AES-GCM `enc:v1:` + redact history/snippet) + Wails `SettingsHandler` + tab **Settings**. DB bump **v5 → v6**.
 > - **Phase 7 — UX Polish:** **Done (2026-04-26).** Dashboard khi không còn tab + cho đóng tab cuối, in-app Help `?`, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting. **Không** bump DB.
-> - **Phase 8 — Runner & Chaining:** **Done (2026-04-26).** capture rules (JSONPath/regex/header/status → env hoặc memory) + assertion rules (status/header/json-path/duration/size/regex, op eq/neq/contains/exists/...) + Collection Runner theo folder + env (persist run + per-request rows + Wails event stream + export JSON/Markdown). DB bump **v6 → v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`).
-> - **Phase 9 — Scripting (bắt buộc):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v7 → v8** (`requests.pre_request_script`, `requests.post_response_script`).
+> - **Phase 8 — Runner & Chaining:** **Done (2026-04-26, closed 8.0 + 8.1).** 8.0: capture rules (JSONPath/regex/header/status → env hoặc memory) + assertion rules (status/header/json-path/duration/size/regex, op eq/neq/contains/exists/...) + Collection Runner theo folder + env (persist run + per-request rows + Wails event stream + export JSON/Markdown) + DB bump **v6 → v7**. 8.1: lưu raw resolved request/response trong `runner_run_requests` (5 cột mới) + Runner options Iterations / DelayMs / TimeoutPerRequestMs + DB bump **v7 → v8**.
+> - **Phase 9 — Scripting (bắt buộc):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v8 → v9** (`requests.pre_request_script`, `requests.post_response_script`).
 >
 > Xem scope chi tiết + "Done when" trong từng section `Phase 6/7/8/9` của `roadmap.md`.
 
@@ -252,7 +252,12 @@ Mỗi rule extract một giá trị từ response của request và ghi vào env
 | `error_message` | TEXT | NOT NULL, default `''` |
 | `assertions_json` | TEXT | NOT NULL, default `''` — danh sách `AssertionResult` đã JSON-encode |
 | `captures_json` | TEXT | NOT NULL, default `''` — danh sách `CaptureResult` đã JSON-encode |
-| `sort_order` | INTEGER | NOT NULL, default 0 |
+| `request_headers_json` | TEXT | NULL — Phase 8.1; `[]KeyValue` đã resolve `{{var}}` (raw những gì đã gửi) |
+| `response_headers_json` | TEXT | NULL — Phase 8.1; raw response headers |
+| `request_body` | TEXT | NULL — Phase 8.1; raw request body sau substitution / form encode / multipart text |
+| `response_body` | TEXT | NULL — Phase 8.1; raw response body (đã chia sẻ truncate cap với HTTPExecutor) |
+| `body_truncated` | BOOLEAN | NOT NULL, default false — cờ để UI hiển thị suffix `[… response body truncated …]` đồng nhất với history |
+| `sort_order` | INTEGER | NOT NULL, default 0 — Phase 8.1: với iterations > 1, `iteration*plan_size + idx` để giữ thứ tự thời gian khi xem lại |
 | `created_at` | DATETIME | NOT NULL |
 
 ---
@@ -281,7 +286,7 @@ erDiagram
 
 ## Migration & phiên bản DB
 
-- **`PRAGMA user_version` hiện tại (code):** **`7`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
+- **`PRAGMA user_version` hiện tại (code):** **`8`** (`internal/constant/app_constant.go` → `DBSchemaUserVersion`).
 - **Luồng migrate:** backup DB (nếu non-empty) → `MigrateDataBetweenVersions` → `ent.Client.Schema.Create` → set `user_version`.
 - **Các bước đã định nghĩa:**
   - `0 → 1`: placeholder.
@@ -290,7 +295,8 @@ erDiagram
   - `3 → 4`: additive (Ent `Schema.Create`) — ví dụ `requests.auth_json`.
   - `4 → 5`: `ALTER TABLE folders ADD COLUMN sort_order …` + backfill theo tên trong `internal/dbmanage/data_migrate.go` (`backfillFolderSortOrder`).
   - `5 → 6`: additive — `CREATE TABLE settings`, `CREATE TABLE trusted_cas`, `ALTER TABLE environment_variables ADD COLUMN kind …`, `ALTER TABLE requests ADD COLUMN insecure_skip_verify …` (chi tiết trong `internal/dbmanage/data_migrate.go`).
-  - `6 → 7`: **additive** — `CREATE TABLE request_captures`, `CREATE TABLE request_assertions`, `CREATE TABLE runner_runs`, `CREATE TABLE runner_run_requests` (Phase 8). Tất cả DDL do `ent.Schema.Create` đảm nhiệm; bước migrate chỉ bump `user_version` (không destructive, không backfill). Có test idempotent (`TestMigrate_6to7IsAdditive`) đảm bảo các bảng cũ không bị đụng.
+  - `6 → 7`: **additive** — `CREATE TABLE request_captures`, `CREATE TABLE request_assertions`, `CREATE TABLE runner_runs`, `CREATE TABLE runner_run_requests` (Phase 8.0). Tất cả DDL do `ent.Schema.Create` đảm nhiệm; bước migrate chỉ bump `user_version` (không destructive, không backfill). Có test idempotent (`TestMigrate_6to7IsAdditive`) đảm bảo các bảng cũ không bị đụng.
+  - `7 → 8`: **additive** — Phase 8.1; `ALTER TABLE runner_run_requests ADD COLUMN` cho 5 cột raw request/response (`request_headers_json`, `response_headers_json`, `request_body`, `response_body`, `body_truncated`). Idempotent: rerun trên DB đã có cột chỉ no-op (helper `isDuplicateColumnErr`). Test: `TestMigrate_7to8AddsRunnerRequestSnapshots` (đơn lẻ) + `TestMigrate_6to8Chain` (chuỗi liền mạch).
 - Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm — **backlog**).
 
 ---
@@ -316,9 +322,18 @@ erDiagram
 - **Phase 5** **đã đóng** (2026-04-21) — quality gate baseline (tests + smoke E2E Go + CI + release/manual docs).
 - **Phase 6** **đã đóng** (2026-04-21) — networking/security: proxy + custom CA + per-request insecure TLS + secret env + redact + Settings UI — **DB v6**.
 - **Phase 7** **đã đóng** (2026-04-26) — UX polish/productivity: Dashboard, in-app Help `?`, Ctrl+K palette, variable preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting hết warning chunk > 500 kB — **không bump DB**.
-- **Phase 8** **đã đóng** (2026-04-26) — Collection Runner & Chaining: capture/assertion engine, runner orchestrator, persist runs, Wails event stream, UI Captures/Tests + Runner modal + ResponsePanel summary, export JSON/Markdown — **DB v7**.
+- **Phase 8** **đã đóng** (2026-04-26, gồm 8.0 + 8.1) — Collection Runner & Chaining: capture/assertion engine, runner orchestrator, persist runs, Wails event stream, UI Captures/Tests + Runner modal + ResponsePanel summary, export JSON/Markdown, raw resolved request/response replay, Iterations / DelayMs / TimeoutPerRequestMs options — **DB v7 → v8**.
 
-### Đã xong (Phase 8 — Collection Runner & Chaining, 2026-04-26)
+### Đã xong (Phase 8.1 — Replay & advanced runner options, 2026-04-26)
+
+- [x] **DB v8** — `runner_run_requests` thêm `request_headers_json`, `response_headers_json`, `request_body`, `response_body`, `body_truncated` (Ent schema + migrate v7→v8 additive idempotent + tests).
+- [x] **Persist raw request/response** — `RunnerUsecase.executeOne` gọi `applyHTTPSnapshotsToRow` để lưu snapshot post-substitution (kể cả khi executor lỗi: fallback qua `service.HTTPRequestSnapshotsForHistory`); response body có suffix truncate khớp `HTTPHandler.persistHistory`.
+- [x] **Runner advanced options** — `RunFolderInput` thêm `Iterations` (≤ `RunnerMaxIterations`=50), `DelayMs` (≤ 60s, cancel-aware qua `sleepCancelable`), `TimeoutPerRequestMs` (≤ 5 phút, override per-Execute bằng `context.WithTimeout`); `total_count` & event `current_idx` reflect `iterations × plan_size`. Constants ở `internal/constant/app_constant.go`.
+- [x] **Frontend** — `RunnerModal.vue` thêm 3 input number Iterations / Delay / Timeout (clamp client-side trước khi gửi); `RunnerRequestDetailModal.vue` hiển thị raw headers/body bằng `JsonCodeMirror` + badge truncate; `RunnerModal` re-hydrate progress từ `RunnerAPI.GetRun(id)` sau `runner:finished` để dữ liệu replay luôn trùng DB.
+- [x] **HelpModal** — thêm 2 mục mới (Runner options, Runner request detail) trong Productivity Tips.
+- [x] **Tests** — `TestRunner_RunFolder_IterationsAndDelay` (3 iter × 2 req = 6 rows + delay floor + sort_order monotonic), `TestRunner_RunFolder_IterationsClampedToMax` (≥ max → `RunnerMaxIterations`), `TestRunner_RunFolder_TimeoutPerRequest` (blocking stub bị huỷ trước default HTTP timeout); `TestMigrate_7to8AddsRunnerRequestSnapshots` (additive + rerun idempotent), `TestMigrate_6to8Chain` (chain v6→v7→v8 trên DB seed sẵn). E2E `phase8_runner_smoke_test` đã có khẳng định raw payload (post-substitution) lưu đúng.
+
+### Đã xong (Phase 8.0 — Collection Runner & Chaining, 2026-04-26)
 
 - [x] **DB v7** — `request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests` (Ent schema + bump `DBSchemaUserVersion` + migrate v6→v7 additive + test idempotent + `TestMigrate_6to7IsAdditive`).
 - [x] **Capture engine** — `internal/service/jsonpath.go`, `capture_engine.go` (`json_body` / `header` / `status` / `regex_body`), unit test `jsonpath_test.go` + `capture_engine_test.go`.
@@ -444,6 +459,8 @@ erDiagram
 - [x] **Phase 5** quality gate — tests + smoke E2E + CI + release/manual docs — 2026-04-21
 - [x] **Phase 6** networking & security — proxy + custom CA + insecure TLS + secret env + Settings UI — **DB v6** — 2026-04-21
 - [x] **Phase 7** UX polish & productivity — Dashboard + in-app Help + command palette + var preview + duplicate + Copy as cURL + shortcuts + Vite code splitting — 2026-04-26
+- [x] **Phase 8.0** Collection Runner & Chaining — capture + assertion engines + Runner usecase + Wails events + Runner modal + report JSON/Markdown — **DB v7** — 2026-04-26
+- [x] **Phase 8.1** Runner replay + iterations/delay/timeout — raw request/response persist + RunnerRequestDetailModal + 3 advanced options — **DB v8** — 2026-04-26
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
