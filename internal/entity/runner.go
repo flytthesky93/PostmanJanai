@@ -44,6 +44,9 @@ type RunnerRunRequestRow struct {
 	BodyTruncated       bool              `json:"body_truncated,omitempty"`
 	Assertions          []AssertionResult `json:"assertions,omitempty"`
 	Captures            []CaptureResult   `json:"captures,omitempty"`
+	// Phase 9 — surfaced on live runner events / recent detail when present (not always persisted).
+	ScriptConsole []ScriptConsoleLine `json:"script_console,omitempty"`
+	ScriptTests   []ScriptTestResult  `json:"script_tests,omitempty"`
 	SortOrder           int               `json:"sort_order"`
 	CreatedAt           time.Time         `json:"created_at"`
 }

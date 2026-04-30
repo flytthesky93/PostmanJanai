@@ -27,6 +27,9 @@ type SavedRequestFull struct {
 	MultipartParts []MultipartPart `json:"multipart_parts,omitempty"`
 	Auth           *RequestAuth    `json:"auth,omitempty"`
 	InsecureSkipVerify bool        `json:"insecure_skip_verify,omitempty"`
+	// Phase 9 — goja scripting; API globals are pmj.* (pm is aliased in the VM for Postman imports).
+	PreRequestScript   string `json:"pre_request_script,omitempty"`
+	PostResponseScript string `json:"post_response_script,omitempty"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 }

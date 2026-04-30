@@ -461,7 +461,7 @@ erDiagram
 - [x] **Phase 7** UX polish & productivity — Dashboard + in-app Help + command palette + var preview + duplicate + Copy as cURL + shortcuts + Vite code splitting — 2026-04-26
 - [x] **Phase 8.0** Collection Runner & Chaining — capture + assertion engines + Runner usecase + Wails events + Runner modal + report JSON/Markdown — **DB v7** — 2026-04-26
 - [x] **Phase 8.1** Runner replay + iterations/delay/timeout — raw request/response persist + RunnerRequestDetailModal + 3 advanced options — **DB v8** — 2026-04-26
-- [ ] **Phase 9** Scripting (bắt buộc) — goja sandbox + `pm.*` subset + Pre-request/Tests tab + Runner integration + Postman v2.1 import/export — **DB v8 → v9** — kickoff 2026-04-27
+- [x] **Phase 9** Scripting — goja sandbox + `pmj` / `pm` alias + Pre-request + Post-response + Assertions tabs + Runner + Postman v2.1 import/export — **DB v8 → v9** — 2026-04-30
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---

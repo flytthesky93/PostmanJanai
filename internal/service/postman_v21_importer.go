@@ -56,10 +56,10 @@ func importPostmanV21(raw []byte) (*entity.ImportedCollection, error) {
 }
 
 type postmanV21Collection struct {
-	Info     postmanV21Info     `json:"info"`
-	Item     []postmanV21Item   `json:"item"`
-	Auth     *postmanAuth       `json:"auth,omitempty"`
-	Variable []postmanV21KV     `json:"variable,omitempty"`
+	Info     postmanV21Info   `json:"info"`
+	Item     []postmanV21Item `json:"item"`
+	Auth     *postmanAuth     `json:"auth,omitempty"`
+	Variable []postmanV21KV   `json:"variable,omitempty"`
 }
 
 type postmanV21Info struct {
@@ -69,11 +69,40 @@ type postmanV21Info struct {
 }
 
 type postmanV21Item struct {
-	Name        string          `json:"name,omitempty"`
-	Description json.RawMessage `json:"description,omitempty"`
-	Item        []postmanV21Item `json:"item,omitempty"`
-	Request     *postmanV21Req  `json:"request,omitempty"`
-	Auth        *postmanAuth    `json:"auth,omitempty"`
+	Name        string                      `json:"name,omitempty"`
+	Description json.RawMessage             `json:"description,omitempty"`
+	Item        []postmanV21Item            `json:"item,omitempty"`
+	Request     *postmanV21Req              `json:"request,omitempty"`
+	Auth        *postmanAuth                `json:"auth,omitempty"`
+	Event       []postmanV21CollectionEvent `json:"event,omitempty"`
+}
+
+// postmanV21CollectionEvent — Postman prerequest / test scripts on an item.
+type postmanV21CollectionEvent struct {
+	Listen string                 `json:"listen,omitempty"`
+	Script *postmanV21EventScript `json:"script,omitempty"`
+}
+
+type postmanV21EventScript struct {
+	Exec postmanV21ScriptExec `json:"exec"`
+}
+
+// postmanV21ScriptExec unmarshals Postman `exec` as either ["line", ...] or a single string.
+type postmanV21ScriptExec []string
+
+func (e *postmanV21ScriptExec) UnmarshalJSON(data []byte) error {
+	var ss []string
+	if err := json.Unmarshal(data, &ss); err == nil {
+		*e = ss
+		return nil
+	}
+	var one string
+	if err := json.Unmarshal(data, &one); err == nil {
+		*e = []string{one}
+		return nil
+	}
+	*e = nil
+	return nil
 }
 
 type postmanV21Req struct {
@@ -94,13 +123,13 @@ type postmanV21KV struct {
 }
 
 type postmanV21Body struct {
-	Mode       string           `json:"mode,omitempty"`
-	Raw        string           `json:"raw,omitempty"`
+	Mode       string              `json:"mode,omitempty"`
+	Raw        string              `json:"raw,omitempty"`
 	Options    *postmanV21BodyOpts `json:"options,omitempty"`
-	URLEncoded []postmanV21KV   `json:"urlencoded,omitempty"`
-	FormData   []postmanV21KV   `json:"formdata,omitempty"`
-	File       json.RawMessage  `json:"file,omitempty"`
-	GraphQL    json.RawMessage  `json:"graphql,omitempty"`
+	URLEncoded []postmanV21KV      `json:"urlencoded,omitempty"`
+	FormData   []postmanV21KV      `json:"formdata,omitempty"`
+	File       json.RawMessage     `json:"file,omitempty"`
+	GraphQL    json.RawMessage     `json:"graphql,omitempty"`
 }
 
 type postmanV21BodyOpts struct {
@@ -198,7 +227,38 @@ func convertPostmanV21Request(it postmanV21Item, parentAuth *entity.RequestAuth,
 	} else {
 		out.BodyMode = string(entity.BodyModeNone)
 	}
+	applyPostmanV21ItemEvents(it, out)
 	return out
+}
+
+func applyPostmanV21ItemEvents(it postmanV21Item, out *entity.ImportedRequest) {
+	if out == nil {
+		return
+	}
+	for _, ev := range it.Event {
+		listen := strings.TrimSpace(strings.ToLower(ev.Listen))
+		if ev.Script == nil {
+			continue
+		}
+		body := strings.Join(ev.Script.Exec, "\n")
+		if strings.TrimSpace(body) == "" {
+			continue
+		}
+		switch listen {
+		case PostmanEventListenPrerequest:
+			if out.PreRequestScript == "" {
+				out.PreRequestScript = ReplacePostmanPMAliasWithPMJ(body)
+			} else {
+				out.PreRequestScript += "\n\n" + ReplacePostmanPMAliasWithPMJ(body)
+			}
+		case PostmanEventListenTest:
+			if out.PostResponseScript == "" {
+				out.PostResponseScript = ReplacePostmanPMAliasWithPMJ(body)
+			} else {
+				out.PostResponseScript += "\n\n" + ReplacePostmanPMAliasWithPMJ(body)
+			}
+		}
+	}
 }
 
 func applyPostmanBody(out *entity.ImportedRequest, body *postmanV21Body, warn *warningSink) {

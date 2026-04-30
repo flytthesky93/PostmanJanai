@@ -216,6 +216,8 @@ func entRequestToFull(row *ent.Request) *entity.SavedRequestFull {
 		URL:       row.URL,
 		BodyMode:  row.BodyMode,
 		InsecureSkipVerify: row.InsecureSkipVerify,
+		PreRequestScript:   row.PreRequestScript,
+		PostResponseScript: row.PostResponseScript,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
@@ -289,7 +291,9 @@ func (r *requestRepo) CreateFull(ctx context.Context, in *entity.SavedRequestFul
 		SetMethod(strings.TrimSpace(in.Method)).
 		SetURL(strings.TrimSpace(in.URL)).
 		SetBodyMode(strings.TrimSpace(in.BodyMode)).
-		SetInsecureSkipVerify(in.InsecureSkipVerify)
+		SetInsecureSkipVerify(in.InsecureSkipVerify).
+		SetPreRequestScript(in.PreRequestScript).
+		SetPostResponseScript(in.PostResponseScript)
 	if strings.TrimSpace(in.BodyMode) == "" {
 		b = b.SetBodyMode("none")
 	}
@@ -341,7 +345,9 @@ func (r *requestRepo) UpdateFull(ctx context.Context, in *entity.SavedRequestFul
 		SetMethod(strings.TrimSpace(in.Method)).
 		SetURL(strings.TrimSpace(in.URL)).
 		SetBodyMode(strings.TrimSpace(in.BodyMode)).
-		SetInsecureSkipVerify(in.InsecureSkipVerify)
+		SetInsecureSkipVerify(in.InsecureSkipVerify).
+		SetPreRequestScript(in.PreRequestScript).
+		SetPostResponseScript(in.PostResponseScript)
 	if strings.TrimSpace(in.BodyMode) == "" {
 		up = up.SetBodyMode("none")
 	}

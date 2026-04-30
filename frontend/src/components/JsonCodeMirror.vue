@@ -3,11 +3,14 @@ import { ref, shallowRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vu
 import EnvVarPopover from './EnvVarPopover.vue'
 import { useEnvPopover } from '../composables/useEnvPopover.js'
 import { EditorView, basicSetup } from 'codemirror'
+import { autocompletion } from '@codemirror/autocomplete'
+import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { xml } from '@codemirror/lang-xml'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorState, EditorSelection, Facet, Compartment, RangeSet, Transaction } from '@codemirror/state'
 import { placeholder, ViewPlugin, Decoration, WidgetType } from '@codemirror/view'
+import { createPmjCompletionSource } from '../data/pmjScriptReference.js'
 
 const declaredEnvKeysFacet = Facet.define({
   combine: (values) => {
@@ -228,7 +231,9 @@ const props = defineProps({
   /** Keys in active env (request editor only) — highlights {{name}}; missing → warn style + subtle animation. */
   declaredEnvKeys: { type: Array, default: () => [] },
   /** key → value in active env (hover popover). */
-  envValues: { type: Object, default: () => ({}) }
+  envValues: { type: Object, default: () => ({}) },
+  /** `pmj-pre` | `pmj-post` enables pmj API autocomplete in script editors */
+  completionMode: { type: String, default: '' }
 })
 
 const emit = defineEmits(['update:modelValue', 'request-raw-edit', 'patch-env-value'])
@@ -257,7 +262,23 @@ const {
 })
 
 function langExtension() {
-  return props.language === 'xml' ? xml() : json()
+  if (props.language === 'xml') return xml()
+  if (props.language === 'javascript') return javascript({ jsx: false, typescript: false })
+  return json()
+}
+
+function pmjAutocompleteExtensions() {
+  const raw = String(props.completionMode || '').trim().toLowerCase()
+  if (raw !== 'pmj-pre' && raw !== 'pmj-post') return []
+  const phase = raw === 'pmj-post' ? 'post' : 'pre'
+  return [
+    autocompletion({
+      override: [createPmjCompletionSource(phase)],
+      maxRenderedOptions: 48,
+      defaultKeymap: true,
+      icons: false
+    })
+  ]
 }
 
 function buildExtensions() {
@@ -265,7 +286,8 @@ function buildExtensions() {
   const extensions = [
     basicSetup,
     langExtension(),
-    oneDark
+    oneDark,
+    ...pmjAutocompleteExtensions()
   ]
   extensions.push(
     chipPopoverHandlersFacet.of(chipHandlers()),
@@ -362,7 +384,7 @@ onMounted(() => {
 })
 
 watch(
-  () => [props.language, props.placeholder, props.readOnly],
+  () => [props.language, props.placeholder, props.readOnly, props.completionMode],
   async () => {
     view.value?.destroy()
     view.value = null

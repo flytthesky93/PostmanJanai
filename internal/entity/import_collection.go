@@ -46,6 +46,9 @@ type ImportedRequest struct {
 	FormFields     []KeyValue      `json:"form_fields,omitempty"`
 	MultipartParts []MultipartPart `json:"multipart_parts,omitempty"`
 	Auth           *RequestAuth    `json:"auth,omitempty"`
+	// Phase 9 — optional scripts from imported collections (e.g. Postman events).
+	PreRequestScript   string `json:"pre_request_script,omitempty"`
+	PostResponseScript string `json:"post_response_script,omitempty"`
 }
 
 // ImportOptions controls side-effects of persisting an ImportedCollection.

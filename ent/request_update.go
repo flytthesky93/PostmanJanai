@@ -160,6 +160,34 @@ func (_u *RequestUpdate) SetNillableInsecureSkipVerify(v *bool) *RequestUpdate {
 	return _u
 }
 
+// SetPreRequestScript sets the "pre_request_script" field.
+func (_u *RequestUpdate) SetPreRequestScript(v string) *RequestUpdate {
+	_u.mutation.SetPreRequestScript(v)
+	return _u
+}
+
+// SetNillablePreRequestScript sets the "pre_request_script" field if the given value is not nil.
+func (_u *RequestUpdate) SetNillablePreRequestScript(v *string) *RequestUpdate {
+	if v != nil {
+		_u.SetPreRequestScript(*v)
+	}
+	return _u
+}
+
+// SetPostResponseScript sets the "post_response_script" field.
+func (_u *RequestUpdate) SetPostResponseScript(v string) *RequestUpdate {
+	_u.mutation.SetPostResponseScript(v)
+	return _u
+}
+
+// SetNillablePostResponseScript sets the "post_response_script" field if the given value is not nil.
+func (_u *RequestUpdate) SetNillablePostResponseScript(v *string) *RequestUpdate {
+	if v != nil {
+		_u.SetPostResponseScript(*v)
+	}
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *RequestUpdate) SetUpdatedAt(v time.Time) *RequestUpdate {
 	_u.mutation.SetUpdatedAt(v)
@@ -495,6 +523,12 @@ func (_u *RequestUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.InsecureSkipVerify(); ok {
 		_spec.SetField(request.FieldInsecureSkipVerify, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PreRequestScript(); ok {
+		_spec.SetField(request.FieldPreRequestScript, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PostResponseScript(); ok {
+		_spec.SetField(request.FieldPostResponseScript, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)
@@ -942,6 +976,34 @@ func (_u *RequestUpdateOne) SetNillableInsecureSkipVerify(v *bool) *RequestUpdat
 	return _u
 }
 
+// SetPreRequestScript sets the "pre_request_script" field.
+func (_u *RequestUpdateOne) SetPreRequestScript(v string) *RequestUpdateOne {
+	_u.mutation.SetPreRequestScript(v)
+	return _u
+}
+
+// SetNillablePreRequestScript sets the "pre_request_script" field if the given value is not nil.
+func (_u *RequestUpdateOne) SetNillablePreRequestScript(v *string) *RequestUpdateOne {
+	if v != nil {
+		_u.SetPreRequestScript(*v)
+	}
+	return _u
+}
+
+// SetPostResponseScript sets the "post_response_script" field.
+func (_u *RequestUpdateOne) SetPostResponseScript(v string) *RequestUpdateOne {
+	_u.mutation.SetPostResponseScript(v)
+	return _u
+}
+
+// SetNillablePostResponseScript sets the "post_response_script" field if the given value is not nil.
+func (_u *RequestUpdateOne) SetNillablePostResponseScript(v *string) *RequestUpdateOne {
+	if v != nil {
+		_u.SetPostResponseScript(*v)
+	}
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *RequestUpdateOne) SetUpdatedAt(v time.Time) *RequestUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
@@ -1307,6 +1369,12 @@ func (_u *RequestUpdateOne) sqlSave(ctx context.Context) (_node *Request, err er
 	}
 	if value, ok := _u.mutation.InsecureSkipVerify(); ok {
 		_spec.SetField(request.FieldInsecureSkipVerify, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.PreRequestScript(); ok {
+		_spec.SetField(request.FieldPreRequestScript, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PostResponseScript(); ok {
+		_spec.SetField(request.FieldPostResponseScript, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(request.FieldUpdatedAt, field.TypeTime, value)

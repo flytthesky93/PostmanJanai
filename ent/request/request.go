@@ -31,6 +31,10 @@ const (
 	FieldAuthJSON = "auth_json"
 	// FieldInsecureSkipVerify holds the string denoting the insecure_skip_verify field in the database.
 	FieldInsecureSkipVerify = "insecure_skip_verify"
+	// FieldPreRequestScript holds the string denoting the pre_request_script field in the database.
+	FieldPreRequestScript = "pre_request_script"
+	// FieldPostResponseScript holds the string denoting the post_response_script field in the database.
+	FieldPostResponseScript = "post_response_script"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -113,6 +117,8 @@ var Columns = []string{
 	FieldRawBody,
 	FieldAuthJSON,
 	FieldInsecureSkipVerify,
+	FieldPreRequestScript,
+	FieldPostResponseScript,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -138,6 +144,10 @@ var (
 	BodyModeValidator func(string) error
 	// DefaultInsecureSkipVerify holds the default value on creation for the "insecure_skip_verify" field.
 	DefaultInsecureSkipVerify bool
+	// DefaultPreRequestScript holds the default value on creation for the "pre_request_script" field.
+	DefaultPreRequestScript string
+	// DefaultPostResponseScript holds the default value on creation for the "post_response_script" field.
+	DefaultPostResponseScript string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -194,6 +204,16 @@ func ByAuthJSON(opts ...sql.OrderTermOption) OrderOption {
 // ByInsecureSkipVerify orders the results by the insecure_skip_verify field.
 func ByInsecureSkipVerify(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldInsecureSkipVerify, opts...).ToFunc()
+}
+
+// ByPreRequestScript orders the results by the pre_request_script field.
+func ByPreRequestScript(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPreRequestScript, opts...).ToFunc()
+}
+
+// ByPostResponseScript orders the results by the post_response_script field.
+func ByPostResponseScript(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPostResponseScript, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

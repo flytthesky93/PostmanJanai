@@ -22,6 +22,18 @@ func savedRequestID(in *entity.HTTPExecuteInput) string {
 	return strings.TrimSpace(*in.RequestID)
 }
 
+func appendScriptArtifacts(res *entity.HTTPExecuteResult, art *service.PMJArtifacts) {
+	if res == nil || art == nil {
+		return
+	}
+	if len(art.Console) > 0 {
+		res.ScriptConsole = append(res.ScriptConsole, art.Console...)
+	}
+	if len(art.Tests) > 0 {
+		res.ScriptTests = append(res.ScriptTests, art.Tests...)
+	}
+}
+
 // applyCaptureAndAssertions runs Phase 8 capture + assertion rules attached to the
 // saved request (when one is identified) against the response and writes capture
 // outcomes into the active environment for environment-scoped rules. Failures
@@ -111,6 +123,30 @@ func (h *HTTPHandler) getContext() context.Context {
 	return h.ctx
 }
 
+func effectivePreScript(in *entity.HTTPExecuteInput, fullSaved *entity.SavedRequestFull) string {
+	if in != nil {
+		if s := strings.TrimSpace(in.PreRequestScript); s != "" {
+			return s
+		}
+	}
+	if fullSaved != nil {
+		return strings.TrimSpace(fullSaved.PreRequestScript)
+	}
+	return ""
+}
+
+func effectivePostScript(in *entity.HTTPExecuteInput, fullSaved *entity.SavedRequestFull) string {
+	if in != nil {
+		if s := strings.TrimSpace(in.PostResponseScript); s != "" {
+			return s
+		}
+	}
+	if fullSaved != nil {
+		return strings.TrimSpace(fullSaved.PostResponseScript)
+	}
+	return ""
+}
+
 // Execute runs an HTTP request from the UI payload.
 func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteResult, error) {
 	ctx := h.getContext()
@@ -131,10 +167,38 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 	resolved := service.CloneSubstituteHTTPExecuteInput(in, vars)
 	service.MergeAuthIntoHeadersAndQuery(resolved)
 
-	if resolved != nil && h.saved != nil && resolved.RequestID != nil && strings.TrimSpace(*resolved.RequestID) != "" {
-		if full, err := h.saved.GetByID(ctx, strings.TrimSpace(*resolved.RequestID)); err == nil && full != nil {
-			resolved.InsecureSkipVerify = resolved.InsecureSkipVerify || full.InsecureSkipVerify
+	var fullSaved *entity.SavedRequestFull
+	requestIDTrim := ""
+	if resolved != nil && resolved.RequestID != nil {
+		requestIDTrim = strings.TrimSpace(*resolved.RequestID)
+	}
+	if resolved != nil && h.saved != nil && requestIDTrim != "" {
+		if full, err := h.saved.GetByID(ctx, requestIDTrim); err == nil && full != nil {
+			fullSaved = full
 		}
+	}
+	if resolved != nil && fullSaved != nil {
+		resolved.InsecureSkipVerify = resolved.InsecureSkipVerify || fullSaved.InsecureSkipVerify
+	}
+
+	session := map[string]string{}
+	var preArts *service.PMJArtifacts
+	preScript := effectivePreScript(resolved, fullSaved)
+	if preScript != "" {
+		td := time.Duration(constant.ScriptPreRequestTimeoutSeconds) * time.Second
+		var serr error
+		preArts, serr = service.RunPMJScript(ctx, true, preScript, td, resolved, nil, session, h.env, h.executor)
+		if serr != nil {
+			return nil, serr
+		}
+		em := map[string]string{}
+		if h.env != nil {
+			if mm, er := h.env.ActiveVariableMap(ctx); er == nil && mm != nil {
+				em = mm
+			}
+		}
+		service.SubstituteUnresolvedInHTTPInput(resolved, service.MergeVarBags(em, session))
+		service.MergeAuthIntoHeadersAndQuery(resolved)
 	}
 
 	res, err := h.executor.Execute(ctx, resolved)
@@ -148,8 +212,21 @@ func (h *HTTPHandler) Execute(in *entity.HTTPExecuteInput) (*entity.HTTPExecuteR
 		logger.L().InfoContext(ctx, "HTTP execute success", "status", res.StatusCode, "duration_ms", res.DurationMs)
 	}
 
-	if requestID := savedRequestID(in); requestID != "" {
-		h.applyCaptureAndAssertions(ctx, requestID, res)
+	appendScriptArtifacts(res, preArts)
+
+	postScript := effectivePostScript(resolved, fullSaved)
+	if postScript != "" {
+		td := time.Duration(constant.ScriptPostResponseTimeoutSeconds) * time.Second
+		postArts, serr := service.RunPMJScript(ctx, false, postScript, td, resolved, res, session, h.env, h.executor)
+		if serr != nil {
+			logger.L().InfoContext(ctx, "post-response script failed", "error", serr)
+			return nil, serr
+		}
+		appendScriptArtifacts(res, postArts)
+	}
+
+	if savedRequestID(in) != "" {
+		h.applyCaptureAndAssertions(ctx, savedRequestID(in), res)
 	}
 	secrets := []string{}
 	if h.env != nil {

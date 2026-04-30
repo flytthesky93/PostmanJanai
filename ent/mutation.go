@@ -3704,6 +3704,8 @@ type RequestMutation struct {
 	raw_body                    *string
 	auth_json                   *string
 	insecure_skip_verify        *bool
+	pre_request_script          *string
+	post_response_script        *string
 	created_at                  *time.Time
 	updated_at                  *time.Time
 	clearedFields               map[string]struct{}
@@ -4148,6 +4150,78 @@ func (m *RequestMutation) OldInsecureSkipVerify(ctx context.Context) (v bool, er
 // ResetInsecureSkipVerify resets all changes to the "insecure_skip_verify" field.
 func (m *RequestMutation) ResetInsecureSkipVerify() {
 	m.insecure_skip_verify = nil
+}
+
+// SetPreRequestScript sets the "pre_request_script" field.
+func (m *RequestMutation) SetPreRequestScript(s string) {
+	m.pre_request_script = &s
+}
+
+// PreRequestScript returns the value of the "pre_request_script" field in the mutation.
+func (m *RequestMutation) PreRequestScript() (r string, exists bool) {
+	v := m.pre_request_script
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPreRequestScript returns the old "pre_request_script" field's value of the Request entity.
+// If the Request object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RequestMutation) OldPreRequestScript(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPreRequestScript is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPreRequestScript requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPreRequestScript: %w", err)
+	}
+	return oldValue.PreRequestScript, nil
+}
+
+// ResetPreRequestScript resets all changes to the "pre_request_script" field.
+func (m *RequestMutation) ResetPreRequestScript() {
+	m.pre_request_script = nil
+}
+
+// SetPostResponseScript sets the "post_response_script" field.
+func (m *RequestMutation) SetPostResponseScript(s string) {
+	m.post_response_script = &s
+}
+
+// PostResponseScript returns the value of the "post_response_script" field in the mutation.
+func (m *RequestMutation) PostResponseScript() (r string, exists bool) {
+	v := m.post_response_script
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPostResponseScript returns the old "post_response_script" field's value of the Request entity.
+// If the Request object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *RequestMutation) OldPostResponseScript(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPostResponseScript is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPostResponseScript requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPostResponseScript: %w", err)
+	}
+	return oldValue.PostResponseScript, nil
+}
+
+// ResetPostResponseScript resets all changes to the "post_response_script" field.
+func (m *RequestMutation) ResetPostResponseScript() {
+	m.post_response_script = nil
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -4607,7 +4681,7 @@ func (m *RequestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *RequestMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.folder != nil {
 		fields = append(fields, request.FieldFolderID)
 	}
@@ -4631,6 +4705,12 @@ func (m *RequestMutation) Fields() []string {
 	}
 	if m.insecure_skip_verify != nil {
 		fields = append(fields, request.FieldInsecureSkipVerify)
+	}
+	if m.pre_request_script != nil {
+		fields = append(fields, request.FieldPreRequestScript)
+	}
+	if m.post_response_script != nil {
+		fields = append(fields, request.FieldPostResponseScript)
 	}
 	if m.created_at != nil {
 		fields = append(fields, request.FieldCreatedAt)
@@ -4662,6 +4742,10 @@ func (m *RequestMutation) Field(name string) (ent.Value, bool) {
 		return m.AuthJSON()
 	case request.FieldInsecureSkipVerify:
 		return m.InsecureSkipVerify()
+	case request.FieldPreRequestScript:
+		return m.PreRequestScript()
+	case request.FieldPostResponseScript:
+		return m.PostResponseScript()
 	case request.FieldCreatedAt:
 		return m.CreatedAt()
 	case request.FieldUpdatedAt:
@@ -4691,6 +4775,10 @@ func (m *RequestMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAuthJSON(ctx)
 	case request.FieldInsecureSkipVerify:
 		return m.OldInsecureSkipVerify(ctx)
+	case request.FieldPreRequestScript:
+		return m.OldPreRequestScript(ctx)
+	case request.FieldPostResponseScript:
+		return m.OldPostResponseScript(ctx)
 	case request.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case request.FieldUpdatedAt:
@@ -4759,6 +4847,20 @@ func (m *RequestMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetInsecureSkipVerify(v)
+		return nil
+	case request.FieldPreRequestScript:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPreRequestScript(v)
+		return nil
+	case request.FieldPostResponseScript:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPostResponseScript(v)
 		return nil
 	case request.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -4861,6 +4963,12 @@ func (m *RequestMutation) ResetField(name string) error {
 		return nil
 	case request.FieldInsecureSkipVerify:
 		m.ResetInsecureSkipVerify()
+		return nil
+	case request.FieldPreRequestScript:
+		m.ResetPreRequestScript()
+		return nil
+	case request.FieldPostResponseScript:
+		m.ResetPostResponseScript()
 		return nil
 	case request.FieldCreatedAt:
 		m.ResetCreatedAt()

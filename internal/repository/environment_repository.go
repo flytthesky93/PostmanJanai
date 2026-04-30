@@ -40,6 +40,10 @@ type EnvironmentRepository interface {
 	//   - if the key already exists, only `value` is overwritten (kind / enabled / order preserved).
 	//   - new keys are inserted as plain (non-secret) and enabled, appended after existing rows.
 	UpsertActiveVariable(ctx context.Context, key, value string) (bool, error)
+
+	// DeleteActiveVariable removes a variable row from the currently active environment
+	// (Phase 9 — pm.environment.unset). Returns (false, nil) when no active env or key absent.
+	DeleteActiveVariable(ctx context.Context, key string) (bool, error)
 }
 
 type environmentRepo struct {
@@ -405,6 +409,34 @@ func (r *environmentRepo) UpsertActiveVariable(ctx context.Context, key, value s
 		return false, err
 	}
 	return true, nil
+}
+
+func (r *environmentRepo) DeleteActiveVariable(ctx context.Context, key string) (bool, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false, nil
+	}
+	sum, err := r.GetActiveSummary(ctx)
+	if err != nil {
+		return false, err
+	}
+	if sum == nil {
+		return false, nil
+	}
+	envID, err := uuid.Parse(strings.TrimSpace(sum.ID))
+	if err != nil {
+		return false, err
+	}
+	n, err := r.client.EnvironmentVariable.Delete().
+		Where(
+			environmentvariable.EnvironmentIDEQ(envID),
+			environmentvariable.KeyEQ(key),
+		).
+		Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 func (r *environmentRepo) ActiveSecretPlaintexts(ctx context.Context) ([]string, error) {

@@ -43,12 +43,12 @@ type RunnerUsecase interface {
 }
 
 type runnerUsecaseImpl struct {
-	folders    repository.FolderRepository
-	requests   repository.RequestRepository
-	rules      repository.RequestRuleRepository
-	envRepo    repository.EnvironmentRepository
-	runs       repository.RunnerRepository
-	executor   RunnerHTTPExecutor
+	folders  repository.FolderRepository
+	requests repository.RequestRepository
+	rules    repository.RequestRuleRepository
+	envRepo  repository.EnvironmentRepository
+	runs     repository.RunnerRepository
+	executor RunnerHTTPExecutor
 }
 
 func NewRunnerUsecase(
@@ -161,13 +161,13 @@ func (u *runnerUsecaseImpl) RunFolder(ctx context.Context, in *entity.RunFolderI
 	}
 
 	emitter.Emit(constant.RunnerEventStarted, map[string]any{
-		"run_id":           runID,
-		"total_count":      totalForRun,
-		"plan_size":        len(plan),
-		"iterations":       iterations,
-		"delay_ms":         delayMs,
-		"timeout_per_req":  timeoutMs,
-		"folder_name":      folder.Name,
+		"run_id":          runID,
+		"total_count":     totalForRun,
+		"plan_size":       len(plan),
+		"iterations":      iterations,
+		"delay_ms":        delayMs,
+		"timeout_per_req": timeoutMs,
+		"folder_name":     folder.Name,
 	})
 
 	memoryBag := map[string]string{}
@@ -346,9 +346,38 @@ func (u *runnerUsecaseImpl) executeOne(
 		return row
 	}
 
-	mergedVars := mergeVarBags(envBag, memoryBag)
+	mergedVars := service.MergeVarBags(envBag, memoryBag)
 	resolved := service.CloneSubstituteHTTPExecuteInput(in, mergedVars)
 	service.MergeAuthIntoHeadersAndQuery(resolved)
+
+	sessionScratch := memoryBag
+	var preArtifacts *service.PMJArtifacts
+	pre := strings.TrimSpace(item.saved.PreRequestScript)
+	if pre != "" {
+		td := time.Duration(constant.ScriptPreRequestTimeoutSeconds) * time.Second
+		a, err := service.RunPMJScript(ctx, true, pre, td, resolved, nil, sessionScratch, u.envRepo, u.executor)
+		if err != nil {
+			row.Status = constant.RunnerRequestStatusErrored
+			row.ErrorMessage = "pre-request script: " + err.Error()
+			appendRunnerScripts(&row, a)
+			applyHTTPSnapshotsToRow(&row, nil, resolved)
+			return row
+		}
+		preArtifacts = a
+	}
+	if u.envRepo != nil {
+		if refreshed, rvErr := u.envRepo.ActiveVariableMap(ctx); rvErr == nil && refreshed != nil {
+			// Merge so we don't drop in-flight captures that might not round-trip via a
+			// fresh map assign (and to preserve any coordinator-only keys safely).
+			for k, v := range refreshed {
+				envBag[k] = v
+			}
+		}
+	}
+	service.SubstituteUnresolvedInHTTPInput(resolved, service.MergeVarBags(envBag, memoryBag))
+	service.MergeAuthIntoHeadersAndQuery(resolved)
+
+	appendRunnerScripts(&row, preArtifacts)
 
 	res, err := u.executor.Execute(ctx, resolved)
 	if err != nil {
@@ -368,6 +397,19 @@ func (u *runnerUsecaseImpl) executeOne(
 		row.Status = constant.RunnerRequestStatusErrored
 		row.ErrorMessage = res.ErrorMessage
 		return row
+	}
+
+	post := strings.TrimSpace(item.saved.PostResponseScript)
+	if post != "" {
+		td := time.Duration(constant.ScriptPostResponseTimeoutSeconds) * time.Second
+		postArts, serr := service.RunPMJScript(ctx, false, post, td, resolved, res, sessionScratch, u.envRepo, u.executor)
+		if serr != nil {
+			row.Status = constant.RunnerRequestStatusErrored
+			row.ErrorMessage = "post-response script: " + serr.Error()
+			appendRunnerScripts(&row, postArts)
+			return row
+		}
+		appendRunnerScripts(&row, postArts)
 	}
 
 	captureRules, _ := u.rules.ListCaptures(ctx, item.saved.ID)
@@ -422,7 +464,21 @@ func (u *runnerUsecaseImpl) executeOne(
 			row.Status = constant.RunnerRequestStatusFailed
 		}
 	}
+	for _, tst := range row.ScriptTests {
+		if !tst.Passed {
+			row.Status = constant.RunnerRequestStatusFailed
+			break
+		}
+	}
 	return row
+}
+
+func appendRunnerScripts(row *entity.RunnerRunRequestRow, art *service.PMJArtifacts) {
+	if row == nil || art == nil {
+		return
+	}
+	row.ScriptConsole = append(row.ScriptConsole, art.Console...)
+	row.ScriptTests = append(row.ScriptTests, art.Tests...)
 }
 
 // applyHTTPSnapshotsToRow copies the resolved request snapshot and the
@@ -499,16 +555,4 @@ func sleepCancelable(ctx context.Context, d time.Duration) bool {
 	case <-t.C:
 		return ctx.Err() == nil
 	}
-}
-
-func mergeVarBags(envBag, memoryBag map[string]string) map[string]string {
-	out := make(map[string]string, len(envBag)+len(memoryBag))
-	for k, v := range envBag {
-		out[k] = v
-	}
-	// Memory bag wins so a capture taken earlier in the run overrides a stale env value.
-	for k, v := range memoryBag {
-		out[k] = v
-	}
-	return out
 }

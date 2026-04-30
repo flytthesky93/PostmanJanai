@@ -307,6 +307,8 @@ export namespace entity {
 	    multipart_parts?: MultipartPart[];
 	    auth?: RequestAuth;
 	    insecure_skip_verify?: boolean;
+	    pre_request_script?: string;
+	    post_response_script?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new HTTPExecuteInput(source);
@@ -326,6 +328,8 @@ export namespace entity {
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
 	        this.auth = this.convertValues(source["auth"], RequestAuth);
 	        this.insecure_skip_verify = source["insecure_skip_verify"];
+	        this.pre_request_script = source["pre_request_script"];
+	        this.post_response_script = source["post_response_script"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -346,6 +350,36 @@ export namespace entity {
 		    return a;
 		}
 	}
+	export class ScriptTestResult {
+	    name: string;
+	    passed: boolean;
+	    detail?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptTestResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.passed = source["passed"];
+	        this.detail = source["detail"];
+	    }
+	}
+	export class ScriptConsoleLine {
+	    level: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptConsoleLine(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.level = source["level"];
+	        this.message = source["message"];
+	    }
+	}
 	export class HTTPExecuteResult {
 	    status_code: number;
 	    duration_ms: number;
@@ -357,6 +391,8 @@ export namespace entity {
 	    final_url?: string;
 	    captures?: CaptureResult[];
 	    assertions?: AssertionResult[];
+	    script_console?: ScriptConsoleLine[];
+	    script_tests?: ScriptTestResult[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HTTPExecuteResult(source);
@@ -374,6 +410,8 @@ export namespace entity {
 	        this.final_url = source["final_url"];
 	        this.captures = this.convertValues(source["captures"], CaptureResult);
 	        this.assertions = this.convertValues(source["assertions"], AssertionResult);
+	        this.script_console = this.convertValues(source["script_console"], ScriptConsoleLine);
+	        this.script_tests = this.convertValues(source["script_tests"], ScriptTestResult);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -551,6 +589,8 @@ export namespace entity {
 	    form_fields?: KeyValue[];
 	    multipart_parts?: MultipartPart[];
 	    auth?: RequestAuth;
+	    pre_request_script?: string;
+	    post_response_script?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ImportedRequest(source);
@@ -568,6 +608,8 @@ export namespace entity {
 	        this.form_fields = this.convertValues(source["form_fields"], KeyValue);
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
 	        this.auth = this.convertValues(source["auth"], RequestAuth);
+	        this.pre_request_script = source["pre_request_script"];
+	        this.post_response_script = source["post_response_script"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -898,6 +940,8 @@ export namespace entity {
 	    body_truncated?: boolean;
 	    assertions?: AssertionResult[];
 	    captures?: CaptureResult[];
+	    script_console?: ScriptConsoleLine[];
+	    script_tests?: ScriptTestResult[];
 	    sort_order: number;
 	    // Go type: time
 	    created_at: any;
@@ -926,6 +970,8 @@ export namespace entity {
 	        this.body_truncated = source["body_truncated"];
 	        this.assertions = this.convertValues(source["assertions"], AssertionResult);
 	        this.captures = this.convertValues(source["captures"], CaptureResult);
+	        this.script_console = this.convertValues(source["script_console"], ScriptConsoleLine);
+	        this.script_tests = this.convertValues(source["script_tests"], ScriptTestResult);
 	        this.sort_order = source["sort_order"];
 	        this.created_at = this.convertValues(source["created_at"], null);
 	    }
@@ -1079,6 +1125,8 @@ export namespace entity {
 	    multipart_parts?: MultipartPart[];
 	    auth?: RequestAuth;
 	    insecure_skip_verify?: boolean;
+	    pre_request_script?: string;
+	    post_response_script?: string;
 	    // Go type: time
 	    created_at: any;
 	    // Go type: time
@@ -1103,6 +1151,8 @@ export namespace entity {
 	        this.multipart_parts = this.convertValues(source["multipart_parts"], MultipartPart);
 	        this.auth = this.convertValues(source["auth"], RequestAuth);
 	        this.insecure_skip_verify = source["insecure_skip_verify"];
+	        this.pre_request_script = source["pre_request_script"];
+	        this.post_response_script = source["post_response_script"];
 	        this.created_at = this.convertValues(source["created_at"], null);
 	        this.updated_at = this.convertValues(source["updated_at"], null);
 	    }
@@ -1166,6 +1216,8 @@ export namespace entity {
 		    return a;
 		}
 	}
+	
+	
 	export class SearchFolderHit {
 	    id: string;
 	    name: string;

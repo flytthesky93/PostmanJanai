@@ -28,6 +28,9 @@ func (Request) Fields() []ent.Field {
 		field.Text("auth_json").Optional().Nillable(),
 		// insecure_skip_verify — per-request toggle; Phase 6 DB v6.
 		field.Bool("insecure_skip_verify").Default(false),
+		// Phase 9 — goja scripting (canonical API prefix is `pmj` in-product; legacy `pm` is aliased in VM).
+		field.Text("pre_request_script").Default(""),
+		field.Text("post_response_script").Default(""),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
 	}

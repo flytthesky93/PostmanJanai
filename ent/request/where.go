@@ -96,6 +96,16 @@ func InsecureSkipVerify(v bool) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldInsecureSkipVerify, v))
 }
 
+// PreRequestScript applies equality check predicate on the "pre_request_script" field. It's identical to PreRequestScriptEQ.
+func PreRequestScript(v string) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldPreRequestScript, v))
+}
+
+// PostResponseScript applies equality check predicate on the "post_response_script" field. It's identical to PostResponseScriptEQ.
+func PostResponseScript(v string) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldPostResponseScript, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Request {
 	return predicate.Request(sql.FieldEQ(FieldCreatedAt, v))
@@ -544,6 +554,136 @@ func InsecureSkipVerifyEQ(v bool) predicate.Request {
 // InsecureSkipVerifyNEQ applies the NEQ predicate on the "insecure_skip_verify" field.
 func InsecureSkipVerifyNEQ(v bool) predicate.Request {
 	return predicate.Request(sql.FieldNEQ(FieldInsecureSkipVerify, v))
+}
+
+// PreRequestScriptEQ applies the EQ predicate on the "pre_request_script" field.
+func PreRequestScriptEQ(v string) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptNEQ applies the NEQ predicate on the "pre_request_script" field.
+func PreRequestScriptNEQ(v string) predicate.Request {
+	return predicate.Request(sql.FieldNEQ(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptIn applies the In predicate on the "pre_request_script" field.
+func PreRequestScriptIn(vs ...string) predicate.Request {
+	return predicate.Request(sql.FieldIn(FieldPreRequestScript, vs...))
+}
+
+// PreRequestScriptNotIn applies the NotIn predicate on the "pre_request_script" field.
+func PreRequestScriptNotIn(vs ...string) predicate.Request {
+	return predicate.Request(sql.FieldNotIn(FieldPreRequestScript, vs...))
+}
+
+// PreRequestScriptGT applies the GT predicate on the "pre_request_script" field.
+func PreRequestScriptGT(v string) predicate.Request {
+	return predicate.Request(sql.FieldGT(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptGTE applies the GTE predicate on the "pre_request_script" field.
+func PreRequestScriptGTE(v string) predicate.Request {
+	return predicate.Request(sql.FieldGTE(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptLT applies the LT predicate on the "pre_request_script" field.
+func PreRequestScriptLT(v string) predicate.Request {
+	return predicate.Request(sql.FieldLT(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptLTE applies the LTE predicate on the "pre_request_script" field.
+func PreRequestScriptLTE(v string) predicate.Request {
+	return predicate.Request(sql.FieldLTE(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptContains applies the Contains predicate on the "pre_request_script" field.
+func PreRequestScriptContains(v string) predicate.Request {
+	return predicate.Request(sql.FieldContains(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptHasPrefix applies the HasPrefix predicate on the "pre_request_script" field.
+func PreRequestScriptHasPrefix(v string) predicate.Request {
+	return predicate.Request(sql.FieldHasPrefix(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptHasSuffix applies the HasSuffix predicate on the "pre_request_script" field.
+func PreRequestScriptHasSuffix(v string) predicate.Request {
+	return predicate.Request(sql.FieldHasSuffix(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptEqualFold applies the EqualFold predicate on the "pre_request_script" field.
+func PreRequestScriptEqualFold(v string) predicate.Request {
+	return predicate.Request(sql.FieldEqualFold(FieldPreRequestScript, v))
+}
+
+// PreRequestScriptContainsFold applies the ContainsFold predicate on the "pre_request_script" field.
+func PreRequestScriptContainsFold(v string) predicate.Request {
+	return predicate.Request(sql.FieldContainsFold(FieldPreRequestScript, v))
+}
+
+// PostResponseScriptEQ applies the EQ predicate on the "post_response_script" field.
+func PostResponseScriptEQ(v string) predicate.Request {
+	return predicate.Request(sql.FieldEQ(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptNEQ applies the NEQ predicate on the "post_response_script" field.
+func PostResponseScriptNEQ(v string) predicate.Request {
+	return predicate.Request(sql.FieldNEQ(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptIn applies the In predicate on the "post_response_script" field.
+func PostResponseScriptIn(vs ...string) predicate.Request {
+	return predicate.Request(sql.FieldIn(FieldPostResponseScript, vs...))
+}
+
+// PostResponseScriptNotIn applies the NotIn predicate on the "post_response_script" field.
+func PostResponseScriptNotIn(vs ...string) predicate.Request {
+	return predicate.Request(sql.FieldNotIn(FieldPostResponseScript, vs...))
+}
+
+// PostResponseScriptGT applies the GT predicate on the "post_response_script" field.
+func PostResponseScriptGT(v string) predicate.Request {
+	return predicate.Request(sql.FieldGT(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptGTE applies the GTE predicate on the "post_response_script" field.
+func PostResponseScriptGTE(v string) predicate.Request {
+	return predicate.Request(sql.FieldGTE(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptLT applies the LT predicate on the "post_response_script" field.
+func PostResponseScriptLT(v string) predicate.Request {
+	return predicate.Request(sql.FieldLT(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptLTE applies the LTE predicate on the "post_response_script" field.
+func PostResponseScriptLTE(v string) predicate.Request {
+	return predicate.Request(sql.FieldLTE(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptContains applies the Contains predicate on the "post_response_script" field.
+func PostResponseScriptContains(v string) predicate.Request {
+	return predicate.Request(sql.FieldContains(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptHasPrefix applies the HasPrefix predicate on the "post_response_script" field.
+func PostResponseScriptHasPrefix(v string) predicate.Request {
+	return predicate.Request(sql.FieldHasPrefix(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptHasSuffix applies the HasSuffix predicate on the "post_response_script" field.
+func PostResponseScriptHasSuffix(v string) predicate.Request {
+	return predicate.Request(sql.FieldHasSuffix(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptEqualFold applies the EqualFold predicate on the "post_response_script" field.
+func PostResponseScriptEqualFold(v string) predicate.Request {
+	return predicate.Request(sql.FieldEqualFold(FieldPostResponseScript, v))
+}
+
+// PostResponseScriptContainsFold applies the ContainsFold predicate on the "post_response_script" field.
+func PostResponseScriptContainsFold(v string) predicate.Request {
+	return predicate.Request(sql.FieldContainsFold(FieldPostResponseScript, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

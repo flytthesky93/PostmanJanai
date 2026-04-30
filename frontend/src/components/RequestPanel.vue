@@ -133,6 +133,10 @@ const authApiKeyIn = ref('header')
 /** Dev/corp only: disable TLS certificate verification for this request (persisted on saved requests). */
 const insecureSkipVerify = ref(false)
 
+/** Phase 9 — goja scripts (editor; sent on each Send; saved requests also persist to DB). */
+const preRequestScript = ref('')
+const postResponseScript = ref('')
+
 function buildAuthPayload() {
   const t = (authType.value || 'none').toLowerCase().trim()
   if (!t || t === 'none') return undefined
@@ -182,6 +186,8 @@ function applyImportPayload(payload) {
 function applyInputToForm(payload) {
   if (!payload) return
   insecureSkipVerify.value = false
+  preRequestScript.value = ''
+  postResponseScript.value = ''
   savedRequestId.value = null
   savedFolderId.value = null
   savedRequestLabel.value = ''
@@ -342,11 +348,12 @@ function buildNewSavedRequestDto() {
   }
   const ap = buildAuthPayload()
   if (ap) dto.auth = ap
+  dto.pre_request_script = preRequestScript.value ?? ''
+  dto.post_response_script = postResponseScript.value ?? ''
   return dto
 }
 
 async function submitSaveAdhoc() {
-  const fid = (saveAdhocFolderId.value || '').trim()
   const name = (saveAdhocName.value || '').trim()
   if (!fid) {
     emit('console', '[Save] Choose a folder.')
@@ -475,6 +482,10 @@ function buildHttpExecutePayload() {
   if (savedRequestId.value) {
     payload.request_id = savedRequestId.value
   }
+  const pres = typeof preRequestScript.value === 'string' ? preRequestScript.value : ''
+  const posts = typeof postResponseScript.value === 'string' ? postResponseScript.value : ''
+  if (pres.trim() !== '') payload.pre_request_script = pres
+  if (posts.trim() !== '') payload.post_response_script = posts
   const ap = buildAuthPayload()
   if (ap) payload.auth = ap
   return payload
@@ -555,6 +566,10 @@ function applySavedRequestDto(dto) {
   bodyMode.value = bm
   syncAuthFromPayload(dto.auth)
   insecureSkipVerify.value = !!dto.insecure_skip_verify
+  preRequestScript.value =
+    dto.pre_request_script != null && dto.pre_request_script !== undefined ? String(dto.pre_request_script) : ''
+  postResponseScript.value =
+    dto.post_response_script != null && dto.post_response_script !== undefined ? String(dto.post_response_script) : ''
   activeTab.value = bm === 'none' || bm === '' ? 'params' : 'body'
 }
 
@@ -600,6 +615,8 @@ function buildSavedRequestFull() {
   }
   const ap = buildAuthPayload()
   if (ap) full.auth = ap
+  full.pre_request_script = preRequestScript.value ?? ''
+  full.post_response_script = postResponseScript.value ?? ''
   return full
 }
 
@@ -658,7 +675,9 @@ function captureSnapshot() {
     insecureSkipVerify: insecureSkipVerify.value,
     savedRequestId: savedRequestId.value,
     savedFolderId: savedFolderId.value,
-    savedRequestLabel: savedRequestLabel.value
+    savedRequestLabel: savedRequestLabel.value,
+    preRequestScript: preRequestScript.value,
+    postResponseScript: postResponseScript.value
   }
 }
 
@@ -698,7 +717,13 @@ function hydrate(snap) {
           file_path: p.file_path || ''
         }))
       : [{ key: '', kind: 'text', value: '', file_path: '' }]
-    activeTab.value = snap.activeTab || 'params'
+    {
+      let t = snap.activeTab || 'params'
+      if (t === 'tests') t = 'assertions'
+      activeTab.value = t
+    }
+    preRequestScript.value = snap.preRequestScript != null ? String(snap.preRequestScript) : ''
+    postResponseScript.value = snap.postResponseScript != null ? String(snap.postResponseScript) : ''
     authType.value = (snap.authType || 'none').toLowerCase()
     authBearerToken.value = snap.authBearerToken || ''
     authUsername.value = snap.authUsername || ''
@@ -734,7 +759,8 @@ watch(
     authType, authBearerToken, authUsername, authPassword,
     authApiKey, authApiKeyName, authApiKeyIn,
     insecureSkipVerify,
-    savedRequestId, savedFolderId, savedRequestLabel
+    savedRequestId, savedFolderId, savedRequestLabel,
+    preRequestScript, postResponseScript
   ],
   scheduleSnapshotEmit,
   { deep: true }
@@ -877,7 +903,24 @@ const formatXmlBody = () => {
               Body
             </button>
             <button
-              v-if="savedRequestId"
+              type="button"
+              class="rounded-t px-3 py-2"
+              :class="activeTab === 'pre_script' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
+              title="JavaScript before substitution and send (pmj / pm)"
+              @click="activeTab = 'pre_script'"
+            >
+              Pre-request
+            </button>
+            <button
+              type="button"
+              class="rounded-t px-3 py-2"
+              :class="activeTab === 'post_script' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
+              title="JavaScript after the response (API: pmj)"
+              @click="activeTab = 'post_script'"
+            >
+              Post-response
+            </button>
+            <button
               type="button"
               class="rounded-t px-3 py-2"
               :class="activeTab === 'captures' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
@@ -887,14 +930,13 @@ const formatXmlBody = () => {
               Captures
             </button>
             <button
-              v-if="savedRequestId"
               type="button"
               class="rounded-t px-3 py-2"
-              :class="activeTab === 'tests' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
-              title="Tests — assertions evaluated after the response arrives"
-              @click="activeTab = 'tests'"
+              :class="activeTab === 'assertions' ? 'bg-[#181818] text-orange-400' : 'text-gray-500 hover:text-gray-300'"
+              title="Assertions — rules evaluated after the response"
+              @click="activeTab = 'assertions'"
             >
-              Tests
+              Assertions
             </button>
           </div>
         </div>
@@ -1390,6 +1432,48 @@ const formatXmlBody = () => {
         </div>
       </div>
 
+      <div v-show="activeTab === 'pre_script'" class="flex min-h-0 flex-1 flex-col gap-2 p-3">
+        <p class="shrink-0 text-[11px] leading-relaxed text-gray-500">
+          Runs before variable substitution and the HTTP call. Use <span class="font-mono text-gray-400">pmj</span>
+          (legacy alias <span class="font-mono text-gray-400">pm</span>) — e.g.
+          <span class="font-mono text-gray-400">pmj.environment.set</span>,
+          <span class="font-mono text-gray-400">pmj.variables.set</span>.
+          <kbd class="ml-1 rounded border border-gray-700 bg-[#2a2a2a] px-1 font-mono text-[10px] text-gray-400">Ctrl</kbd>
+          <kbd class="rounded border border-gray-700 bg-[#2a2a2a] px-1 font-mono text-[10px] text-gray-400">Space</kbd>
+          hoặc nút <span class="font-mono text-gray-500">?</span> → Scripting (pmj).
+        </p>
+        <JsonCodeMirror
+          v-model="preRequestScript"
+          language="javascript"
+          class="min-h-0 flex-1"
+          completion-mode="pmj-pre"
+          :declared-env-keys="envKeysForFields"
+          :env-values="envValuesForFields"
+          placeholder="// Pre-request script"
+          @patch-env-value="forwardPatchEnvValue"
+        />
+      </div>
+
+      <div v-show="activeTab === 'post_script'" class="flex min-h-0 flex-1 flex-col gap-2 p-3">
+        <p class="shrink-0 text-[11px] leading-relaxed text-gray-500">
+          Runs after the response body is received. Saved-request captures/assertions execute in the backend pipeline;
+          use this for <span class="font-mono text-gray-400">pmj.expect</span> / <span class="font-mono text-gray-400">pmj.test</span> and console output (see Results tab).
+          <kbd class="ml-1 rounded border border-gray-700 bg-[#2a2a2a] px-1 font-mono text-[10px] text-gray-400">Ctrl</kbd>
+          <kbd class="rounded border border-gray-700 bg-[#2a2a2a] px-1 font-mono text-[10px] text-gray-400">Space</kbd>
+          để gợi ý <span class="font-mono text-gray-500">response</span> / test / environment — xem <span class="font-mono text-gray-500">?</span> Help.
+        </p>
+        <JsonCodeMirror
+          v-model="postResponseScript"
+          language="javascript"
+          class="min-h-0 flex-1"
+          completion-mode="pmj-post"
+          :declared-env-keys="envKeysForFields"
+          :env-values="envValuesForFields"
+          placeholder="// Post-response script"
+          @patch-env-value="forwardPatchEnvValue"
+        />
+      </div>
+
       <div v-show="activeTab === 'captures'" class="flex min-h-0 flex-1 flex-col">
         <RequestRulesEditor
           :request-id="savedRequestId"
@@ -1398,7 +1482,7 @@ const formatXmlBody = () => {
         />
       </div>
 
-      <div v-show="activeTab === 'tests'" class="flex min-h-0 flex-1 flex-col">
+      <div v-show="activeTab === 'assertions'" class="flex min-h-0 flex-1 flex-col">
         <RequestRulesEditor
           :request-id="savedRequestId"
           mode="assertions"

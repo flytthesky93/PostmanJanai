@@ -144,6 +144,8 @@ var (
 		{Name: "raw_body", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "auth_json", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "insecure_skip_verify", Type: field.TypeBool, Default: false},
+		{Name: "pre_request_script", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "post_response_script", Type: field.TypeString, Size: 2147483647, Default: ""},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "folder_id", Type: field.TypeUUID},
@@ -156,7 +158,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "requests_folders_requests",
-				Columns:    []*schema.Column{RequestsColumns[10]},
+				Columns:    []*schema.Column{RequestsColumns[12]},
 				RefColumns: []*schema.Column{FoldersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -165,7 +167,7 @@ var (
 			{
 				Name:    "request_folder_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{RequestsColumns[10], RequestsColumns[1]},
+				Columns: []*schema.Column{RequestsColumns[12], RequestsColumns[1]},
 			},
 		},
 	}

@@ -108,6 +108,34 @@ func (_c *RequestCreate) SetNillableInsecureSkipVerify(v *bool) *RequestCreate {
 	return _c
 }
 
+// SetPreRequestScript sets the "pre_request_script" field.
+func (_c *RequestCreate) SetPreRequestScript(v string) *RequestCreate {
+	_c.mutation.SetPreRequestScript(v)
+	return _c
+}
+
+// SetNillablePreRequestScript sets the "pre_request_script" field if the given value is not nil.
+func (_c *RequestCreate) SetNillablePreRequestScript(v *string) *RequestCreate {
+	if v != nil {
+		_c.SetPreRequestScript(*v)
+	}
+	return _c
+}
+
+// SetPostResponseScript sets the "post_response_script" field.
+func (_c *RequestCreate) SetPostResponseScript(v string) *RequestCreate {
+	_c.mutation.SetPostResponseScript(v)
+	return _c
+}
+
+// SetNillablePostResponseScript sets the "post_response_script" field if the given value is not nil.
+func (_c *RequestCreate) SetNillablePostResponseScript(v *string) *RequestCreate {
+	if v != nil {
+		_c.SetPostResponseScript(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *RequestCreate) SetCreatedAt(v time.Time) *RequestCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -288,6 +316,14 @@ func (_c *RequestCreate) defaults() {
 		v := request.DefaultInsecureSkipVerify
 		_c.mutation.SetInsecureSkipVerify(v)
 	}
+	if _, ok := _c.mutation.PreRequestScript(); !ok {
+		v := request.DefaultPreRequestScript
+		_c.mutation.SetPreRequestScript(v)
+	}
+	if _, ok := _c.mutation.PostResponseScript(); !ok {
+		v := request.DefaultPostResponseScript
+		_c.mutation.SetPostResponseScript(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := request.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -336,6 +372,12 @@ func (_c *RequestCreate) check() error {
 	}
 	if _, ok := _c.mutation.InsecureSkipVerify(); !ok {
 		return &ValidationError{Name: "insecure_skip_verify", err: errors.New(`ent: missing required field "Request.insecure_skip_verify"`)}
+	}
+	if _, ok := _c.mutation.PreRequestScript(); !ok {
+		return &ValidationError{Name: "pre_request_script", err: errors.New(`ent: missing required field "Request.pre_request_script"`)}
+	}
+	if _, ok := _c.mutation.PostResponseScript(); !ok {
+		return &ValidationError{Name: "post_response_script", err: errors.New(`ent: missing required field "Request.post_response_script"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Request.created_at"`)}
@@ -408,6 +450,14 @@ func (_c *RequestCreate) createSpec() (*Request, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.InsecureSkipVerify(); ok {
 		_spec.SetField(request.FieldInsecureSkipVerify, field.TypeBool, value)
 		_node.InsecureSkipVerify = value
+	}
+	if value, ok := _c.mutation.PreRequestScript(); ok {
+		_spec.SetField(request.FieldPreRequestScript, field.TypeString, value)
+		_node.PreRequestScript = value
+	}
+	if value, ok := _c.mutation.PostResponseScript(); ok {
+		_spec.SetField(request.FieldPostResponseScript, field.TypeString, value)
+		_node.PostResponseScript = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(request.FieldCreatedAt, field.TypeTime, value)

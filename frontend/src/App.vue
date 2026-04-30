@@ -183,6 +183,9 @@ async function onActiveEnvDropdownChange() {
 
 function onOpenEnvironment(id) {
   if (!id) return
+  if (mainWorkspaceMode.value === 'request') {
+    captureCurrentPanelSnapshot()
+  }
   mainWorkspaceMode.value = 'environment'
   selectedEnvironmentId.value = String(id)
 }
@@ -192,6 +195,9 @@ function onToggleSettings() {
     mainWorkspaceMode.value = workspaceBeforeSettings.value || 'request'
     workspaceBeforeSettings.value = null
     return
+  }
+  if (mainWorkspaceMode.value === 'request') {
+    captureCurrentPanelSnapshot()
   }
   workspaceBeforeSettings.value = mainWorkspaceMode.value
   mainWorkspaceMode.value = 'settings'
@@ -369,6 +375,9 @@ function onPaletteFolderHit(hit) {
 
 function onPaletteOpenSettings() {
   if (mainWorkspaceMode.value !== 'settings') {
+    if (mainWorkspaceMode.value === 'request') {
+      captureCurrentPanelSnapshot()
+    }
     workspaceBeforeSettings.value = mainWorkspaceMode.value
     mainWorkspaceMode.value = 'settings'
   }
@@ -489,21 +498,29 @@ const onExecuteRequest = async (payload) => {
   }
 }
 
-// Restore tabs on mount, then hydrate the active one into the panel.
-onMounted(async () => {
+// Restore tabs on mount. Hydration runs from the watcher below once RequestPanel
+// (defineAsyncComponent) has loaded and exposes hydrate() — not on the first nextTick.
+onMounted(() => {
   tabsStore.restore()
-  await nextTick()
-  await hydrateActiveTabIntoPanel()
 })
 
-// If active tab changes for any reason (programmatic), keep the panel in sync.
+// Keep RequestPanel in sync with the tab store whenever we can actually call hydrate():
+// - after the async RequestPanel chunk loads (fixes cold start: tab titles from store but empty panel)
+// - when switching tabs, or returning from Settings/Environment (panel remounts async again)
 watch(
-  () => tabsState.activeTabId,
-  async (newId, oldId) => {
-    if (newId === oldId) return
+  () =>
+    [
+      mainWorkspaceMode.value,
+      tabsState.activeTabId ?? '',
+      requestPanelRef.value?.hydrate ? '1' : '0'
+    ].join('|'),
+  async () => {
+    if (mainWorkspaceMode.value !== 'request' || !tabsState.activeTabId) return
+    if (!requestPanelRef.value?.hydrate || !activeTab.value) return
     await nextTick()
     await hydrateActiveTabIntoPanel()
-  }
+  },
+  { flush: 'post' }
 )
 </script>
 

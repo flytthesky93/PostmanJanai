@@ -78,6 +78,20 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 			}
 		}
 		return nil
+	case 8:
+		// → 9: Phase 9 — scripting columns on saved requests (additive TEXT with default '').
+		alters := []string{
+			`ALTER TABLE requests ADD COLUMN pre_request_script TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE requests ADD COLUMN post_response_script TEXT NOT NULL DEFAULT ''`,
+		}
+		for _, q := range alters {
+			if _, err := db.Exec(q); err != nil {
+				if !isDuplicateColumnErr(err) {
+					return err
+				}
+			}
+		}
+		return nil
 	default:
 		return nil
 	}

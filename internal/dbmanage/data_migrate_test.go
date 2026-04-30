@@ -10,8 +10,73 @@ import (
 // TestMigrate_NoopWhenFromEqualsTo ensures the migration driver is idempotent for same-version DBs.
 func TestMigrate_NoopWhenFromEqualsTo(t *testing.T) {
 	db, _ := testutil.NewSQLDB(t)
-	if err := MigrateDataBetweenVersions(context.Background(), db, 8, 8); err != nil {
+	if err := MigrateDataBetweenVersions(context.Background(), db, 9, 9); err != nil {
 		t.Fatalf("noop should not error, got %v", err)
+	}
+}
+
+// TestMigrate_8to9AddsRequestScripts verifies v8→v9 adds pre/post script TEXT columns idempotently.
+func TestMigrate_8to9AddsRequestScripts(t *testing.T) {
+	db, _ := testutil.NewSQLDB(t)
+	stmts := []string{
+		// v8 `requests` shape (no scripting columns yet).
+		`CREATE TABLE requests (
+			id TEXT PRIMARY KEY,
+			folder_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			method TEXT NOT NULL DEFAULT 'GET',
+			url TEXT NOT NULL,
+			body_mode TEXT NOT NULL,
+			raw_body TEXT,
+			auth_json TEXT,
+			insecure_skip_verify INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`INSERT INTO requests (id, folder_id, name, url, body_mode)
+		 VALUES ('r1', 'f1', 'x', 'https://example.com', 'none')`,
+	}
+	for _, q := range stmts {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("seed %q: %v", q, err)
+		}
+	}
+
+	if err := MigrateDataBetweenVersions(context.Background(), db, 8, 9); err != nil {
+		t.Fatalf("migrate 8→9: %v", err)
+	}
+	if err := MigrateDataBetweenVersions(context.Background(), db, 8, 9); err != nil {
+		t.Fatalf("migrate 8→9 (rerun): %v", err)
+	}
+
+	cols := map[string]bool{}
+	rows, err := db.Query(`PRAGMA table_info(requests)`)
+	if err != nil {
+		t.Fatalf("pragma: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt *string
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		cols[name] = true
+	}
+	for _, c := range []string{"pre_request_script", "post_response_script"} {
+		if !cols[c] {
+			t.Errorf("expected column %q after migration", c)
+		}
+	}
+
+	var pre, post string
+	row := db.QueryRow(`SELECT pre_request_script, post_response_script FROM requests WHERE id = 'r1'`)
+	if err := row.Scan(&pre, &post); err != nil {
+		t.Fatalf("select scripts: %v", err)
+	}
+	if pre != "" || post != "" {
+		t.Fatalf(`script columns want "" default, got pre=%q post=%q`, pre, post)
 	}
 }
 

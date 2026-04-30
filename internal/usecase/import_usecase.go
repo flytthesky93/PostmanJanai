@@ -204,6 +204,8 @@ func importedRequestToSaved(folderID, name string, r *entity.ImportedRequest) *e
 		FormFields:     r.FormFields,
 		MultipartParts: r.MultipartParts,
 		Auth:           r.Auth,
+		PreRequestScript:   r.PreRequestScript,
+		PostResponseScript: r.PostResponseScript,
 	}
 }
 

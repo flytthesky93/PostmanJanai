@@ -28,6 +28,8 @@ const MAX_TABS = 20
  * @property {string|null} savedRequestId
  * @property {string|null} savedFolderId
  * @property {string} savedRequestLabel
+ * @property {string} preRequestScript
+ * @property {string} postResponseScript
  */
 
 /**
@@ -71,7 +73,9 @@ export function emptySnapshot() {
     insecureSkipVerify: false,
     savedRequestId: null,
     savedFolderId: null,
-    savedRequestLabel: ''
+    savedRequestLabel: '',
+    preRequestScript: '',
+    postResponseScript: ''
   }
 }
 
@@ -143,6 +147,8 @@ export function snapshotFromSavedRequest(dto) {
   s.savedRequestId = dto.id || null
   s.savedFolderId = dto.folder_id || null
   s.savedRequestLabel = dto.name || 'Request'
+  s.preRequestScript = dto.pre_request_script != null ? String(dto.pre_request_script) : ''
+  s.postResponseScript = dto.post_response_script != null ? String(dto.post_response_script) : ''
   s.activeTab = bm === 'none' || bm === '' ? 'params' : 'body'
   return s
 }

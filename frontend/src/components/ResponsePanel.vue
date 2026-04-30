@@ -50,9 +50,23 @@ const assertionList = computed(() =>
 const captureList = computed(() =>
   Array.isArray(props.result?.captures) ? props.result.captures : []
 )
+const scriptConsoleList = computed(() =>
+  Array.isArray(props.result?.script_console) ? props.result.script_console : []
+)
+const scriptTestList = computed(() =>
+  Array.isArray(props.result?.script_tests) ? props.result.script_tests : []
+)
 const assertionPassCount = computed(() => assertionList.value.filter((a) => a.passed).length)
 const assertionFailCount = computed(() => assertionList.value.length - assertionPassCount.value)
-const hasTests = computed(() => assertionList.value.length > 0 || captureList.value.length > 0)
+const scriptTestPassCount = computed(() => scriptTestList.value.filter((t) => t.passed).length)
+const scriptTestFailCount = computed(() => scriptTestList.value.length - scriptTestPassCount.value)
+const hasTests = computed(
+  () =>
+    assertionList.value.length > 0 ||
+    captureList.value.length > 0 ||
+    scriptConsoleList.value.length > 0 ||
+    scriptTestList.value.length > 0
+)
 </script>
 
 <template>
@@ -90,13 +104,19 @@ const hasTests = computed(() => assertionList.value.length > 0 || captureList.va
               :class="activeTab === 'tests' ? 'text-white border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-300'"
               @click="activeTab = 'tests'"
             >
-              Tests
+              Results
               <span
-                v-if="assertionList.length"
+                v-if="assertionList.length || scriptTestList.length"
                 class="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                :class="assertionFailCount === 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'"
+                :class="
+                  assertionFailCount === 0 && scriptTestFailCount === 0
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : 'bg-red-500/15 text-red-300'
+                "
               >
-                {{ assertionPassCount }}/{{ assertionList.length }}
+                <template v-if="assertionList.length">{{ assertionPassCount }}/{{ assertionList.length }} rules</template>
+                <template v-if="assertionList.length && scriptTestList.length"> · </template>
+                <template v-if="scriptTestList.length">{{ scriptTestPassCount }}/{{ scriptTestList.length }} scripts</template>
               </span>
             </button>
           </div>
@@ -137,6 +157,44 @@ const hasTests = computed(() => assertionList.value.length > 0 || captureList.va
         v-else-if="activeTab === 'tests' && result"
         class="app-scrollbar h-full overflow-auto p-2 text-xs"
       >
+        <section v-if="scriptConsoleList.length" class="mb-3">
+          <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            Script console ({{ scriptConsoleList.length }})
+          </h4>
+          <ul class="space-y-0.5 font-mono text-[11px]">
+            <li
+              v-for="(ln, i) in scriptConsoleList"
+              :key="'sc' + i"
+              class="rounded border border-gray-800 bg-[#141414] px-2 py-1"
+              :class="{
+                'text-gray-300': ln.level === 'log' || ln.level === 'info' || ln.level === 'debug',
+                'text-amber-300': ln.level === 'warn',
+                'text-red-300': ln.level === 'error'
+              }"
+            >
+              <span class="text-[10px] uppercase text-gray-500">{{ ln.level || 'log' }}</span>
+              <span class="ml-2 whitespace-pre-wrap break-words">{{ ln.message }}</span>
+            </li>
+          </ul>
+        </section>
+        <section v-if="scriptTestList.length" class="mb-3">
+          <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            Script tests ({{ scriptTestPassCount }}/{{ scriptTestList.length }})
+          </h4>
+          <ul class="space-y-1">
+            <li
+              v-for="(st, i) in scriptTestList"
+              :key="'st' + i"
+              class="rounded border px-2 py-1.5"
+              :class="st.passed ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'"
+            >
+              <div class="font-semibold" :class="st.passed ? 'text-emerald-300' : 'text-red-300'">
+                {{ st.passed ? 'PASS' : 'FAIL' }} · {{ st.name || '(unnamed)' }}
+              </div>
+              <div v-if="!st.passed && st.detail" class="mt-0.5 break-words font-mono text-[11px] text-red-300">{{ st.detail }}</div>
+            </li>
+          </ul>
+        </section>
         <section v-if="assertionList.length" class="mb-3">
           <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-500">
             Assertions ({{ assertionPassCount }}/{{ assertionList.length }})
@@ -185,7 +243,6 @@ const hasTests = computed(() => assertionList.value.length > 0 || captureList.va
             </li>
           </ul>
         </section>
-        <div v-if="!hasTests" class="text-gray-500">No tests or captures defined for this request.</div>
       </div>
       <div v-else-if="!loading" class="flex h-full min-h-[120px] items-center justify-center italic text-gray-600">
         Press Send to see the response…

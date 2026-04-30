@@ -53,6 +53,11 @@ type HTTPExecuteInput struct {
 	// InsecureSkipVerify disables TLS certificate verification for this send only
 	// (mirrors saved request flag when executing a saved request).
 	InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
+
+	// Phase 9 — optional overlays from the request editor for this Send run.
+	// When non-empty, these take precedence over scripts stored with the saved request.
+	PreRequestScript   string `json:"pre_request_script,omitempty"`
+	PostResponseScript string `json:"post_response_script,omitempty"`
 }
 
 // HTTPExecuteResult is the outcome of HTTP execution (HTTP response or network/timeout error).
@@ -71,6 +76,10 @@ type HTTPExecuteResult struct {
 	// Phase 8 — Post-response capture + assertion outcomes (saved request only).
 	Captures   []CaptureResult   `json:"captures,omitempty"`
 	Assertions []AssertionResult `json:"assertions,omitempty"`
+
+	// Phase 9 — script sandbox (saved request sends + runner overlays on live events).
+	ScriptConsole []ScriptConsoleLine `json:"script_console,omitempty"`
+	ScriptTests   []ScriptTestResult  `json:"script_tests,omitempty"`
 
 	// Snapshots for persisting history (not serialized to the frontend).
 	RequestHeadersSnapshot []KeyValue `json:"-"`

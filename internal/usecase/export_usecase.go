@@ -3,6 +3,7 @@ package usecase
 import (
 	"PostmanJanai/internal/entity"
 	"PostmanJanai/internal/repository"
+	"PostmanJanai/internal/service"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -78,10 +79,14 @@ func (u *exportUsecaseImpl) postmanItemsForFolder(ctx context.Context, folderID 
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, map[string]interface{}{
+		block := map[string]interface{}{
 			"name":    sum.Name,
 			"request": buildPostmanRequestObject(full),
-		})
+		}
+		if ev := service.PostmanExportRequestEvents(full); len(ev) > 0 {
+			block["event"] = ev
+		}
+		out = append(out, block)
 	}
 	return out, nil
 }

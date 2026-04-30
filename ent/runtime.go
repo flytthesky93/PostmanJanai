@@ -153,12 +153,20 @@ func init() {
 	requestDescInsecureSkipVerify := requestFields[8].Descriptor()
 	// request.DefaultInsecureSkipVerify holds the default value on creation for the insecure_skip_verify field.
 	request.DefaultInsecureSkipVerify = requestDescInsecureSkipVerify.Default.(bool)
+	// requestDescPreRequestScript is the schema descriptor for pre_request_script field.
+	requestDescPreRequestScript := requestFields[9].Descriptor()
+	// request.DefaultPreRequestScript holds the default value on creation for the pre_request_script field.
+	request.DefaultPreRequestScript = requestDescPreRequestScript.Default.(string)
+	// requestDescPostResponseScript is the schema descriptor for post_response_script field.
+	requestDescPostResponseScript := requestFields[10].Descriptor()
+	// request.DefaultPostResponseScript holds the default value on creation for the post_response_script field.
+	request.DefaultPostResponseScript = requestDescPostResponseScript.Default.(string)
 	// requestDescCreatedAt is the schema descriptor for created_at field.
-	requestDescCreatedAt := requestFields[9].Descriptor()
+	requestDescCreatedAt := requestFields[11].Descriptor()
 	// request.DefaultCreatedAt holds the default value on creation for the created_at field.
 	request.DefaultCreatedAt = requestDescCreatedAt.Default.(func() time.Time)
 	// requestDescUpdatedAt is the schema descriptor for updated_at field.
-	requestDescUpdatedAt := requestFields[10].Descriptor()
+	requestDescUpdatedAt := requestFields[12].Descriptor()
 	// request.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	request.DefaultUpdatedAt = requestDescUpdatedAt.Default.(func() time.Time)
 	// request.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

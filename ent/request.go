@@ -35,6 +35,10 @@ type Request struct {
 	AuthJSON *string `json:"auth_json,omitempty"`
 	// InsecureSkipVerify holds the value of the "insecure_skip_verify" field.
 	InsecureSkipVerify bool `json:"insecure_skip_verify,omitempty"`
+	// PreRequestScript holds the value of the "pre_request_script" field.
+	PreRequestScript string `json:"pre_request_script,omitempty"`
+	// PostResponseScript holds the value of the "post_response_script" field.
+	PostResponseScript string `json:"post_response_script,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -138,7 +142,7 @@ func (*Request) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case request.FieldInsecureSkipVerify:
 			values[i] = new(sql.NullBool)
-		case request.FieldName, request.FieldMethod, request.FieldURL, request.FieldBodyMode, request.FieldRawBody, request.FieldAuthJSON:
+		case request.FieldName, request.FieldMethod, request.FieldURL, request.FieldBodyMode, request.FieldRawBody, request.FieldAuthJSON, request.FieldPreRequestScript, request.FieldPostResponseScript:
 			values[i] = new(sql.NullString)
 		case request.FieldCreatedAt, request.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -214,6 +218,18 @@ func (_m *Request) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field insecure_skip_verify", values[i])
 			} else if value.Valid {
 				_m.InsecureSkipVerify = value.Bool
+			}
+		case request.FieldPreRequestScript:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field pre_request_script", values[i])
+			} else if value.Valid {
+				_m.PreRequestScript = value.String
+			}
+		case request.FieldPostResponseScript:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field post_response_script", values[i])
+			} else if value.Valid {
+				_m.PostResponseScript = value.String
 			}
 		case request.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -325,6 +341,12 @@ func (_m *Request) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("insecure_skip_verify=")
 	builder.WriteString(fmt.Sprintf("%v", _m.InsecureSkipVerify))
+	builder.WriteString(", ")
+	builder.WriteString("pre_request_script=")
+	builder.WriteString(_m.PreRequestScript)
+	builder.WriteString(", ")
+	builder.WriteString("post_response_script=")
+	builder.WriteString(_m.PostResponseScript)
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

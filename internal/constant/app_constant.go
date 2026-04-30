@@ -8,7 +8,7 @@ const (
 
 	// DBSchemaUserVersion — expected SQLite PRAGMA user_version after schema/data matches current Ent code.
 	// When bumping: add a branch in dbmanage.migrateOneStep (data); backup runs before Schema.Create.
-	DBSchemaUserVersion = 8
+	DBSchemaUserVersion = 9
 
 	// HTTPClientTimeout — total time for one request (including reading the response body).
 	HTTPClientTimeoutSeconds = 60
@@ -97,4 +97,8 @@ const (
 	RunnerMaxIterations        = 50
 	RunnerMaxDelayMs           = 60_000
 	RunnerMaxTimeoutPerReqMs   = 5 * 60 * 1000
+
+	// Phase 9 — script execution timeouts (seconds) for goja runtimes (pre-request shorter than post-response).
+	ScriptPreRequestTimeoutSeconds  = 5
+	ScriptPostResponseTimeoutSeconds = 10
 )
