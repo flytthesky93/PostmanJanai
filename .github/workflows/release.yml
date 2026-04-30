@@ -1,0 +1,125 @@
+# Builds the Wails desktop app on Windows amd64 (portable exe + optional NSIS installer)
+# when you push an annotated semver tag matching v* (example: v1.0.0), then attaches
+# assets to the GitHub Release for that tag. Manual runs skip creating a Release but
+# still upload Actions artifacts.
+
+name: release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  NODE_OPTIONS: --max-old-space-size=6144
+  ARTIFACT_STEM: ${{ github.ref_type == 'tag' && github.ref_name || format('manual-run-{0}', github.run_number) }}
+
+permissions:
+  contents: write
+
+jobs:
+  windows-amd64:
+    name: windows / amd64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Wails expects a GCC toolchain for CGO on Windows (webview / bindings).
+      - name: Toolchain — MinGW GCC + NSIS
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          choco install mingw nsis -y --no-progress
+
+      # Chocolatey shims gcc/makensis; if gcc is unavailable, recurse under usual install roots.
+      - name: Ensure MinGW GCC on PATH
+        shell: pwsh
+        run: |
+          if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
+            foreach ($root in @(
+                "$env:SystemDrive\ProgramData\chocolatey\lib\mingw\tools",
+                "$env:SystemDrive\tools",
+                "${env:SystemDrive}\msys64")) {
+              if (-not (Test-Path $root)) { continue }
+              $gccExe = Get-ChildItem -Path $root -Recurse -Filter 'gcc.exe' -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+              if ($gccExe) {
+                $gccDir = $gccExe.Directory.FullName
+                Write-Host "Adding GCC dir to PATH: $gccDir"
+                Add-Content $env:GITHUB_PATH $gccDir
+                break
+              }
+            }
+          }
+          if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
+            Write-Error 'gcc is not available on PATH after choco mingw.'
+            exit 1
+          }
+          gcc --version
+          makensis /VERSION
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+          "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          wails version
+
+      - name: Frontend dependencies (npm ci)
+        working-directory: frontend
+        run: npm ci
+
+      - name: Wails production build
+        env:
+          CGO_ENABLED: '1'
+        run: >-
+          wails build -clean -platform windows/amd64 -nsis -o PostmanJanai.exe
+
+      - name: List build output
+        shell: pwsh
+        run: Get-ChildItem -LiteralPath build/bin -Force | Format-Table Name, Length -AutoSize
+
+      - name: Stage release artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-artifacts | Out-Null
+          $stem = '${{ env.ARTIFACT_STEM }}'
+          Copy-Item -LiteralPath build/bin/PostmanJanai.exe -Destination "release-artifacts/PostmanJanai-${stem}-windows-amd64-portable.exe" -Force
+          $installer = Get-ChildItem -LiteralPath build/bin -Filter '*installer*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($installer) {
+            Copy-Item -LiteralPath $installer.FullName -Destination "release-artifacts/PostmanJanai-${stem}-windows-amd64-installer.exe" -Force
+          } else {
+            Write-Warning 'No NSIS installer found under build/bin; only portable exe will be uploaded.'
+          }
+
+      - name: Upload build artifacts (all runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PostmanJanai-${{ env.ARTIFACT_STEM }}-windows-amd64
+          path: release-artifacts/*
+          if-no-files-found: error
+
+      - name: Create GitHub Release (tags only)
+        if: ${{ github.ref_type == 'tag' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

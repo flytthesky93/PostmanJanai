@@ -1,6 +1,8 @@
 # Release checklist
 
-Tick-được từng mục. Một bản Windows x64 chỉ được gọi là "internal release" khi **tất cả** mục ngoài "Tuỳ chọn" đều tick. Ghi rõ version + commit hash + build date ở đầu bảng trước khi tick.
+> **Plan v1 đã đóng backlog.** Checklist này là **cổng chất lượng theo từng bản build**, không phải danh sách backlog tính năng. Ý tưởng sau Phase 9 ghi trong **phase mới** tại `roadmap.md`.
+
+Tick-được từng mục — ghi **version**, **commit hash**, **build date (UTC)** ở đầu bảng trước khi tick đủ. Một bản Windows x64 chỉ gọi **internal release** khi **tất cả** mục ngoài "Tuỳ chọn" đều tick.
 
 - **Version:** (ví dụ `v0.5.0-internal.1`)
 - **Commit:** `git rev-parse --short HEAD` → `__________`
@@ -79,8 +81,8 @@ Nếu release này có thay đổi **Phase 9 (Scripting)** — **Phase 9.0 close
 ## 5. Artifacts & release notes
 
 - [ ] Binary + installer (nếu có) upload lên nơi lưu trữ nội bộ (Drive / S3 / Release draft).
-- [ ] Release note liệt kê: feature mới, fix, known limitations (nếu có — tham chiếu backlog trong `roadmap.md`).
-- [ ] `roadmap.md` + `data-model-and-delivery-status.md` đã được cập nhật cho bản release này.
+- [ ] Release note liệt kê: feature mới, fix, known limitations có **issue hoặc phase** rõ ràng (nếu có).
+- [ ] `roadmap.md` + `data-model-and-delivery-status.md` phản ánh phiên bản / phase có thay đổi trong bản release này.
 
 ## 6. Tuỳ chọn (không chặn release)
 

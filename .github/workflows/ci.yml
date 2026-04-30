@@ -1,8 +1,8 @@
 name: ci
 
-# Run on every push to main and every PR. The job must stay CPU-light: it intentionally skips
-# the Wails desktop build (requires webkit/webview and is done manually on a Windows dev box
-# via `make build-win-safe`).
+# Push/PR gates: vet + race tests + vite build only (Linux-friendly).
+# Windows binary + installer (Wails NSIS): see `.github/workflows/release.yml`
+# — runs on pushed tags `v*` and `workflow_dispatch`, uploads artifacts + GitHub Release on tags.
 
 on:
   push:

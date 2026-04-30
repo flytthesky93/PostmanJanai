@@ -5,7 +5,7 @@
 - **Cấu trúc DB** (bảng, cột, FK, ERD) và **migration** / `PRAGMA user_version`.
 - **Checklist kỹ thuật** đã / chưa làm — *Tiến độ đã triển khai* và *Todos* ở cuối file.
 
-**Roadmap** (mục tiêu, phase 0–9, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
+**Roadmap** (phase 0–9 hoàn thành; phát triển tiếp theo = phase mới): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
 
 > **Phase 6–9 (snapshot — Phase 9 closed 2026-04-30):**
 > - **Phase 6 — Networking & Security:** **Done (2026-04-21).** proxy (`none/system/manual` + `NO_PROXY`) + custom CA pool (`trusted_cas` PEM trong DB) + `insecure_skip_verify` (per-request, lưu trên `requests`) + secret env var (`kind` + AES-GCM `enc:v1:` + redact history/snippet) + Wails `SettingsHandler` + tab **Settings**. DB bump **v5 → v6**.
@@ -297,7 +297,7 @@ erDiagram
   - `5 → 6`: additive — `CREATE TABLE settings`, `CREATE TABLE trusted_cas`, `ALTER TABLE environment_variables ADD COLUMN kind …`, `ALTER TABLE requests ADD COLUMN insecure_skip_verify …` (chi tiết trong `internal/dbmanage/data_migrate.go`).
   - `6 → 7`: **additive** — `CREATE TABLE request_captures`, `CREATE TABLE request_assertions`, `CREATE TABLE runner_runs`, `CREATE TABLE runner_run_requests` (Phase 8.0). Tất cả DDL do `ent.Schema.Create` đảm nhiệm; bước migrate chỉ bump `user_version` (không destructive, không backfill). Có test idempotent (`TestMigrate_6to7IsAdditive`) đảm bảo các bảng cũ không bị đụng.
   - `7 → 8`: **additive** — Phase 8.1; `ALTER TABLE runner_run_requests ADD COLUMN` cho 5 cột raw request/response (`request_headers_json`, `response_headers_json`, `request_body`, `response_body`, `body_truncated`). Idempotent: rerun trên DB đã có cột chỉ no-op (helper `isDuplicateColumnErr`). Test: `TestMigrate_7to8AddsRunnerRequestSnapshots` (đơn lẻ) + `TestMigrate_6to8Chain` (chuỗi liền mạch).
-- Nếu cần **giữ dữ liệu** khi nâng v2→v3: thêm bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (todo sản phẩm — **backlog**).
+- Nếu cần **giữ dữ liệu** khi nâng v2→v3: đánh giá trong **phase / migration riêng** sau v1 — ví dụ bước export JSON / SQL trong `data_migrate` hoặc job sau `Schema.Create` (không còn backlog tài liệu v1 cho mục này).
 
 ---
 
@@ -426,10 +426,9 @@ erDiagram
   - **Giới hạn:** mặc định 100 hit/nhóm, cứng ≤ 500 (`searchMaxLimit`), truncate hiển thị hint cho user.
   - **DB impact:** **không** đổi schema — dùng SQLite `LIKE` qua Ent `*ContainsFold`; ở scale local (thousands) không cần FTS/index phụ.
 
-### Chưa làm / backlog (sau Phase 4)
+### ~~Chưa làm / backlog (sau Phase 4)~~ — **Đã đóng tài liệu**
 
-- [ ] **Export** project JSON “native” / đối xứng đầy đủ Import (tùy chọn — đã có **Postman Collection v2.1** từ root folder)
-- [ ] **Migrate v2→v3 giữ dữ liệu** (nếu cần) — hiện path bump cũ là **drop** + backup
+Kênh backlog cũ (export native, migrate v2→v3 giữ data…) **không còn theo dõi trong plan.** Bổ sung tính năng định nghĩa trong **phase mới** tại `roadmap.md`.
 
 ### Đã xong (Flow B + polish — 2026-04-20)
 
@@ -462,16 +461,14 @@ erDiagram
 - [x] **Phase 8.0** Collection Runner & Chaining — capture + assertion engines + Runner usecase + Wails events + Runner modal + report JSON/Markdown — **DB v7** — 2026-04-26
 - [x] **Phase 8.1** Runner replay + iterations/delay/timeout — raw request/response persist + RunnerRequestDetailModal + 3 advanced options — **DB v8** — 2026-04-26
 - [x] **Phase 9** Scripting — goja sandbox + `pmj` / `pm` alias + Pre-request + Post-response + Captures/Assertions strip + Runner + Postman v2.1 import/export + script on Send from editor + tab restore hydrate — **DB v8 → v9** — **closed / docs 2026-04-30**
-- [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
+- ~~[ ]~~ **Export/import khi migrate v2→v3 giữ data** — không còn backlog plan; vào phase mới nếu triển khai.
 
 ---
 
-## Đề xuất bước tiếp theo
+## Quy trình sản phẩm v1 — **đã kết thúc (đóng backlog — 2026-04-30)**
 
-**Phase 9 — Scripting** **đã đóng — implementation snapshot 2026-04-30** (Roadmap §Phase 9 + checklist dòng Phase 9 ở trên). Việc còn lại trước **internal release** có Scripting: chạy thủ công `manual-test-plan.md` §**L**, tick các mục Phase 9 trong `release-checklist.md`.
+Phase **0–9** đã hoàn thành. **Không còn backlog tích lũy trong tài liệu này.** Chức năng sau này ghi vào **Phase 10+** trong [roadmap.md](roadmap.md).
 
-**Backlog Phase 9.1 / sau v1:** full `pm.*` & Chai, cookie jar, visualizer; async/Promise trong VM; script debugger; shared **collection-level** scripts; CommonJS / ES modules; các polish an toàn/redact chi tiết nếu cần — xem [roadmap.md § Phase 9 — Ngoài scope](roadmap.md).
+**Kiểm thử bản build:** Tiếp tục dùng **`release-checklist.md`** và **`manual-test-plan.md`** theo từng internal release — đó là **cổng chất lượng**, không phải backlog tính năng.
 
-**Backlog Phase 8.x (ngoài v1):** re-run từng request từ `RunnerRequestDetailModal`; filter/search recent runs; diff 2 run gần nhất; data-driven runner (CSV/JSON iteration); parallel execution; retry on failure; cap riêng cho `runner_run_requests.response_body`; "Open Runner" trong Dashboard quick actions.
-
-**Backlog chung (ngoài Phase 6–9):** export project JSON native; migration v2→v3 giữ dữ liệu; UI E2E (Playwright); code signing Windows; notarize macOS.
+**Ghi nhận DB:** Migrate cũ 1→2 / 2→3 vẫn **drop + backup** trong code hiện tại; luồng giữ Data (export/reimport) chỉ có khi bạn định nghĩa trong phase mới.

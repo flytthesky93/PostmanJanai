@@ -288,4 +288,4 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
 - **Bắt đầu (UTC)**: __________ **Kết thúc (UTC)**: __________
 - **Tóm tắt**: Pass __/Fail __/Blocked __
 - **Bug cần fix trước release**: (link issue)
-- **Known issues chấp nhận cho bản này**: (link backlog trong roadmap.md)
+- **Known issues chấp nhận cho bản này**: (link issue / ghi vào phase mới trong `roadmap.md` — không dùng backlog cũ)
