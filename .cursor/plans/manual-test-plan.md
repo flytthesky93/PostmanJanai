@@ -236,16 +236,17 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
 1. **Migration v8 → v9**
    - Mở app với DB v8 (backup từ build trước Phase 9) → app khởi động không lỗi, `<appDir>/backups/` có file backup mới; mở DB browser → `requests` có thêm 2 cột `pre_request_script` + `post_response_script` (default `''`).
    - Mở app lần 2 (đã ở v9) → không tạo backup mới, không re-run migrate, không lỗi duplicate column.
-2. **Editor Pre-request + Tests**
-   - Mở `01 Login` → có 2 tab mới **Pre-request** + **Tests** (CodeMirror JS, syntax highlight, gợi ý `pm.*`).
+2. **Editor Pre-request + Post-response**
+   - Mở `01 Login` → có tab **Pre-request** + **Post-response** trong Request strip (CodeMirror JS, syntax highlight, gợi ý `pmj` / `pm`; Postman collection “test script” maps vào Post-response).
    - Nhập script vào Pre-request, save → reload app → script vẫn còn nguyên text.
+
 3. **`pm.environment.set` qua chained Send**
    - Pre-request `01 Login`: rỗng. Post-response `01 Login`: `pm.environment.set('TOKEN', pm.response.json().json.id);`
    - Send `01 Login` → mở Environments → biến `TOKEN` trong env active = `42`.
    - Send `02 Me` với header `Authorization: Bearer {{TOKEN}}` → server thấy header `Authorization: Bearer 42`.
-4. **`pm.test` + Tests panel**
+4. **`pm.test` + Results trong Response**
    - Post-response: `pm.test('status is 200', () => pm.expect(pm.response.code).to.equal(200));` + `pm.test('has json', () => pm.expect(pm.response.json()).to.exist);`.
-   - Send → tab **Tests** (ResponsePanel) hiển thị `2/2 PASS`. Đổi 1 expectation thành sai → `1/2 FAIL` với message rõ; `pm.test` không làm crash request.
+   - Send → **Results** trong ResponsePanel (aggregate script tests + captures/assertions — gồm các dòng `pm.test`) hiển thị `2/2 PASS`. Đổi 1 expectation thành sai → `1/2 FAIL` với message rõ; `pm.test` không làm crash request.
 5. **Timeout sandbox**
    - Pre-request: `while(true){}`.
    - Send → request bị huỷ sau `ScriptTimeoutSeconds`; ResponsePanel/console hiển thị error "script timeout / interrupted"; app không treo, có thể tiếp tục dùng tab khác.
@@ -254,15 +255,19 @@ Chia theo domain. Mỗi mục là một hàng tick "Pass/Fail/N/A" + ghi chú.
    - Pre-request: `pm.sendRequest('https://httpbin.org/get', cb)` → log console + request chính vẫn gửi sau khi pre-request finish (sync block).
 7. **Runner integration**
    - Mở Runner cho folder `Phase9` → Run.
-   - **Expect**: `01 Login` chạy pre + post; `02 Me` thấy `Authorization: Bearer 42` (chained); `pm.test` rollup vào tổng `passed/failed` của Runner; Runner row detail hiện script output trong tab Tests / Console.
+   - **Expect**: `01 Login` chạy pre + post; `02 Me` thấy `Authorization: Bearer 42` (chained); `pm.test` rollup vào tổng `passed/failed` của Runner; chi tiết row trong Runner modal hiển thị script output (tests / console) nếu có.
    - Set Pre-request `01 Login` = `throw new Error('boom');` → Run → row `01 Login` status `errored`, `02 Me` skip nếu Stop on fail bật.
 8. **Import / Export Postman v2.1**
-   - Import 1 collection Postman có `event[{"listen":"test","script":...}]`. Mở request được import → script đã điền vào tab **Tests** (post-response).
+   - Import 1 collection Postman có `event[{"listen":"test","script":...}]`. Mở request được import → script đã điền vào tab **Post-response** (editor Request).
    - Export lại root đó → mở JSON: `event[]` được emit lại với listen + script text khớp.
    - Re-import file vừa export → tree + script khớp.
 9. **Console panel**
    - Pre-request: `console.log('hi'); console.warn('warn'); console.error('err');`
    - Send → Console panel dưới Response hiển thị 3 dòng theo level (info/warn/error icon), không lẫn vào response body.
+
+10. **Khôi phục phiên làm việc (tabs) — regression**
+    - Mở ≥2 tab (adhoc và/hoặc saved) có khác nhau URL/script; reload app hoặc mở lại.
+    - **Expect**: tên tab + nội dung Request khớp từng tab (snapshot `pmj.tabs.v1` hydrate sau khi chunk `RequestPanel` load); tab active đúng như phiên trước.
 
 ### M. Migration & backup
 

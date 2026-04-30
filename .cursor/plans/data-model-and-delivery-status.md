@@ -7,11 +7,11 @@
 
 **Roadmap** (mục tiêu, phase 0–9, backlog): [roadmap.md](roadmap.md) (cùng thư mục `.cursor/plans/`).
 
-> **Phase 6–9 (snapshot 2026-04-26 — Phase 8 closed, Phase 9 kickoff 2026-04-27):**
+> **Phase 6–9 (snapshot — Phase 9 closed 2026-04-30):**
 > - **Phase 6 — Networking & Security:** **Done (2026-04-21).** proxy (`none/system/manual` + `NO_PROXY`) + custom CA pool (`trusted_cas` PEM trong DB) + `insecure_skip_verify` (per-request, lưu trên `requests`) + secret env var (`kind` + AES-GCM `enc:v1:` + redact history/snippet) + Wails `SettingsHandler` + tab **Settings**. DB bump **v5 → v6**.
 > - **Phase 7 — UX Polish:** **Done (2026-04-26).** Dashboard khi không còn tab + cho đóng tab cuối, in-app Help `?`, Ctrl+K palette, var preview, duplicate folder/request, Copy as cURL, shortcuts, Vite code splitting. **Không** bump DB.
 > - **Phase 8 — Runner & Chaining:** **Done (2026-04-26, closed 8.0 + 8.1).** 8.0: capture rules (JSONPath/regex/header/status → env hoặc memory) + assertion rules (status/header/json-path/duration/size/regex, op eq/neq/contains/exists/...) + Collection Runner theo folder + env (persist run + per-request rows + Wails event stream + export JSON/Markdown) + DB bump **v6 → v7**. 8.1: lưu raw resolved request/response trong `runner_run_requests` (5 cột mới) + Runner options Iterations / DelayMs / TimeoutPerRequestMs + DB bump **v7 → v8**.
-> - **Phase 9 — Scripting (bắt buộc, kickoff 2026-04-27):** goja + sandbox + `pm.*` subset cho pre-request & post-response, tích hợp Runner + import/export Postman script. DB bump **v8 → v9** (`requests.pre_request_script`, `requests.post_response_script`, additive `ALTER TABLE … ADD COLUMN` idempotent).
+> - **Phase 9 — Scripting:** **Done (2026-04-30).** goja + sandbox + subset `pmj` / `pm` alias; pre-request & post-response; Runner + Postman script import/export `event[]`; **`HTTPExecuteInput` script overlays** cho Send; khôi phục tab sau restart (hydrate sau async RequestPanel); DB bump **v8 → v9** (`requests.pre_request_script`, `requests.post_response_script`, additive idempotent migration).
 >
 > Xem scope chi tiết + "Done when" trong từng section `Phase 6/7/8/9` của `roadmap.md`.
 
@@ -461,23 +461,16 @@ erDiagram
 - [x] **Phase 7** UX polish & productivity — Dashboard + in-app Help + command palette + var preview + duplicate + Copy as cURL + shortcuts + Vite code splitting — 2026-04-26
 - [x] **Phase 8.0** Collection Runner & Chaining — capture + assertion engines + Runner usecase + Wails events + Runner modal + report JSON/Markdown — **DB v7** — 2026-04-26
 - [x] **Phase 8.1** Runner replay + iterations/delay/timeout — raw request/response persist + RunnerRequestDetailModal + 3 advanced options — **DB v8** — 2026-04-26
-- [x] **Phase 9** Scripting — goja sandbox + `pmj` / `pm` alias + Pre-request + Post-response + Assertions tabs + Runner + Postman v2.1 import/export — **DB v8 → v9** — 2026-04-30
+- [x] **Phase 9** Scripting — goja sandbox + `pmj` / `pm` alias + Pre-request + Post-response + Captures/Assertions strip + Runner + Postman v2.1 import/export + script on Send from editor + tab restore hydrate — **DB v8 → v9** — **closed / docs 2026-04-30**
 - [ ] (Tùy chọn) **Export/import** khi nâng DB v2→v3 để không mất data
 
 ---
 
 ## Đề xuất bước tiếp theo
 
-**Phase 9 — Scripting (bắt buộc, kickoff 2026-04-27).** Phase 8 (Collection Runner & Chaining, gồm 8.0 + 8.1) đã đóng. Phase 9 sẽ:
+**Phase 9 — Scripting** **đã đóng — implementation snapshot 2026-04-30** (Roadmap §Phase 9 + checklist dòng Phase 9 ở trên). Việc còn lại trước **internal release** có Scripting: chạy thủ công `manual-test-plan.md` §**L**, tick các mục Phase 9 trong `release-checklist.md`.
 
-- Embed `goja` + sandbox (`runtime.Interrupt` cho timeout, không bind `fs`/`exec`/`net`, console bridge → Console panel dưới Response).
-- Subset `pm.*` API (environment / variables / request / response / test / expect / sendRequest).
-- Bảng `requests` thêm 2 cột `pre_request_script` + `post_response_script` (additive, default `''`) → **DB v8 → v9**, idempotent qua `isDuplicateColumnErr`.
-- Editor 2 tab mới (`Pre-request`, `Tests`) trong `RequestPanel` (CodeMirror JS).
-- Tích hợp Runner: pre-request → request → post-response → capture → assertion → `pm.test` rollup.
-- Import/Export Postman v2.1 `event[]` (`prerequest` / `test`).
-
-Scope + DoD chi tiết: [roadmap.md §Phase 9](roadmap.md).
+**Backlog Phase 9.1 / sau v1:** full `pm.*` & Chai, cookie jar, visualizer; async/Promise trong VM; script debugger; shared **collection-level** scripts; CommonJS / ES modules; các polish an toàn/redact chi tiết nếu cần — xem [roadmap.md § Phase 9 — Ngoài scope](roadmap.md).
 
 **Backlog Phase 8.x (ngoài v1):** re-run từng request từ `RunnerRequestDetailModal`; filter/search recent runs; diff 2 run gần nhất; data-driven runner (CSV/JSON iteration); parallel execution; retry on failure; cap riêng cho `runner_run_requests.response_body`; "Open Runner" trong Dashboard quick actions.
 

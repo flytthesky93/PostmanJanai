@@ -27,7 +27,7 @@ Build a desktop API client (Postman-like) focused on:
 | **6** | **Done** (2026-04-21) | **Networking & Security:** proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas` PEM trong DB), `HTTPTransportFactory` + per-request `insecure_skip_verify` trên `requests`, env var `kind=secret` + AES-GCM `enc:v1:` + redact history/snippets, Wails `SettingsHandler` + tab **Settings** UI + test proxy. **DB v6.** |
 | **7** | **Done** (2026-04-26) | **UX Polish & Productivity:** Dashboard khi không còn tab + đóng tab cuối; in-app Help `?`; Command palette Ctrl/Cmd+K; variable interpolation preview có mask secret; duplicate folder/request; Copy as cURL; keyboard shortcuts cơ bản; Vite code splitting để hết warning chunk > 500 kB. Không bump DB. |
 | **8** | **Done** (2026-04-26 — closed in two slices, 8.0 + 8.1) | **Collection Runner & Chaining.** *8.0:* schema **DB v7** (`request_captures`, `request_assertions`, `runner_runs`, `runner_run_requests`); capture engine (JSONPath/regex/header/status) + assertion engine (status/header/json-path/duration/size/regex, ops eq/neq/contains/...); HTTPHandler chạy capture+assertion sau Send (saved request); `RunnerUsecase.RunFolder` tuần tự theo folder/sort_order với env active + memory bag, persist `runner_runs` + per-request rows, stream Wails events `runner:started/request/finished`; UI: tab **Captures** + **Tests** trong RequestPanel, summary tests trong ResponsePanel, **Runner** modal (config form, live progress, recent runs, cancel, export JSON/Markdown qua Save dialog), folder context-menu eligibility (chỉ folder chứa request mới enable "Run folder…"). *8.1:* **DB v8** thêm 5 cột vào `runner_run_requests` (`request_headers_json`, `response_headers_json`, `request_body`, `response_body`, `body_truncated`) → lưu raw resolved request/response để xem lại không cần re-run; modal `RunnerRequestDetailModal` hiển thị headers + JSON body có truncate suffix khớp History; runner options đầy đủ promise của roadmap: **Iterations** (≤ `RunnerMaxIterations`=50), **DelayMs** giữa requests (≤ 60s, cancel-aware), **TimeoutPerRequestMs** (override per-Execute, ≤ 5 phút). Tests: capture/assertion/runner_report unit + repo (`request_rule_repository_test`) + 4 unit tests cho options (iterations & delay, clamp, timeout, smoke chaining) + migration tests `TestMigrate_6to7IsAdditive` / `TestMigrate_7to8AddsRunnerRequestSnapshots` / `TestMigrate_6to8Chain` + smoke E2E `phase8_runner_smoke_test` (capture chain `$.token` → env, assertion 2xx, event order, report, raw request/response persisted). |
-| **9** | **Planned — kickoff 2026-04-27** | **Scripting (pre-request & post-response)** — goja (ES5+ subset), sandbox + interrupt timeout, subset `pm.*` API tối thiểu (`pm.environment`, `pm.variables`, `pm.response`, `pm.request`, `pm.test`, `pm.expect`, `pm.sendRequest`), CodeMirror editor + console panel, tích hợp Runner (Phase 8). Cho phép import script từ Postman v2.1 chạy được ở mức cơ bản. **DB bump v8 → v9** (`requests.pre_request_script`, `requests.post_response_script`). |
+| **9** | **Done** (2026-04-30) | **Scripting (pre-request & post-response).** goja sandbox + timeouts; globals **`pmj`** trong product (**`pm`** alias trong VM — import Postman cũ). Subset PM API: env/vars/request/response/`pm.test`/`pm.expect`/`pm.sendRequest` (sync). **DB v8 → v9** (`requests.pre_request_script`, `requests.post_response_script`). **HTTPExecuteInput** gửi kèm script từ editor (adhoc / dirty có chạy; ưu tiên payload > DB). **RequestPanel**: tab **Pre-request**, **Post-response**, **Captures**, **Assertions** luôn hiện (layout đồng nhất). **Khôi phục tabs** sau restart: hydrate sau khi **`RequestPanel` async** expose `hydrate()` (không còn lệch tên tab vs nội dung). Runner: pre → HTTP → post → capture/assertion; import/export Postman v2.1 `event[]`. Chi tiết: [data-model-and-delivery-status.md](data-model-and-delivery-status.md) §Phase 9. |
 
 ---
 
@@ -307,7 +307,7 @@ Ngoài scope (backlog):
 - Cap riêng cho `runner_run_requests.response_body` khi persist (hiện đang phụ thuộc cap của HTTPExecutor) — chỉ làm khi đo được DB bloat trong thực tế.
 - Bổ sung "Open Runner" trong Dashboard Quick Actions.
 
-### Phase 9 — Scripting (Pre-request & Post-response) — **bắt buộc**
+### Phase 9 — Scripting (Pre-request & Post-response) — **Done / closed 2026-04-30**
 
 **Why:** Sau Phase 8 đã có capture + assertion tĩnh, nhưng một số use case thật yêu cầu logic động (ký HMAC, tính nonce, parse response phức tạp, loop retry thủ công). Script là đáp án cuối cùng + cho phép import script từ collection Postman chạy được.
 
@@ -330,7 +330,7 @@ Scope (4 nhóm):
    - Bảng `requests` thêm 2 cột: `pre_request_script TEXT DEFAULT ''`, `post_response_script TEXT DEFAULT ''`. Migration v8.
    - Import Postman v2.1: parse `event[]` với `listen: "prerequest" / "test"` → điền vào 2 cột này. Script sẽ chạy được ở mức `pm.*` subset; dùng API ngoài subset → log warning, không crash.
    - Export Postman v2.1: emit `event[]` ngược lại.
-   - UI: 2 tab mới trong `RequestPanel` — **Pre-request** và **Tests** (CodeMirror, syntax JavaScript, keyword hint cho `pm.*`). Console panel chung dưới Response.
+   - UI: trong `RequestPanel` — tab **Pre-request** + **Post-response** (đổi tên từ “Tests” Postman; CodeMirror JS, gợi ý `pmj` / `pm`), cùng strip **Captures** / **Assertions** (Phase 8). Console panel chung dưới Response.
 4. **Integration với Runner (Phase 8)**
    - Runner chạy pre-request → request → post-response → capture → assertion. Pre-request fail (throw) → skip request, mark error. Post-response fail (throw) → mark fail, next request.
    - `pm.test()` kết quả được Runner gộp vào tổng pass/fail.
@@ -348,9 +348,16 @@ Done when:
 - Import 1 collection Postman có script `pm.test(...)` cơ bản → chạy được trong Runner, Tests panel hiện pass/fail đúng.
 - Export lại collection → script text y nguyên.
 - `go test ./internal/... -race` xanh; CI xanh (goja không cần CGO).
-- Manual test plan có section 9 chạy 1 lần.
+- Manual test plan có section 9 chạy 1 lần (§**L. Scripting** trong `manual-test-plan.md`).
 
-Ngoài scope (backlog sau v1):
+**Delivered (as of close 2026-04-30):**
+
+- `internal/service/pmj_runtime.go` + wiring `HTTPHandler.Execute` / Runner; `entity.HTTPExecuteInput` / `HTTPExecuteResult` script fields; `CloneSubstituteHTTPExecuteInput` substitute `{{var}}` trong script text.
+- Ent + migrate **v9**; Postman import/export map `prerequest` / `test` ↔ DB columns.
+- Frontend: `RequestPanel` script editors; `buildHttpExecutePayload` luôn gửi script khi có; `App.vue` watch đồng bộ store ↔ panel sau async load; `tabsStore` snapshot giữ `preRequestScript` / `postResponseScript`.
+- **Release / QA:** tick checklist §Phase 9 trong `release-checklist.md` khi làm bản release có Scripting; chạy thủ công §L trước khi gọi internal release.
+
+Ngoài scope (backlog **Phase 9.1** / sau v1):
 
 - Full `pm.*` API (chai đầy đủ, cookies jar, visualizer).
 - Async / Promise API.
@@ -382,7 +389,7 @@ Priority order (đồng bộ với checklist trong [data-model-and-delivery-stat
 
 ## Đề xuất bước tiếp theo (ưu tiên — cập nhật 2026-04-26)
 
-Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). **Phase 7** đã **đóng** (2026-04-26 — UX polish/productivity + code splitting). **Phase 8** đã **đóng** (2026-04-26 — Collection Runner + capture/assertion + raw replay + iterations/delay/timeout, DB v6 → v7 → v8). **Phase 9** (Scripting) **kickoff 2026-04-27**.
+Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Phase 6** đã **đóng** (2026-04-21 — proxy + CA + secret env + insecure TLS + Settings UI). **Phase 7** đã **đóng** (2026-04-26 — UX polish/productivity + code splitting). **Phase 8** đã **đóng** (2026-04-26 — Collection Runner + capture/assertion + raw replay + iterations/delay/timeout, DB v6 → v7 → v8). **Phase 9** (Scripting) **đã đóng 2026-04-30** (DB v8 → v9).
 
 1. ~~**Phase 6 — Networking & Security**~~ **Done (2026-04-21).**
    - Proxy (`none/system/manual`, URL + username + password ciphertext + `NO_PROXY`), custom CA (`trusted_cas`), per-request `insecure_skip_verify`, secret env vars + redact history/snippet payloads, Wails `SettingsHandler` + tab **Settings**.
@@ -393,12 +400,9 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Pha
 3. ~~**Phase 8 — Collection Runner & Chaining**~~ **Done (2026-04-26, closed in 8.0 + 8.1).**
    - 8.0: Capture rules (JSONPath/regex/header/status → env hoặc memory), Assertion rules (status/header/json-path/duration/size/regex, op eq/neq/contains/exists/...), Runner tuần tự folder theo `sort_order` + env active, persist run + per-request rows, stream Wails events, export report JSON/Markdown. **DB v6 → v7**.
    - 8.1: lưu raw resolved request/response cho từng runner row (5 cột mới trên `runner_run_requests`), modal xem chi tiết kế thừa UX của History; runner options đầy đủ: **Iterations** (≤50), **DelayMs** (≤60s, cancel-aware), **TimeoutPerRequestMs** (≤5 phút); HelpModal cập nhật mục Runner. **DB v7 → v8**.
-4. **Phase 9 — Scripting (bắt buộc, kickoff 2026-04-27)** (pre-request + post-response).
-   - goja + sandbox + timeout; `pm.*` API subset (environment/variables/request/response/test/expect/sendRequest).
-   - Tích hợp Runner (Phase 8), import/export script Postman v2.1.
-   - DB bump **v8 → v9** (`requests.pre_request_script`, `requests.post_response_script`).
+4. ~~**Phase 9 — Scripting**~~ **Done (2026-04-30).** Pre-request + post-response; `pmj` / `pm` alias; Runner + Postman `event[]`; DB **v9**; script trên Send từ editor; hydrate tabs sau async `RequestPanel`.
 
-**Nguyên tắc xuyên suốt 4 phase:**
+**Nguyên tắc xuyên suốt các phase 6–9 (đã hoàn thành):**
 
 - Mỗi phase đều mở rộng `manual-test-plan.md` (thêm section tương ứng) + `release-checklist.md` (thêm gate tương ứng).
 - Mỗi phase có bump DB → thêm test migration trong `internal/dbmanage/data_migrate_test.go` theo pattern Phase 5 v4→v5.
@@ -436,6 +440,6 @@ Phase **5** đã **đóng** (quality gate baseline ổn định, CI xanh). **Pha
 | ~~**10**~~ | ~~**Networking & Security** — proxy + custom CA + insecure skip verify + secret var~~ | **Done (Phase 6 — 2026-04-21).** |
 | ~~**11**~~ | ~~**UX Polish & Productivity** — Dashboard, Ctrl+K palette, preview var, duplicate, copy cURL, shortcuts~~ | **Done (Phase 7 — 2026-04-26).** |
 | ~~**12**~~ | ~~**Collection Runner & Chaining** — capture rules + assertion + Runner folder theo env + raw request/response replay + iterations/delay/timeout~~ | **Done (Phase 8 — 2026-04-26, DB v6 → v7 → v8).** |
-| **13** | **Scripting** — goja + `pm.*` subset pre-request & post-response | **Phase 9 — kickoff 2026-04-27 (bắt buộc, DB v8 → v9).** |
+| ~~**13**~~ | ~~**Scripting** — goja + `pmj`/`pm` subset pre-request & post-response~~ | **Done (Phase 9 — 2026-04-30, DB v8 → v9).** Tiếp theo: backlog **Phase 9.1** (full pm, async, debugger, collection-level script) trong section Phase 9 phía trên. |
 
 **Gợi ý kỹ thuật:** mỗi hạng mục lớn — thêm/cập nhật test Go (`internal/service`, repository khi có logic); sau thay đổi Ent bump `DBSchemaUserVersion` + `data_migrate` nếu đổi DDL; mỗi phase có DB bump → viết thêm test migration theo pattern Phase 5 v4→v5; mỗi phase chạm HTTP layer hoặc thêm usecase lớn → bổ sung smoke E2E.
