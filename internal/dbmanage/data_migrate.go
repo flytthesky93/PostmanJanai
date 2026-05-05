@@ -37,17 +37,33 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 		return nil
 	case 4:
 		// → 5: `folders.sort_order` for manual ordering in the sidebar tree
+		if !tableExists(db, "folders") {
+			// Fresh/partial DB can have mismatched user_version with no tables yet.
+			// Keep migration idempotent and let ent.Schema.Create build the latest shape.
+			return nil
+		}
 		if _, err := db.Exec(`ALTER TABLE folders ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`); err != nil {
+			if isDuplicateColumnErr(err) {
+				return nil
+			}
 			return err
 		}
 		return backfillFolderSortOrder(db)
 	case 5:
 		// → 6: Phase 6 — Networking & Security (additive columns only; new tables come from Ent Schema.Create)
-		if _, err := db.Exec(`ALTER TABLE environment_variables ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain'`); err != nil {
-			return err
+		if tableExists(db, "environment_variables") {
+			if _, err := db.Exec(`ALTER TABLE environment_variables ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain'`); err != nil {
+				if !isDuplicateColumnErr(err) {
+					return err
+				}
+			}
 		}
-		if _, err := db.Exec(`ALTER TABLE requests ADD COLUMN insecure_skip_verify INTEGER NOT NULL DEFAULT 0`); err != nil {
-			return err
+		if tableExists(db, "requests") {
+			if _, err := db.Exec(`ALTER TABLE requests ADD COLUMN insecure_skip_verify INTEGER NOT NULL DEFAULT 0`); err != nil {
+				if !isDuplicateColumnErr(err) {
+					return err
+				}
+			}
 		}
 		return nil
 	case 6:
@@ -68,6 +84,9 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 			`ALTER TABLE runner_run_requests ADD COLUMN response_body TEXT`,
 			`ALTER TABLE runner_run_requests ADD COLUMN body_truncated INTEGER NOT NULL DEFAULT 0`,
 		}
+		if !tableExists(db, "runner_run_requests") {
+			return nil
+		}
 		for _, q := range alters {
 			if _, err := db.Exec(q); err != nil {
 				// SQLite doesn't ship `IF NOT EXISTS` for ADD COLUMN until 3.35; treat
@@ -83,6 +102,9 @@ func migrateOneStep(db *sql.DB, from, to int) error {
 		alters := []string{
 			`ALTER TABLE requests ADD COLUMN pre_request_script TEXT NOT NULL DEFAULT ''`,
 			`ALTER TABLE requests ADD COLUMN post_response_script TEXT NOT NULL DEFAULT ''`,
+		}
+		if !tableExists(db, "requests") {
+			return nil
 		}
 		for _, q := range alters {
 			if _, err := db.Exec(q); err != nil {
@@ -103,6 +125,18 @@ func isDuplicateColumnErr(err error) bool {
 	}
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "duplicate column") || strings.Contains(msg, "already exists")
+}
+
+func tableExists(db *sql.DB, tableName string) bool {
+	if strings.TrimSpace(tableName) == "" {
+		return false
+	}
+	row := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, tableName)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		return false
+	}
+	return n > 0
 }
 
 type folderSortRow struct {

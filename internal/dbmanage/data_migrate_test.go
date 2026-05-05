@@ -332,6 +332,17 @@ func TestMigrate_4to5AddsSortOrderAndBackfill(t *testing.T) {
 	}
 }
 
+// TestMigrate_4to5WithoutFoldersTable ensures the migration is resilient when
+// user_version indicates v4 but the DB is still empty/partial (no folders table yet).
+// In that case, step 4→5 should be a safe no-op; ent.Schema.Create will create
+// the latest table shape afterwards.
+func TestMigrate_4to5WithoutFoldersTable(t *testing.T) {
+	db, _ := testutil.NewSQLDB(t)
+	if err := MigrateDataBetweenVersions(context.Background(), db, 4, 5); err != nil {
+		t.Fatalf("migrate 4→5 on DB without folders table should not error, got %v", err)
+	}
+}
+
 // TestMigrate_5to6AddsKindAndInsecureSkipVerify verifies v5→v6 adds additive columns only.
 func TestMigrate_5to6AddsKindAndInsecureSkipVerify(t *testing.T) {
 	db, _ := testutil.NewSQLDB(t)
